@@ -1,0 +1,3 @@
+[submodule "mugfx"]
+	path = mugfx
+	url = https://github.com/pfirsich/mugfx.git
