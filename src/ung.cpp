@@ -892,9 +892,9 @@ EXPORT mugfx_shader_id ung_shader_load(
 // https://www.khronos.org/opengl/wiki/Normalized_Integer
 static constexpr uint32_t pack1010102(float x, float y, float z, uint8_t w = 0)
 {
-    x = std::fabs(std::fmin(std::fmax(x, -1.0f), 1.0f));
-    y = std::fabs(std::fmin(std::fmax(y, -1.0f), 1.0f));
-    z = std::fabs(std::fmin(std::fmax(z, -1.0f), 1.0f));
+    x = std::fmin(std::fmax(x, -1.0f), 1.0f);
+    y = std::fmin(std::fmax(y, -1.0f), 1.0f);
+    z = std::fmin(std::fmax(z, -1.0f), 1.0f);
 
     constexpr uint32_t maxv = 511; // MAX=2^(B-1)-1, B=10
     const auto xi = static_cast<int32_t>(std::round(x * maxv));
