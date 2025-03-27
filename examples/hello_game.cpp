@@ -8,11 +8,13 @@ struct Game {
     ung_camera_id camera;
     ung_material_id material;
     mugfx_geometry_id geometry;
-    ung_transform_id box_trafo;
+    ung_transform_id trafo;
     float cam_yaw = 0.0f;
     float cam_pitch = 0.0f;
     um_vec3 cam_pos = {};
     bool running = true;
+    mugfx_geometry_id level;
+    ung_transform_id level_trafo;
 
     void init()
     {
@@ -25,13 +27,17 @@ struct Game {
         geometry = ung_geometry_load("examples/assets/Wasp.obj");
         // geometry = ung_geometry_box(1.0f, 1.0f, 1.0f);
 
+        trafo = ung_transform_create();
+        ung_transform_set_position(trafo, 0.0f, 0.0f, 0.0f);
+
+        level_trafo = ung_transform_create();
+        ung_transform_set_scale(level_trafo, 0.1f, 0.1f, 0.1f);
+        level = ung_geometry_load("examples/assets/level.obj");
+
         uint32_t win_w, win_h;
         ung_get_window_size(&win_w, &win_h);
         camera = ung_camera_create();
         ung_camera_set_perspective(camera, 45.0f, static_cast<float>(win_w) / win_h, 0.1f, 100.0f);
-
-        box_trafo = ung_transform_create();
-        ung_transform_set_position(box_trafo, 0.0f, 0.0f, -5.0f);
 
         ung_mouse_set_relative(true);
     }
@@ -43,7 +49,7 @@ struct Game {
         }
 
         const auto box_q = um_quat_from_axis_angle({ 0.0f, 1.0f, 0.0f }, ung_get_time());
-        ung_transform_set_orientation(box_trafo, box_q.w, box_q.x, box_q.y, box_q.z);
+        ung_transform_set_orientation(trafo, box_q.w, box_q.x, box_q.y, box_q.z);
 
         // Camera Movement
         int mx, my, mdx, mdy;
@@ -71,7 +77,8 @@ struct Game {
         ung_begin_frame();
         ung_begin_pass(MUGFX_RENDER_TARGET_BACKBUFFER, camera);
         mugfx_clear(MUGFX_CLEAR_COLOR_DEPTH, MUGFX_CLEAR_DEFAULT);
-        ung_draw(material, geometry, box_trafo);
+        ung_draw(material, level, level_trafo);
+        ung_draw(material, geometry, trafo);
         ung_end_pass();
         ung_end_frame();
     }
