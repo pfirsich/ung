@@ -924,6 +924,7 @@ EXPORT mugfx_geometry_id ung_geometry_box(float w, float h, float d)
         float x, y, z;
         uint16_t u, v;
         uint32_t n; // MUGFX_VERTEX_ATTRIBUTE_TYPE_I10_10_10_2_NORM
+        uint8_t r, g, b, a;
     };
 
     const auto n_px = pack1010102(1.0f, 0.0f, 0.0f);
@@ -936,40 +937,40 @@ EXPORT mugfx_geometry_id ung_geometry_box(float w, float h, float d)
     // clang-format off
     std::array vertices = {
         // +x
-        Vertex { 1.0f,  1.0f,  1.0f, 0x0000, 0x0000, n_px },
-        Vertex { 1.0f, -1.0f,  1.0f, 0x0000, 0xffff, n_px },
-        Vertex { 1.0f, -1.0f, -1.0f, 0xffff, 0xffff, n_px },
-        Vertex { 1.0f,  1.0f, -1.0f, 0xffff, 0x0000, n_px },
+        Vertex { 1.0f,  1.0f,  1.0f, 0x0000, 0x0000, n_px, 0xff, 0xff, 0xff, 0xff },
+        Vertex { 1.0f, -1.0f,  1.0f, 0x0000, 0xffff, n_px, 0xff, 0xff, 0xff, 0xff },
+        Vertex { 1.0f, -1.0f, -1.0f, 0xffff, 0xffff, n_px, 0xff, 0xff, 0xff, 0xff },
+        Vertex { 1.0f,  1.0f, -1.0f, 0xffff, 0x0000, n_px, 0xff, 0xff, 0xff, 0xff },
 
         // -x
-        Vertex {-1.0f,  1.0f, -1.0f, 0x0000, 0x0000, n_nx },
-        Vertex {-1.0f, -1.0f, -1.0f, 0x0000, 0xffff, n_nx },
-        Vertex {-1.0f, -1.0f,  1.0f, 0xffff, 0xffff, n_nx },
-        Vertex {-1.0f,  1.0f,  1.0f, 0xffff, 0x0000, n_nx },
+        Vertex {-1.0f,  1.0f, -1.0f, 0x0000, 0x0000, n_nx, 0xff, 0xff, 0xff, 0xff },
+        Vertex {-1.0f, -1.0f, -1.0f, 0x0000, 0xffff, n_nx, 0xff, 0xff, 0xff, 0xff },
+        Vertex {-1.0f, -1.0f,  1.0f, 0xffff, 0xffff, n_nx, 0xff, 0xff, 0xff, 0xff },
+        Vertex {-1.0f,  1.0f,  1.0f, 0xffff, 0x0000, n_nx, 0xff, 0xff, 0xff, 0xff },
         
         // +y
-        Vertex {-1.0f,  1.0f, -1.0f, 0x0000, 0x0000, n_py },
-        Vertex {-1.0f,  1.0f,  1.0f, 0x0000, 0xffff, n_py },
-        Vertex { 1.0f,  1.0f,  1.0f, 0xffff, 0xffff, n_py },
-        Vertex { 1.0f,  1.0f, -1.0f, 0xffff, 0x0000, n_py },
+        Vertex {-1.0f,  1.0f, -1.0f, 0x0000, 0x0000, n_py, 0xff, 0xff, 0xff, 0xff },
+        Vertex {-1.0f,  1.0f,  1.0f, 0x0000, 0xffff, n_py, 0xff, 0xff, 0xff, 0xff },
+        Vertex { 1.0f,  1.0f,  1.0f, 0xffff, 0xffff, n_py, 0xff, 0xff, 0xff, 0xff },
+        Vertex { 1.0f,  1.0f, -1.0f, 0xffff, 0x0000, n_py, 0xff, 0xff, 0xff, 0xff },
 
         // -y
-        Vertex {-1.0f, -1.0f,  1.0f, 0x0000, 0x0000, n_ny },
-        Vertex {-1.0f, -1.0f, -1.0f, 0x0000, 0xffff, n_ny },
-        Vertex { 1.0f, -1.0f, -1.0f, 0xffff, 0xffff, n_ny },
-        Vertex { 1.0f, -1.0f,  1.0f, 0xffff, 0x0000, n_ny },
+        Vertex {-1.0f, -1.0f,  1.0f, 0x0000, 0x0000, n_ny, 0xff, 0xff, 0xff, 0xff },
+        Vertex {-1.0f, -1.0f, -1.0f, 0x0000, 0xffff, n_ny, 0xff, 0xff, 0xff, 0xff },
+        Vertex { 1.0f, -1.0f, -1.0f, 0xffff, 0xffff, n_ny, 0xff, 0xff, 0xff, 0xff },
+        Vertex { 1.0f, -1.0f,  1.0f, 0xffff, 0x0000, n_ny, 0xff, 0xff, 0xff, 0xff },
 
         // +z
-        Vertex {-1.0f,  1.0f,  1.0f, 0x0000, 0x0000, n_pz },
-        Vertex {-1.0f, -1.0f,  1.0f, 0x0000, 0xffff, n_pz },
-        Vertex { 1.0f, -1.0f,  1.0f, 0xffff, 0xffff, n_pz },
-        Vertex { 1.0f,  1.0f,  1.0f, 0xffff, 0x0000, n_pz },
+        Vertex {-1.0f,  1.0f,  1.0f, 0x0000, 0x0000, n_pz, 0xff, 0xff, 0xff, 0xff },
+        Vertex {-1.0f, -1.0f,  1.0f, 0x0000, 0xffff, n_pz, 0xff, 0xff, 0xff, 0xff },
+        Vertex { 1.0f, -1.0f,  1.0f, 0xffff, 0xffff, n_pz, 0xff, 0xff, 0xff, 0xff },
+        Vertex { 1.0f,  1.0f,  1.0f, 0xffff, 0x0000, n_pz, 0xff, 0xff, 0xff, 0xff },
 
         // -z
-        Vertex { 1.0f,  1.0f, -1.0f, 0x0000, 0x0000, n_nz },
-        Vertex { 1.0f, -1.0f, -1.0f, 0x0000, 0xffff, n_nz },
-        Vertex {-1.0f, -1.0f, -1.0f, 0xffff, 0xffff, n_nz },
-        Vertex {-1.0f,  1.0f, -1.0f, 0xffff, 0x0000, n_nz },
+        Vertex { 1.0f,  1.0f, -1.0f, 0x0000, 0x0000, n_nz, 0xff, 0xff, 0xff, 0xff },
+        Vertex { 1.0f, -1.0f, -1.0f, 0x0000, 0xffff, n_nz, 0xff, 0xff, 0xff, 0xff },
+        Vertex {-1.0f, -1.0f, -1.0f, 0xffff, 0xffff, n_nz, 0xff, 0xff, 0xff, 0xff },
+        Vertex {-1.0f,  1.0f, -1.0f, 0xffff, 0x0000, n_nz, 0xff, 0xff, 0xff, 0xff },
     };
     // clang-format on
 
@@ -1006,6 +1007,7 @@ EXPORT mugfx_geometry_id ung_geometry_box(float w, float h, float d)
                     {.location = 0, .components = 3, .type = MUGFX_VERTEX_ATTRIBUTE_TYPE_F32}, // position
                     {.location = 1, .components = 2, .type = MUGFX_VERTEX_ATTRIBUTE_TYPE_U16_NORM}, // texcoord
                     {.location = 2, .components = 4, .type = MUGFX_VERTEX_ATTRIBUTE_TYPE_I10_10_10_2_NORM}, // normal
+                    {.location = 3, .components = 4, .type = MUGFX_VERTEX_ATTRIBUTE_TYPE_U8_NORM}, // color
                 },
             },
         },
