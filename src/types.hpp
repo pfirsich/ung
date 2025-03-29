@@ -21,6 +21,8 @@ using usize = size_t;
 
 #include "allocator.hpp"
 
+namespace ung {
+
 template <typename T, size_t Capacity>
 struct StaticVector {
     std::array<T, Capacity> data_;
@@ -185,3 +187,5 @@ struct Pool {
     T* find(u64 key) { return find(SlotMap::Key::create(key)); }
     void remove(u64 key) { keys.remove(SlotMap::Key::create(key)); }
 };
+
+}

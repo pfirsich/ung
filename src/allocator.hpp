@@ -2,6 +2,8 @@
 
 #include "ung.h"
 
+namespace ung {
+
 extern ung_allocator allocator;
 extern mugfx_allocator mugfx_alloc;
 
@@ -27,4 +29,6 @@ void deallocate(T* ptr, size_t count = 1)
         (ptr + i)->~T();
     }
     allocator.deallocate(ptr, sizeof(T) * count, allocator.ctx);
+}
+
 }

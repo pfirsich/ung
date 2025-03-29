@@ -2,6 +2,8 @@
 
 #include <cstdlib>
 
+namespace ung {
+
 void* default_allocate(size_t size, void*)
 {
     return std::malloc(size);
@@ -45,3 +47,5 @@ mugfx_allocator mugfx_alloc {
     .deallocate = mugfx_deallocate,
     .ctx = nullptr,
 };
+
+}

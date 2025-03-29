@@ -17,6 +17,8 @@
 
 #define EXPORT extern "C"
 
+namespace ung {
+
 struct UConstant {
     um_vec4 screen_dimensions; // xy: size, zw: reciprocal size
 };
@@ -1407,3 +1409,5 @@ EXPORT void ung_run_mainloop(void* ctx, ung_mainloop_func mainloop)
 }
 
 #endif
+
+}
