@@ -31,6 +31,10 @@ typedef struct {
     uint64_t id;
 } ung_camera_id;
 
+typedef struct {
+    uint64_t id;
+} ung_geometry_data_id;
+
 typedef mugfx_texture_id ung_texture_id;
 typedef mugfx_shader_id ung_shader_id;
 typedef mugfx_geometry_id ung_draw_geometry_id;
@@ -85,6 +89,7 @@ typedef struct {
     uint32_t max_num_transforms; // default: 1024
     uint32_t max_num_materials; // default: 1024
     uint32_t max_num_cameras; // default: 8
+    uint32_t max_num_geometry_data; // default: 256
     mugfx_init_params mugfx_params;
     bool debug; // do error checking and panic if something is wrong
 } ung_init_params;
@@ -205,12 +210,20 @@ ung_texture_id ung_texture_load(
 ung_shader_id ung_shader_load(
     mugfx_shader_stage stage, const char* path, mugfx_shader_create_params params);
 
+char* ung_read_whole_file(const char* path, size_t* size);
+void ung_free_file_data(char* data, size_t size);
+
+/*
+ * Geometry
+ */
+ung_geometry_data_id ung_geometry_data_load(const char* path); // Wavefront OBJ
+void ung_geometry_data_destroy(ung_geometry_data_id gdata);
+
+ung_draw_geometry_id ung_draw_geometry_from_data(ung_geometry_data_id gdata);
+// loads data, creates draw geometry, frees data
 ung_draw_geometry_id ung_draw_geometry_load(const char* path);
 ung_draw_geometry_id ung_draw_geometry_box(float w, float h, float d);
 ung_draw_geometry_id ung_draw_geometry_sphere(float radius);
-
-char* ung_read_whole_file(const char* path, size_t* size);
-void ung_free_file_data(char* data, size_t size);
 
 /*
  * Camera Management

@@ -67,6 +67,12 @@ struct Camera {
     ung_transform_id transform;
 };
 
+struct GeometryData {
+    fastObjMesh* mesh;
+    usize num_vertices;
+    usize num_indices;
+};
+
 constexpr size_t MaxMouseButtons = 16;
 
 struct InputState {
@@ -84,6 +90,7 @@ struct State {
     Pool<Transform> transforms;
     Pool<Material> materials;
     Pool<Camera> cameras;
+    Pool<GeometryData> geometry_data;
     UConstant u_constant;
     UFrame u_frame;
     UCamera u_camera;
@@ -188,6 +195,7 @@ EXPORT void ung_init(ung_init_params params)
     state->transforms.init(params.max_num_transforms ? params.max_num_transforms : 1024);
     state->materials.init(params.max_num_materials ? params.max_num_materials : 1024);
     state->cameras.init(params.max_num_cameras ? params.max_num_cameras : 8);
+    state->geometry_data.init(params.max_num_geometry_data ? params.max_num_geometry_data : 256);
 
     state->u_constant.screen_dimensions = um_vec4 {
         static_cast<float>(params.window_mode.width),
@@ -889,6 +897,16 @@ EXPORT mugfx_shader_id ung_shader_load(
     return shader;
 }
 
+EXPORT char* ung_read_whole_file(const char* path, usize* size)
+{
+    return (char*)SDL_LoadFile(path, size);
+}
+
+EXPORT void ung_free_file_data(char* data, usize)
+{
+    SDL_free(data);
+}
+
 // https://www.khronos.org/opengl/wiki/Normalized_Integer
 static constexpr uint32_t pack1010102(float x, float y, float z, uint8_t w = 0)
 {
@@ -918,15 +936,15 @@ static constexpr uint32_t pack1010102(float x, float y, float z, uint8_t w = 0)
         (wu << 30); // W in bits 30-31
 }
 
+struct Vertex {
+    float x, y, z;
+    u16 u, v;
+    u32 n; // MUGFX_VERTEX_ATTRIBUTE_TYPE_I10_10_10_2_NORM
+    u8 r, g, b, a;
+};
+
 EXPORT mugfx_geometry_id ung_draw_geometry_box(float w, float h, float d)
 {
-    struct Vertex {
-        float x, y, z;
-        uint16_t u, v;
-        uint32_t n; // MUGFX_VERTEX_ATTRIBUTE_TYPE_I10_10_10_2_NORM
-        uint8_t r, g, b, a;
-    };
-
     const auto n_px = pack1010102(1.0f, 0.0f, 0.0f);
     const auto n_nx = pack1010102(-1.0f, 0.0f, 0.0f);
     const auto n_py = pack1010102(0.0f, 1.0f, 0.0f);
@@ -1028,108 +1046,137 @@ static float saturate(float v)
     return clamp(v, 0.0f, 1.0f);
 }
 
-EXPORT mugfx_geometry_id ung_draw_geometry_load(const char* path)
+GeometryData* get_geometry_data(SlotMap::Key key)
 {
-    fastObjMesh* mesh = fast_obj_read(path);
-    if (!mesh) {
+    return get(state->geometry_data, key);
+}
+
+GeometryData* get_geometry_data(u64 key)
+{
+    return get_geometry_data(SlotMap::Key::create(key));
+}
+
+EXPORT ung_geometry_data_id ung_geometry_data_load(const char* path)
+{
+    const auto [id, gdata] = state->geometry_data.insert();
+
+    gdata->mesh = fast_obj_read(path);
+    if (!gdata->mesh) {
         std::printf("Failed to load geometry '%s'\n", path);
         return { 0 };
     }
 
-    struct Vertex {
-        float x, y, z;
-        uint16_t u, v;
-        uint32_t n; // MUGFX_VERTEX_ATTRIBUTE_TYPE_I10_10_10_2_NORM
-        uint8_t r, g, b, a;
-    };
-
-    // We cannot build an indexed mesh trivially, because a face will reference different position,
-    // texcoord and normal indices, so you would have to generate all used combinations and build
-    // new indices. It's too bothersome and will not be fast.
-
-    size_t vertex_count = 0;
-    size_t index_count = 0;
-    for (unsigned int face = 0; face < mesh->face_count; ++face) {
-        assert(mesh->face_vertices[face] == 3 || mesh->face_vertices[face] == 4);
-        vertex_count += mesh->face_vertices[face];
-        if (mesh->face_vertices[face] == 3) {
-            index_count += 3;
-        } else if (mesh->face_vertices[face] == 4) {
-            index_count += 6; // two triangles
+    gdata->num_vertices = 0;
+    gdata->num_indices = 0;
+    for (unsigned int face = 0; face < gdata->mesh->face_count; ++face) {
+        assert(gdata->mesh->face_vertices[face] == 3 || gdata->mesh->face_vertices[face] == 4);
+        gdata->num_vertices += gdata->mesh->face_vertices[face];
+        if (gdata->mesh->face_vertices[face] == 3) {
+            gdata->num_indices += 3;
+        } else if (gdata->mesh->face_vertices[face] == 4) {
+            gdata->num_indices += 6; // two triangles
         }
     }
 
-    auto vertices = allocate<Vertex>(vertex_count);
-    // Only use index buffer if there are quad faces
-    uint16_t* indices = nullptr;
-    if (index_count != vertex_count) {
-        indices = allocate<uint16_t>(index_count);
-    }
+    return { id.combine() };
+}
 
-    auto vertices_it = vertices;
-    size_t mesh_indices_idx = 0;
+EXPORT void ung_geometry_data_destroy(ung_geometry_data_id gdata_id)
+{
+    auto gdata = get_geometry_data(gdata_id.id);
+    fast_obj_destroy(gdata->mesh);
+    state->geometry_data.remove(gdata_id.id);
+}
+
+static u16 f2u16norm(float v)
+{
+    return (u16)(65535.0f * saturate(v));
+}
+
+static u8 f2u8norm(float v)
+{
+    return (u8)(255.0f * saturate(v));
+}
+
+static Vertex* build_vertex_buffer_data(usize num_vertices, fastObjMesh* mesh)
+{
+    auto vertices = allocate<Vertex>(num_vertices);
+
+    usize vert_idx = 0;
     for (unsigned int face = 0; face < mesh->face_count; ++face) {
-        uint8_t r = 0xff, g = 0xff, b = 0xff, a = 0xff;
+        u8 r = 0xff, g = 0xff, b = 0xff, a = 0xff;
         if (mesh->face_materials[face] < mesh->material_count) {
             const auto& mat = mesh->materials[mesh->face_materials[face]];
-            r = (uint8_t)(255.0f * saturate(mat.Kd[0]));
-            g = (uint8_t)(255.0f * saturate(mat.Kd[1]));
-            b = (uint8_t)(255.0f * saturate(mat.Kd[2]));
-            a = (uint8_t)(255.0f * saturate(mat.d));
+            r = f2u8norm(mat.Kd[0]);
+            g = f2u8norm(mat.Kd[1]);
+            b = f2u8norm(mat.Kd[2]);
+            a = f2u8norm(mat.d);
         }
 
         for (unsigned int vtx = 0; vtx < mesh->face_vertices[face]; ++vtx) {
-            const auto [p, t, n] = mesh->indices[mesh_indices_idx++];
+            const auto [p, t, n] = mesh->indices[vert_idx];
 
-            // t or n might be zero, but we don't have to check, becaust fast_obj will add a dummy
-            // element that's all zeros.
             const auto x = mesh->positions[3 * p + 0];
             const auto y = mesh->positions[3 * p + 1];
             const auto z = mesh->positions[3 * p + 2];
 
-            const auto u = (uint16_t)(mesh->texcoords[2 * t + 0] * 65535.0f);
-            const auto v = (uint16_t)(mesh->texcoords[2 * t + 1] * 65535.0f);
-
+            // t or n might be zero, but we don't have to check, becaust fast_obj will add a
+            // dummy element that's all zeros.
             const auto nx = mesh->normals[3 * n + 0];
             const auto ny = mesh->normals[3 * n + 1];
             const auto nz = mesh->normals[3 * n + 2];
 
-            *vertices_it = { x, y, z, u, v, pack1010102(nx, ny, nz), r, g, b, a };
-            vertices_it++;
+            const auto u = mesh->texcoords[2 * t + 0];
+            const auto v = mesh->texcoords[2 * t + 1];
+
+            vertices[vert_idx]
+                = { x, y, z, f2u16norm(u), f2u16norm(v), pack1010102(nx, ny, nz), r, g, b, a };
+            vert_idx++;
         }
     }
 
-    if (indices) {
-        auto indices_it = indices;
-        uint16_t base_vtx = 0;
-        for (unsigned int face = 0; face < mesh->face_count; ++face) {
-            if (mesh->face_vertices[face] == 3) {
-                *(indices_it++) = base_vtx + 0;
-                *(indices_it++) = base_vtx + 1;
-                *(indices_it++) = base_vtx + 2;
-            } else if (mesh->face_vertices[face] == 4) {
-                *(indices_it++) = base_vtx + 0;
-                *(indices_it++) = base_vtx + 1;
-                *(indices_it++) = base_vtx + 2;
+    return vertices;
+}
 
-                *(indices_it++) = base_vtx + 0;
-                *(indices_it++) = base_vtx + 2;
-                *(indices_it++) = base_vtx + 3;
-            }
-            base_vtx += (uint16_t)mesh->face_vertices[face];
+static u16* build_index_buffer_data(usize num_indices, fastObjMesh* mesh)
+{
+    auto indices = allocate<u16>(num_indices);
+
+    auto indices_it = indices;
+    u16 base_vtx = 0;
+    for (unsigned int face = 0; face < mesh->face_count; ++face) {
+        if (mesh->face_vertices[face] == 3) {
+            *(indices_it++) = base_vtx + 0;
+            *(indices_it++) = base_vtx + 1;
+            *(indices_it++) = base_vtx + 2;
+        } else if (mesh->face_vertices[face] == 4) {
+            *(indices_it++) = base_vtx + 0;
+            *(indices_it++) = base_vtx + 1;
+            *(indices_it++) = base_vtx + 2;
+
+            *(indices_it++) = base_vtx + 0;
+            *(indices_it++) = base_vtx + 2;
+            *(indices_it++) = base_vtx + 3;
         }
+        base_vtx += (u16)mesh->face_vertices[face];
     }
 
+    return indices;
+}
+
+static mugfx_geometry_id create_geometry(
+    Vertex* vertices, usize num_vertices, u16* indices, usize num_indices)
+{
     mugfx_buffer_id vertex_buffer = mugfx_buffer_create({
         .target = MUGFX_BUFFER_TARGET_ARRAY,
-        .data = { vertices, vertex_count * sizeof(Vertex) },
+        .data = { vertices, num_vertices * sizeof(Vertex) },
     });
 
     mugfx_buffer_id index_buffer = { 0 };
     if (indices) {
         index_buffer = mugfx_buffer_create({
             .target = MUGFX_BUFFER_TARGET_INDEX,
-            .data = { indices, index_count * sizeof(uint16_t) },
+            .data = { indices, num_indices * sizeof(u16) },
         });
     }
 
@@ -1151,25 +1198,42 @@ EXPORT mugfx_geometry_id ung_draw_geometry_load(const char* path)
         geometry_params.index_type = MUGFX_INDEX_TYPE_U16;
     }
 
-    mugfx_geometry_id geometry = mugfx_geometry_create(geometry_params);
+    return mugfx_geometry_create(geometry_params);
+}
+
+EXPORT ung_draw_geometry_id ung_draw_geometry_from_data(ung_geometry_data_id gdata_id)
+{
+    const auto gdata = get_geometry_data(gdata_id.id);
+
+    // We cannot build an indexed mesh trivially, because a face will reference different position,
+    // texcoord and normal indices, so you would have to generate all used combinations and build
+    // new indices. It's too bothersome and will not be fast.
+
+    auto vertices = build_vertex_buffer_data(gdata->num_vertices, gdata->mesh);
+
+    // Only use index buffer if there are quad faces
+    u16* indices = nullptr;
+    if (gdata->num_indices != gdata->num_vertices) {
+        indices = build_index_buffer_data(gdata->num_indices, gdata->mesh);
+    }
+
+    const auto geometry
+        = create_geometry(vertices, gdata->num_vertices, indices, gdata->num_indices);
 
     if (indices) {
-        deallocate(indices, index_count);
+        deallocate(indices, gdata->num_indices);
     }
-    deallocate(vertices, vertex_count);
-    fast_obj_destroy(mesh);
+    deallocate(vertices, gdata->num_vertices);
 
     return geometry;
 }
 
-EXPORT char* ung_read_whole_file(const char* path, size_t* size)
+EXPORT ung_draw_geometry_id ung_draw_geometry_load(const char* path)
 {
-    return (char*)SDL_LoadFile(path, size);
-}
-
-EXPORT void ung_free_file_data(char* data, size_t)
-{
-    SDL_free(data);
+    const auto gdata = ung_geometry_data_load(path);
+    const auto geom = ung_draw_geometry_from_data(gdata);
+    ung_geometry_data_destroy(gdata);
+    return geom;
 }
 
 Camera* get_camera(SlotMap::Key key)
