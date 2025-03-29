@@ -75,17 +75,17 @@ struct GeometryData {
     usize num_indices;
 };
 
-constexpr size_t MaxMouseButtons = 16;
+constexpr usize MaxMouseButtons = 16;
 
 struct InputState {
     std::array<bool, SDL_NUM_SCANCODES> key_down;
-    std::array<uint8_t, SDL_NUM_SCANCODES> key_pressed;
-    std::array<uint8_t, SDL_NUM_SCANCODES> key_released;
+    std::array<u8, SDL_NUM_SCANCODES> key_pressed;
+    std::array<u8, SDL_NUM_SCANCODES> key_released;
     int mouse_x, mouse_y, mouse_dx, mouse_dy;
     int mouse_scroll_left, mouse_scroll_right, mouse_scroll_y_pos, mouse_scroll_y_neg;
     std::array<bool, MaxMouseButtons> mouse_button_down;
-    std::array<uint8_t, MaxMouseButtons> mouse_button_pressed;
-    std::array<uint8_t, MaxMouseButtons> mouse_button_released;
+    std::array<u8, MaxMouseButtons> mouse_button_pressed;
+    std::array<u8, MaxMouseButtons> mouse_button_released;
 };
 
 struct State {
@@ -103,8 +103,8 @@ struct State {
     SDL_GLContext context;
     ung_event_callback event_callback = nullptr;
     void* event_callback_ctx = nullptr;
-    uint32_t win_width;
-    uint32_t win_height;
+    u32 win_width;
+    u32 win_height;
     InputState input;
 };
 
@@ -163,7 +163,7 @@ EXPORT void ung_init(ung_init_params params)
 #endif
 
     // Window
-    uint32_t flags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN;
+    u32 flags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN;
     if (params.window_mode.fullscreen_mode == UNG_FULLSCREEN_MODE_DESKTOP_FULLSCREEN
         || params.window_mode.fullscreen_mode == UNG_FULLSCREEN_MODE_FULLSCREEN) {
         flags |= SDL_WINDOW_FULLSCREEN;
@@ -239,7 +239,7 @@ EXPORT void ung_shutdown()
     deallocate(state);
 }
 
-EXPORT void ung_get_window_size(uint32_t* width, uint32_t* height)
+EXPORT void ung_get_window_size(u32* width, u32* height)
 {
     *width = state->win_width;
     *height = state->win_height;
@@ -340,13 +340,13 @@ EXPORT bool ung_key_down(const char* key)
     return state->input.key_down.at(scancode);
 }
 
-EXPORT uint8_t ung_key_pressed(const char* key)
+EXPORT u8 ung_key_pressed(const char* key)
 {
     const auto scancode = SDL_GetScancodeFromName(key);
     return state->input.key_pressed.at(scancode);
 }
 
-EXPORT uint8_t ung_key_released(const char* key)
+EXPORT u8 ung_key_released(const char* key)
 {
     const auto scancode = SDL_GetScancodeFromName(key);
     return state->input.key_released.at(scancode);
@@ -748,7 +748,7 @@ EXPORT void ung_material_set_binding(ung_material_id material, mugfx_draw_bindin
 }
 
 EXPORT void ung_material_set_uniform_data(
-    ung_material_id material, uint32_t binding, mugfx_uniform_data_id uniform_data)
+    ung_material_id material, u32 binding, mugfx_uniform_data_id uniform_data)
 {
     ung_material_set_binding(material,
         {
@@ -758,7 +758,7 @@ EXPORT void ung_material_set_uniform_data(
 }
 
 EXPORT void ung_material_set_texture(
-    ung_material_id material, uint32_t binding, mugfx_texture_id texture)
+    ung_material_id material, u32 binding, mugfx_texture_id texture)
 {
     ung_material_set_binding(material,
         {
@@ -798,10 +798,10 @@ EXPORT mugfx_texture_id ung_texture_load(const char* path, mugfx_texture_create_
     }
     assert(width > 0 && height > 0 && comp > 0);
     assert(comp <= 4);
-    params.width = static_cast<size_t>(width);
-    params.height = static_cast<size_t>(height);
+    params.width = static_cast<usize>(width);
+    params.height = static_cast<usize>(height);
     params.data.data = data;
-    params.data.length = static_cast<size_t>(width * height * comp);
+    params.data.length = static_cast<usize>(width * height * comp);
     params.format = pixel_formats[comp];
     params.data_format = pixel_formats[comp];
     const auto texture = mugfx_texture_create(params);
@@ -825,9 +825,9 @@ static bool expect(std::string_view& src, std::string_view str)
     return false;
 }
 
-static uint32_t parse_number(std::string_view str)
+static u32 parse_number(std::string_view str)
 {
-    uint32_t res = 0;
+    u32 res = 0;
     const auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), res);
     if (ec == std::errc()) {
         return res;
@@ -838,7 +838,7 @@ static uint32_t parse_number(std::string_view str)
 static bool parse_shader_bindings(std::string_view src, mugfx_shader_create_params& params)
 {
     // This is so primitive, but its enough for now and I will make it better as I go
-    size_t binding_idx = 0;
+    usize binding_idx = 0;
     while (src.size()) {
         const auto nl = src.find('\n');
         auto line = ltrim(src.substr(0, nl));
@@ -877,7 +877,7 @@ EXPORT mugfx_shader_id ung_shader_load(
     mugfx_shader_stage stage, const char* path, mugfx_shader_create_params params)
 {
     std::printf("load %s\n", path);
-    size_t size = 0;
+    usize size = 0;
     const auto data = ung_read_whole_file(path, &size);
     if (!data) {
         std::printf("Could not read '%s': %s\n", path, SDL_GetError());
@@ -910,27 +910,27 @@ EXPORT void ung_free_file_data(char* data, usize)
 }
 
 // https://www.khronos.org/opengl/wiki/Normalized_Integer
-static constexpr uint32_t pack1010102(float x, float y, float z, uint8_t w = 0)
+static constexpr u32 pack1010102(float x, float y, float z, u8 w = 0)
 {
     x = std::fmin(std::fmax(x, -1.0f), 1.0f);
     y = std::fmin(std::fmax(y, -1.0f), 1.0f);
     z = std::fmin(std::fmax(z, -1.0f), 1.0f);
 
-    constexpr uint32_t maxv = 511; // MAX=2^(B-1)-1, B=10
-    const auto xi = static_cast<int32_t>(std::round(x * maxv));
-    const auto yi = static_cast<int32_t>(std::round(y * maxv));
-    const auto zi = static_cast<int32_t>(std::round(z * maxv));
+    constexpr u32 maxv = 511; // MAX=2^(B-1)-1, B=10
+    const auto xi = static_cast<i32>(std::round(x * maxv));
+    const auto yi = static_cast<i32>(std::round(y * maxv));
+    const auto zi = static_cast<i32>(std::round(z * maxv));
 
     // Convert to 10-bit unsigned representations
     // For negative values: apply two's complement, because in twos complement a number and its
     // negative sum to 2^N and x + -x = 2^N <=> 2^N - x = -x.
     // wiki: "The defining property of being a complement to a number with respect to
     // 2N is simply that the summation of this number with the original produce 2N."
-    const auto xu = static_cast<uint32_t>(xi < 0 ? (1024 + xi) : xi);
-    const auto yu = static_cast<uint32_t>(yi < 0 ? (1024 + yi) : yi);
-    const auto zu = static_cast<uint32_t>(zi < 0 ? (1024 + zi) : zi);
+    const auto xu = static_cast<u32>(xi < 0 ? (1024 + xi) : xi);
+    const auto yu = static_cast<u32>(yi < 0 ? (1024 + yi) : yi);
+    const auto zu = static_cast<u32>(zi < 0 ? (1024 + zi) : zi);
 
-    const auto wu = static_cast<uint32_t>(w & 0b11); // limit to two bits
+    const auto wu = static_cast<u32>(w & 0b11); // limit to two bits
 
     return (xu & 0x3FF) | // X in bits 0-9
         ((yu & 0x3FF) << 10) | // Y in bits 10-19
@@ -1000,12 +1000,12 @@ EXPORT mugfx_geometry_id ung_draw_geometry_box(float w, float h, float d)
         v.z *= d / 2.0f;
     }
 
-    static constexpr uint8_t face_indices[] = { 0, 1, 2, 0, 2, 3 };
+    static constexpr u8 face_indices[] = { 0, 1, 2, 0, 2, 3 };
 
-    std::array<uint8_t, 6 * 2 * 3> indices; // 6 sides, 2 tris/side, 3 indices/tri
-    for (uint8_t side = 0; side < 6; ++side) {
-        for (uint8_t vertex = 0; vertex < 6; ++vertex) {
-            indices[side * 6 + vertex] = static_cast<uint8_t>(4 * side + face_indices[vertex]);
+    std::array<u8, 6 * 2 * 3> indices; // 6 sides, 2 tris/side, 3 indices/tri
+    for (u8 side = 0; side < 6; ++side) {
+        for (u8 vertex = 0; vertex < 6; ++vertex) {
+            indices[side * 6 + vertex] = static_cast<u8>(4 * side + face_indices[vertex]);
         }
     }
 
