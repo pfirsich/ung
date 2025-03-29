@@ -31,6 +31,10 @@ typedef struct {
     uint64_t id;
 } ung_camera_id;
 
+typedef mugfx_texture_id ung_texture_id;
+typedef mugfx_shader_id ung_shader_id;
+typedef mugfx_geometry_id ung_draw_geometry_id;
+
 typedef struct {
     const char* data;
     size_t length;
@@ -182,7 +186,7 @@ void ung_material_destroy(ung_material_id material);
 void ung_material_set_binding(ung_material_id material, mugfx_draw_binding binding);
 void ung_material_set_uniform_data(
     ung_material_id material, uint32_t binding, mugfx_uniform_data_id uniform_data);
-void ung_material_set_texture(ung_material_id material, uint32_t binding, mugfx_texture_id texture);
+void ung_material_set_texture(ung_material_id material, uint32_t binding, ung_texture_id texture);
 // Getting this data pointer marks the associated uniform buffer dirty, because it is assumed
 // you modified it
 void* ung_material_get_dynamic_data(ung_material_id material);
@@ -192,16 +196,19 @@ void ung_material_update(ung_material_id material);
 /*
  * Resources
  */
-mugfx_texture_id ung_texture_load(
+ung_texture_id ung_texture_load(
     const char* path, mugfx_texture_create_params params); // many params fields are ignored
+
 // This will load the source from the given path and try to determine the bindings from either
 // a .meta file (same as path + ".meta") (TODO) or from parsing the GLSL source. If the bindings are
 // already in params, no attempt to determine the bindings in another way is made.
-mugfx_shader_id ung_shader_load(
+ung_shader_id ung_shader_load(
     mugfx_shader_stage stage, const char* path, mugfx_shader_create_params params);
-mugfx_geometry_id ung_geometry_load(const char* path); // Wavefront OBJ
-mugfx_geometry_id ung_geometry_box(float w, float h, float d);
-mugfx_geometry_id ung_geometry_sphere(float radius);
+
+ung_draw_geometry_id ung_draw_geometry_load(const char* path);
+ung_draw_geometry_id ung_draw_geometry_box(float w, float h, float d);
+ung_draw_geometry_id ung_draw_geometry_sphere(float radius);
+
 char* ung_read_whole_file(const char* path, size_t* size);
 void ung_free_file_data(char* data, size_t size);
 
@@ -225,7 +232,7 @@ void ung_camera_get_projection_matrix(ung_camera_id camera, float matrix[16]);
 // use mugfx_clear, mugfx_set_viewport, mugfx_set_scissor
 void ung_begin_frame();
 void ung_begin_pass(mugfx_render_target_id target, ung_camera_id camera);
-void ung_draw(ung_material_id material, mugfx_geometry_id geometry, ung_transform_id transform);
+void ung_draw(ung_material_id material, ung_draw_geometry_id geometry, ung_transform_id transform);
 void ung_end_pass();
 void ung_end_frame();
 

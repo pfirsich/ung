@@ -7,13 +7,13 @@
 struct Game {
     ung_camera_id camera;
     ung_material_id material;
-    mugfx_geometry_id geometry;
+    ung_draw_geometry_id geometry;
     ung_transform_id trafo;
     float cam_yaw = 0.0f;
     float cam_pitch = 0.0f;
     um_vec3 cam_pos = {};
     bool running = true;
-    mugfx_geometry_id level;
+    ung_draw_geometry_id level;
     ung_transform_id level_trafo;
 
     void init()
@@ -24,7 +24,7 @@ struct Game {
         const auto texture = ung_texture_load("examples/assets/checkerboard.png", {});
         ung_material_set_texture(material, 0, texture);
 
-        geometry = ung_geometry_load("examples/assets/Wasp.obj");
+        geometry = ung_draw_geometry_load("examples/assets/Wasp.obj");
         // geometry = ung_geometry_box(1.0f, 1.0f, 1.0f);
 
         trafo = ung_transform_create();
@@ -32,7 +32,7 @@ struct Game {
 
         level_trafo = ung_transform_create();
         ung_transform_set_scale(level_trafo, 0.1f, 0.1f, 0.1f);
-        level = ung_geometry_load("examples/assets/level.obj");
+        level = ung_draw_geometry_load("examples/assets/level.obj");
 
         uint32_t win_w, win_h;
         ung_get_window_size(&win_w, &win_h);

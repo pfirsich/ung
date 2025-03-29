@@ -918,7 +918,7 @@ static constexpr uint32_t pack1010102(float x, float y, float z, uint8_t w = 0)
         (wu << 30); // W in bits 30-31
 }
 
-EXPORT mugfx_geometry_id ung_geometry_box(float w, float h, float d)
+EXPORT mugfx_geometry_id ung_draw_geometry_box(float w, float h, float d)
 {
     struct Vertex {
         float x, y, z;
@@ -1028,7 +1028,7 @@ static float saturate(float v)
     return clamp(v, 0.0f, 1.0f);
 }
 
-EXPORT mugfx_geometry_id ung_geometry_load(const char* path)
+EXPORT mugfx_geometry_id ung_draw_geometry_load(const char* path)
 {
     fastObjMesh* mesh = fast_obj_read(path);
     if (!mesh) {
