@@ -994,7 +994,7 @@ EXPORT mugfx_geometry_id ung_draw_geometry_box(float w, float h, float d)
     };
     // clang-format on
 
-    for (auto v : vertices) {
+    for (auto& v : vertices) {
         v.x *= w / 2.0f;
         v.y *= h / 2.0f;
         v.z *= d / 2.0f;
