@@ -4,9 +4,9 @@
 #include "um.h"
 #include "ung/core.h"
 
-#include <SDL.h>
+#include <SDL_scancode.h>
 
-struct fastObjMesh;
+struct SDL_Window;
 
 namespace ung {
 struct UConstant {
@@ -60,7 +60,7 @@ struct Camera {
 };
 
 struct GeometryData {
-    fastObjMesh* mesh;
+    void* mesh; // fastObjMesh
     usize num_vertices;
     usize num_indices;
 };
@@ -90,7 +90,7 @@ struct State {
     mugfx_uniform_data_id frame_data;
     mugfx_uniform_data_id camera_data;
     SDL_Window* window;
-    SDL_GLContext context;
+    void* context; // SDL_GLContext
     ung_event_callback event_callback = nullptr;
     void* event_callback_ctx = nullptr;
     u32 win_width;

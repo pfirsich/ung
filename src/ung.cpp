@@ -6,6 +6,7 @@
 #include <cstring>
 #include <string_view>
 
+#include <SDL.h>
 #include <fast_obj.h>
 #include <stb_image.h>
 
@@ -985,20 +986,21 @@ EXPORT ung_geometry_data_id ung_geometry_data_load(const char* path)
 {
     const auto [id, gdata] = state->geometry_data.insert();
 
-    gdata->mesh = fast_obj_read(path);
-    if (!gdata->mesh) {
+    auto mesh = fast_obj_read(path);
+    gdata->mesh = (void*)mesh;
+    if (!mesh) {
         std::printf("Failed to load geometry '%s'\n", path);
         return { 0 };
     }
 
     gdata->num_vertices = 0;
     gdata->num_indices = 0;
-    for (unsigned int face = 0; face < gdata->mesh->face_count; ++face) {
-        assert(gdata->mesh->face_vertices[face] == 3 || gdata->mesh->face_vertices[face] == 4);
-        gdata->num_vertices += gdata->mesh->face_vertices[face];
-        if (gdata->mesh->face_vertices[face] == 3) {
+    for (unsigned int face = 0; face < mesh->face_count; ++face) {
+        assert(mesh->face_vertices[face] == 3 || mesh->face_vertices[face] == 4);
+        gdata->num_vertices += mesh->face_vertices[face];
+        if (mesh->face_vertices[face] == 3) {
             gdata->num_indices += 3;
-        } else if (gdata->mesh->face_vertices[face] == 4) {
+        } else if (mesh->face_vertices[face] == 4) {
             gdata->num_indices += 6; // two triangles
         }
     }
@@ -1009,7 +1011,7 @@ EXPORT ung_geometry_data_id ung_geometry_data_load(const char* path)
 EXPORT void ung_geometry_data_destroy(ung_geometry_data_id gdata_id)
 {
     auto gdata = get_geometry_data(gdata_id.id);
-    fast_obj_destroy(gdata->mesh);
+    fast_obj_destroy((fastObjMesh*)gdata->mesh);
     state->geometry_data.remove(gdata_id.id);
 }
 
@@ -1135,12 +1137,12 @@ EXPORT ung_draw_geometry_id ung_draw_geometry_from_data(ung_geometry_data_id gda
     // texcoord and normal indices, so you would have to generate all used combinations and build
     // new indices. It's too bothersome and will not be fast.
 
-    auto vertices = build_vertex_buffer_data(gdata->num_vertices, gdata->mesh);
+    auto vertices = build_vertex_buffer_data(gdata->num_vertices, (fastObjMesh*)gdata->mesh);
 
     // Only use index buffer if there are quad faces
     u16* indices = nullptr;
     if (gdata->num_indices != gdata->num_vertices) {
-        indices = build_index_buffer_data<u16>(gdata->num_indices, gdata->mesh);
+        indices = build_index_buffer_data<u16>(gdata->num_indices, (fastObjMesh*)gdata->mesh);
     }
 
     const auto geometry
