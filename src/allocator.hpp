@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ung.h"
+#include "ung/core.h"
 
 namespace ung {
 
