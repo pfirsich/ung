@@ -6,7 +6,7 @@
 #include <cstring>
 #include <string_view>
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 #include <fast_obj.h>
 #include <stb_image.h>
 
