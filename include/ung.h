@@ -15,6 +15,7 @@ extern "C" {
  */
 // id == 0 always represents an invalid object, the id uses 48 bits and therefore fits into a double
 // precision floating point number exactly.
+
 typedef struct {
     uint64_t id;
 } ung_controller_id;
@@ -44,11 +45,7 @@ typedef struct {
     size_t length;
 } ung_string;
 
-#define UNG_LITERAL(s)                                                                             \
-    (ung_string)                                                                                   \
-    {                                                                                              \
-        s, sizeof(s) - 1                                                                           \
-    }
+#define UNG_LITERAL(s) ((ung_string) { s, sizeof(s) - 1 })
 
 ung_string ung_zstr(const char* str); // calls strlen for length
 
