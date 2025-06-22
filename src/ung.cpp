@@ -1152,12 +1152,13 @@ static Vertex* build_vertex_buffer_data(usize num_vertices, fastObjMesh* mesh)
     return vertices;
 }
 
-static u16* build_index_buffer_data(usize num_indices, fastObjMesh* mesh)
+template <typename Idx>
+static Idx* build_index_buffer_data(usize num_indices, fastObjMesh* mesh)
 {
-    auto indices = allocate<u16>(num_indices);
+    auto indices = allocate<Idx>(num_indices);
 
     auto indices_it = indices;
-    u16 base_vtx = 0;
+    Idx base_vtx = 0;
     for (unsigned int face = 0; face < mesh->face_count; ++face) {
         if (mesh->face_vertices[face] == 3) {
             *(indices_it++) = base_vtx + 0;
@@ -1228,7 +1229,7 @@ EXPORT ung_draw_geometry_id ung_draw_geometry_from_data(ung_geometry_data_id gda
     // Only use index buffer if there are quad faces
     u16* indices = nullptr;
     if (gdata->num_indices != gdata->num_vertices) {
-        indices = build_index_buffer_data(gdata->num_indices, gdata->mesh);
+        indices = build_index_buffer_data<u16>(gdata->num_indices, gdata->mesh);
     }
 
     const auto geometry
@@ -1421,5 +1422,4 @@ EXPORT void ung_run_mainloop(void* ctx, ung_mainloop_func mainloop)
 }
 
 #endif
-
 }
