@@ -791,7 +791,8 @@ EXPORT void ung_material_update(ung_material_id material)
     }
 }
 
-EXPORT mugfx_texture_id ung_texture_load(const char* path, mugfx_texture_create_params params)
+EXPORT mugfx_texture_id ung_texture_load(
+    const char* path, bool flip_y, mugfx_texture_create_params params)
 {
     mugfx_pixel_format pixel_formats[] {
         MUGFX_PIXEL_FORMAT_DEFAULT,
@@ -801,6 +802,7 @@ EXPORT mugfx_texture_id ung_texture_load(const char* path, mugfx_texture_create_
         MUGFX_PIXEL_FORMAT_RGBA8,
     };
     int width, height, comp;
+    stbi_set_flip_vertically_on_load(flip_y);
     auto data = stbi_load(path, &width, &height, &comp, 0);
     if (!data) {
         std::fprintf(stderr, "Could not load texture: %s\n", stbi_failure_reason());
