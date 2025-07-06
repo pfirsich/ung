@@ -40,10 +40,10 @@ struct Transform {
     um_quat orientation;
     um_vec3 position;
     um_vec3 scale;
-    SlotMap::Key parent;
-    SlotMap::Key first_child;
-    SlotMap::Key prev_sibling;
-    SlotMap::Key next_sibling;
+    u64 parent;
+    u64 first_child;
+    u64 prev_sibling;
+    u64 next_sibling;
     mugfx_uniform_data_id uniform_data;
     bool local_matrix_dirty;
 };
@@ -125,7 +125,7 @@ struct State {
 extern State* state;
 
 template <typename T>
-auto get(Pool<T>& pool, SlotMap::Key key)
+static auto get(Pool<T>& pool, u64 key)
 {
     auto obj = pool.find(key);
     assert(obj);

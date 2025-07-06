@@ -76,117 +76,35 @@ struct Array {
     const T& operator[](u32 idx) const { return data_[idx]; }
 };
 
-struct SlotMap {
-    struct Key {
-        static constexpr u32 MaxIdx = 0xFF'FFFF;
-        static constexpr u32 FreeMask = 0xFF00'0000;
-        // Both of these use only 24 bits each
-        u32 idx;
-        u32 gen;
-
-        static Key empty() { return { 0, 0 }; }
-
-        static Key create(u64 key)
-        {
-            return {
-                .idx = static_cast<u32>(key & MaxIdx),
-                .gen = static_cast<u32>((key & 0xFFFF'FF00'0000) >> 24),
-            };
-        }
-
-        u64 combine() const { return gen << 24 | idx; }
-
-        bool is_free() const { return idx > MaxIdx; }
-
-        u32 get_free() const { return idx & MaxIdx; }
-
-        void set_free(u32 next_free)
-        {
-            idx = FreeMask | next_free;
-            gen++;
-            assert(gen <= MaxIdx);
-        }
-
-        explicit operator bool() const { return gen != 0; }
-        bool operator!=(const Key& o) const { return idx != o.idx || gen != o.gen; }
-        bool operator==(const Key& o) const { return idx == o.idx && gen == o.gen; }
-    };
-
-    Key* keys_ = nullptr;
-    u32 capacity_ = 0;
-    u32 free_list_head_ = 0;
-
-    void init(u32 capacity)
-    {
-        assert(!keys_);
-        assert(capacity <= 0xFF'FFFF);
-        keys_ = allocate<Key>(capacity);
-        capacity_ = capacity;
-        for (u32 i = 0; i < capacity_; ++i) {
-            // We invalidate on removal and we want to start with generation 1, so we init with 1
-            keys_[i].set_free(i + 1);
-        }
-    }
-
-    ~SlotMap() { deallocate(keys_, capacity_); }
-
-    Key insert()
-    {
-        const auto idx = free_list_head_;
-        assert(idx < capacity_);
-        if (idx >= capacity_) {
-            return { 0, 0 };
-        }
-        assert(keys_[idx].is_free());
-        free_list_head_ = keys_[idx].get_free();
-        keys_[idx].idx = idx;
-        return keys_[idx];
-    }
-
-    Key get_key(usize idx) const
-    {
-        return idx < static_cast<usize>(capacity_) && keys_[idx].idx == idx ? keys_[idx]
-                                                                            : Key { 0, 0 };
-    }
-
-    bool contains(Key key) const { return key.idx < capacity_ && keys_[key.idx] == key; }
-
-    bool remove(Key key)
-    {
-        assert(contains(key));
-        if (!contains(key)) {
-            return false;
-        }
-        keys_[key.idx].set_free(free_list_head_);
-        free_list_head_ = key.idx;
-        return true;
-    }
-
-    u32 capacity() const { return capacity_; }
-};
-
 template <typename T>
 struct Pool {
-    SlotMap keys;
+    Array<u64> keys;
     Array<T> data;
+    ung_slotmap sm;
 
     void init(u32 capacity)
     {
         keys.init(capacity);
         data.init(capacity);
+        sm = ung_slotmap { keys.data_, capacity, 0 };
+        ung_slotmap_init(&sm);
     }
 
-    std::pair<SlotMap::Key, T*> insert()
+    std::pair<u64, T*> insert()
     {
-        const auto id = keys.insert();
-        T* obj = &data[id.idx];
+        u32 idx = 0;
+        const auto id = ung_slotmap_insert(&sm, &idx);
+        T* obj = &data[idx];
         std::memset(obj, 0, sizeof(T));
         return { id, obj };
     }
 
-    T* find(SlotMap::Key key) { return keys.contains(key) ? &data[key.idx] : nullptr; }
-    T* find(u64 key) { return find(SlotMap::Key::create(key)); }
-    void remove(u64 key) { keys.remove(SlotMap::Key::create(key)); }
+    T* find(u64 key)
+    {
+        return ung_slotmap_contains(&sm, key) ? &data[ung_slotmap_get_index(key)] : nullptr;
+    }
+
+    void remove(u64 key) { ung_slotmap_remove(&sm, key); }
 };
 
 }

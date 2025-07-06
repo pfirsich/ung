@@ -368,6 +368,94 @@ EXPORT bool ung_poll_events()
     return true;
 }
 
+static constexpr u32 MaxIdx = 0xFF'FFFF;
+static constexpr u64 FreeMask = 0xFF00'0000'0000'0000;
+
+// Keys array is used for free list too. If an element is free the index has the upper 8 bits
+// set. The rest of the index contains the index to the next free element.
+// Key 0 is always invalid
+
+u64 make_key(u32 idx, u32 gen)
+{
+    return gen << 24 | idx;
+}
+
+EXPORT uint32_t ung_slotmap_get_index(uint64_t key)
+{
+    return (u32)(key & MaxIdx);
+}
+
+EXPORT uint32_t ung_slotmap_get_generation(uint64_t key)
+{
+    return (u32)((key & 0xFFFF'FF00'0000) >> 24);
+}
+
+EXPORT void ung_slotmap_init(ung_slotmap* s)
+{
+    assert(s->keys);
+    assert(s->capacity < 0xFF'FFFF);
+    for (u32 i = 0; i < s->capacity; ++i) {
+        // We invalidate on removal and we want to start with generation 1, so we init with 1
+        s->keys[i] = FreeMask | make_key(i + 1, 1);
+    }
+    s->free_list_head = 0;
+}
+
+EXPORT uint64_t ung_slotmap_insert(ung_slotmap* s, uint32_t* oidx)
+{
+    assert(oidx);
+    const auto idx = s->free_list_head;
+    assert(idx < s->capacity);
+    if (idx >= s->capacity) {
+        return 0;
+    }
+    assert(s->keys[idx] & FreeMask);
+    s->free_list_head = ung_slotmap_get_index(s->keys[idx]);
+    const auto gen = ung_slotmap_get_generation(s->keys[idx]);
+    s->keys[idx] = make_key(idx, gen);
+    *oidx = idx;
+    return s->keys[idx];
+}
+
+EXPORT uint64_t ung_slotmap_get_key(const ung_slotmap* s, uint32_t idx)
+{
+    // We just have to check the index here because for valid keys the index will be
+    // equal to it's index in the array (that is clear).
+    // But for free keys the index will always point to another index, lest the free
+    // list would contain a cycle.
+    return idx < s->capacity && ung_slotmap_get_index(s->keys[idx]) == idx ? s->keys[idx] : 0;
+}
+
+EXPORT uint32_t ung_slotmap_next_alive(const ung_slotmap* s, uint32_t min_index)
+{
+    for (uint32_t i = min_index; i < s->capacity; ++i) {
+        if (ung_slotmap_get_key(s, i)) {
+            return i;
+        }
+    }
+    return s->capacity; // past the end
+}
+
+EXPORT bool ung_slotmap_contains(const ung_slotmap* s, uint64_t key)
+{
+    const auto idx = ung_slotmap_get_index(key);
+    return (key & FreeMask) == 0 && idx < s->capacity && s->keys[idx] == key;
+}
+
+EXPORT bool ung_slotmap_remove(ung_slotmap* s, uint64_t key)
+{
+    assert(ung_slotmap_contains(s, key));
+    if (!ung_slotmap_contains(s, key)) {
+        return false;
+    }
+    const auto idx = ung_slotmap_get_index(key);
+    const auto gen = ung_slotmap_get_generation(key);
+    assert(s->free_list_head < s->capacity);
+    s->keys[idx] = FreeMask | make_key(s->free_list_head, gen + 1);
+    s->free_list_head = idx;
+    return true;
+}
+
 EXPORT bool ung_key_down(const char* key)
 {
     const auto scancode = SDL_GetScancodeFromName(key);
@@ -399,14 +487,9 @@ EXPORT void ung_mouse_get(int* x, int* y, int* dx, int* dy)
     *dy = state->input.mouse_dy;
 }
 
-Transform* get_transform(SlotMap::Key key)
-{
-    return get(state->transforms, key);
-}
-
 Transform* get_transform(u64 key)
 {
-    return get_transform(SlotMap::Key::create(key));
+    return get(state->transforms, key);
 }
 
 EXPORT ung_transform_id ung_transform_create()
@@ -419,17 +502,17 @@ EXPORT ung_transform_id ung_transform_create()
         .size = sizeof(UTransform),
     });
     trafo->local_matrix_dirty = true;
-    return { id.combine() };
+    return { id };
 }
 
-static void link(SlotMap::Key prev_key, SlotMap::Key next_key)
+static void link(u64 prev_key, u64 next_key)
 {
     if (!prev_key && !next_key) {
         return; // nothing to do
     } else if (!prev_key) {
-        get_transform(next_key)->prev_sibling = SlotMap::Key();
+        get_transform(next_key)->prev_sibling = 0;
     } else if (!next_key) {
-        get_transform(prev_key)->next_sibling = SlotMap::Key();
+        get_transform(prev_key)->next_sibling = 0;
     } else {
         get_transform(prev_key)->next_sibling = next_key;
         get_transform(next_key)->prev_sibling = prev_key;
@@ -438,8 +521,7 @@ static void link(SlotMap::Key prev_key, SlotMap::Key next_key)
 
 EXPORT void ung_transform_destroy(ung_transform_id transform)
 {
-    const auto trafo_key = SlotMap::Key::create(transform.id);
-    auto trafo = get_transform(trafo_key);
+    auto trafo = get_transform(transform.id);
     if (trafo->first_child) {
         if (trafo->parent) {
             // Reparent all children to the parent
@@ -456,7 +538,7 @@ EXPORT void ung_transform_destroy(ung_transform_id transform)
 
             // Insert children between surrounding siblings
             auto parent = get_transform(trafo->parent);
-            if (parent->first_child == trafo_key) {
+            if (parent->first_child == transform.id) {
                 assert(!get_transform(trafo->first_child)->prev_sibling);
                 parent->first_child = trafo->first_child;
             } else {
@@ -471,16 +553,16 @@ EXPORT void ung_transform_destroy(ung_transform_id transform)
                 auto child = get_transform(child_key);
                 child_key = child->next_sibling;
 
-                child->parent = SlotMap::Key();
-                child->prev_sibling = SlotMap::Key();
-                child->next_sibling = SlotMap::Key();
+                child->parent = 0;
+                child->prev_sibling = 0;
+                child->next_sibling = 0;
             }
         }
     } else if (trafo->parent) {
         // If the node has no children, but a parent, fix up siblings
         auto parent = get_transform(trafo->parent);
         link(trafo->prev_sibling, trafo->next_sibling);
-        if (parent->first_child == trafo_key) {
+        if (parent->first_child == transform.id) {
             parent->first_child = trafo->next_sibling;
         }
     }
@@ -607,7 +689,7 @@ EXPORT void ung_transform_local_to_world(ung_transform_id transform, float dir[3
     std::memcpy(dir, &world, sizeof(float) * 3);
 }
 
-static void unparent(SlotMap::Key child_key, Transform* child)
+static void unparent(u64 child_key, Transform* child)
 {
     auto parent = get_transform(child->parent);
     link(child->prev_sibling, child->next_sibling);
@@ -615,9 +697,9 @@ static void unparent(SlotMap::Key child_key, Transform* child)
         assert(!child->prev_sibling);
         parent->first_child = child->next_sibling;
     }
-    child->parent = SlotMap::Key();
-    child->prev_sibling = SlotMap::Key();
-    child->next_sibling = SlotMap::Key();
+    child->parent = 0;
+    child->prev_sibling = 0;
+    child->next_sibling = 0;
 }
 
 EXPORT void ung_transform_set_parent(ung_transform_id transform, ung_transform_id parent)
@@ -627,19 +709,17 @@ EXPORT void ung_transform_set_parent(ung_transform_id transform, ung_transform_i
     // NOTE: I also shortcut a redundant set_parent with the current parent of transform,
     // because I consider this a mistake, which you should pay for.
     assert(transform.id != parent.id);
-    const auto trafo_key = SlotMap::Key::create(transform.id);
     auto trafo = get_transform(transform.id);
 
     if (trafo->parent) {
-        unparent(trafo_key, trafo);
+        unparent(transform.id, trafo);
     }
 
     if (parent.id) {
-        const auto parent_key = SlotMap::Key::create(parent.id);
-        auto parent_trafo = get_transform(parent_key);
-        trafo->parent = parent_key;
-        link(trafo_key, parent_trafo->first_child);
-        parent_trafo->first_child = trafo_key;
+        auto parent_trafo = get_transform(parent.id);
+        trafo->parent = parent.id;
+        link(transform.id, parent_trafo->first_child);
+        parent_trafo->first_child = transform.id;
     }
 }
 
@@ -647,31 +727,26 @@ EXPORT ung_transform_id ung_transform_get_parent(ung_transform_id transform)
 {
     const auto trafo = state->transforms.find(transform.id);
     assert(trafo);
-    return { trafo->parent.combine() };
+    return { trafo->parent };
 }
 
 EXPORT ung_transform_id ung_transform_get_first_child(ung_transform_id transform)
 {
     const auto trafo = state->transforms.find(transform.id);
     assert(trafo);
-    return { trafo->first_child.combine() };
+    return { trafo->first_child };
 }
 
 EXPORT ung_transform_id ung_transform_get_next_sibling(ung_transform_id transform)
 {
     const auto trafo = state->transforms.find(transform.id);
     assert(trafo);
-    return { trafo->next_sibling.combine() };
-}
-
-Material* get_material(SlotMap::Key key)
-{
-    return get(state->materials, key);
+    return { trafo->next_sibling };
 }
 
 Material* get_material(u64 key)
 {
-    return get_material(SlotMap::Key::create(key));
+    return get(state->materials, key);
 }
 
 EXPORT ung_material_id ung_material_create(ung_material_create_params params)
@@ -718,7 +793,7 @@ EXPORT ung_material_id ung_material_create(ung_material_create_params params)
             .uniform_data = { .binding = 9, .id = material->dynamic_data },
         };
     }
-    return { id.combine() };
+    return { id };
 }
 
 EXPORT ung_material_id ung_material_load(
@@ -1088,14 +1163,9 @@ static float saturate(float v)
     return clamp(v, 0.0f, 1.0f);
 }
 
-GeometryData* get_geometry_data(SlotMap::Key key)
-{
-    return get(state->geometry_data, key);
-}
-
 GeometryData* get_geometry_data(u64 key)
 {
-    return get_geometry_data(SlotMap::Key::create(key));
+    return get(state->geometry_data, key);
 }
 
 EXPORT ung_geometry_data_id ung_geometry_data_load(const char* path)
@@ -1121,7 +1191,7 @@ EXPORT ung_geometry_data_id ung_geometry_data_load(const char* path)
         }
     }
 
-    return { id.combine() };
+    return { id };
 }
 
 EXPORT void ung_geometry_data_destroy(ung_geometry_data_id gdata_id)
@@ -1459,21 +1529,16 @@ EXPORT void ung_font_draw_quads(
     }
 }
 
-Camera* get_camera(SlotMap::Key key)
-{
-    return get(state->cameras, key);
-}
-
 Camera* get_camera(u64 key)
 {
-    return get_camera(SlotMap::Key::create(key));
+    return get(state->cameras, key);
 }
 
 EXPORT ung_camera_id ung_camera_create()
 {
     const auto [id, camera] = state->cameras.insert();
     camera->transform = ung_transform_create();
-    return { id.combine() };
+    return { id };
 }
 
 EXPORT void ung_camera_destroy(ung_camera_id camera)

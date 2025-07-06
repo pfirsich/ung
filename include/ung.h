@@ -137,6 +137,26 @@ void ung_set_event_callback(void* ctx, ung_event_callback func);
 bool ung_poll_events(); // MUST be called every frame, returns false if window is closed
 
 /*
+ * SlotMap
+ */
+typedef struct {
+    uint64_t* keys;
+    uint32_t capacity;
+    uint32_t free_list_head;
+} ung_slotmap;
+
+// set keys and capacity before init
+void ung_slotmap_init(ung_slotmap* s);
+uint64_t ung_slotmap_insert(ung_slotmap* s, uint32_t* idx);
+uint32_t ung_slotmap_get_index(uint64_t key);
+uint32_t ung_slotmap_get_generation(uint64_t key);
+// You can use this function to check if a slot is alive (it return 0 if not).
+uint64_t ung_slotmap_get_key(const ung_slotmap* s, uint32_t idx);
+uint32_t ung_slotmap_next_alive(const ung_slotmap* s, uint32_t min_index);
+bool ung_slotmap_contains(const ung_slotmap* s, uint64_t key);
+bool ung_slotmap_remove(ung_slotmap* s, uint64_t key);
+
+/*
  * Input
  */
 // The input state will be updated by ung_poll_events!
