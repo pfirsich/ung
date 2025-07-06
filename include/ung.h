@@ -100,6 +100,9 @@ void ung_shutdown();
 /*
  * Window
  */
+struct SDL_Window;
+SDL_Window* ung_get_window();
+void* ung_get_gl_context();
 void ung_get_window_size(uint32_t* width, uint32_t* height);
 
 /*

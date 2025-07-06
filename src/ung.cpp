@@ -239,6 +239,16 @@ EXPORT void ung_shutdown()
     deallocate(state);
 }
 
+EXPORT SDL_Window* ung_get_window()
+{
+    return state->window;
+}
+
+EXPORT void* ung_get_gl_context()
+{
+    return state->context;
+}
+
 EXPORT void ung_get_window_size(u32* width, u32* height)
 {
     *width = state->win_width;
