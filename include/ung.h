@@ -114,7 +114,7 @@ float ung_get_time();
  * Events
  */
 union SDL_Event;
-typedef bool (*ung_event_callback)(void*, SDL_Event*);
+typedef void (*ung_event_callback)(void*, SDL_Event*);
 void ung_set_event_callback(void* ctx, ung_event_callback func);
 bool ung_poll_events(); // MUST be called every frame, returns false if window is closed
 
