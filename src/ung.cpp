@@ -10,7 +10,7 @@
 #include <fast_obj.h>
 #include <stb_image.h>
 
-#include "ung/core.h"
+#include "ung.h"
 
 #include "state.hpp"
 #include "types.hpp"

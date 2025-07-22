@@ -2,7 +2,7 @@
 #include <cstdio>
 
 #include <um.h>
-#include <ung/core.h>
+#include <ung.h>
 
 struct Game {
     ung_camera_id camera;

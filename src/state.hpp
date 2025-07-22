@@ -2,7 +2,7 @@
 
 #include "types.hpp"
 #include "um.h"
-#include "ung/core.h"
+#include "ung.h"
 
 #include <SDL_scancode.h>
 
