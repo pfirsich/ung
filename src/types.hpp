@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 using u8 = uint8_t;
 using u16 = uint16_t;
