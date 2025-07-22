@@ -622,8 +622,10 @@ EXPORT ung_material_id ung_material_load(
 {
     const auto vert = ung_shader_load(MUGFX_SHADER_STAGE_VERTEX, vert_path, {});
     const auto frag = ung_shader_load(MUGFX_SHADER_STAGE_FRAGMENT, frag_path, {});
-    params.mugfx_params.frag_shader = frag;
+    assert(params.mugfx_params.vert_shader.id == 0);
     params.mugfx_params.vert_shader = vert;
+    assert(params.mugfx_params.frag_shader.id == 0);
+    params.mugfx_params.frag_shader = frag;
     return ung_material_create(params);
 }
 
@@ -811,7 +813,6 @@ static bool parse_shader_bindings(std::string_view src, mugfx_shader_create_para
 EXPORT mugfx_shader_id ung_shader_load(
     mugfx_shader_stage stage, const char* path, mugfx_shader_create_params params)
 {
-    std::printf("load %s\n", path);
     usize size = 0;
     const auto data = ung_read_whole_file(path, &size);
     if (!data) {
