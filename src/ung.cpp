@@ -1220,7 +1220,21 @@ EXPORT void ung_camera_set_perspective(
     set_projection(get_camera(camera.id), proj);
 }
 
+EXPORT void ung_camera_set_orthographic_fullscreen(ung_camera_id camera)
+{
+    const auto proj
+        = um_mat_ortho(0.0f, (float)state->win_width, (float)state->win_height, 0.0f, -1.0f, 1.0f);
+    set_projection(get_camera(camera.id), proj);
+}
+
 EXPORT void ung_camera_set_orthographic(
+    ung_camera_id camera, float left, float right, float bottom, float top)
+{
+    const auto proj = um_mat_ortho(left, right, bottom, top, -1.0f, 1.0f);
+    set_projection(get_camera(camera.id), proj);
+}
+
+EXPORT void ung_camera_set_orthographic_z(
     ung_camera_id camera, float left, float right, float bottom, float top, float near, float far)
 {
     const auto proj = um_mat_ortho(left, right, bottom, top, near, far);
