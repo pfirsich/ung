@@ -157,6 +157,7 @@ void ung_material_set_uniform_data(
 void ung_material_set_texture(ung_material_id material, uint32_t binding, ung_texture_id texture);
 // Getting this data pointer marks the associated uniform buffer dirty, because it is assumed
 // you modified it
+ung_texture_id ung_material_get_texture(ung_material_id material, uint32_t binding);
 void* ung_material_get_dynamic_data(ung_material_id material);
 // You can mark the associated uniform buffers dirty with this function
 void ung_material_update(ung_material_id material);

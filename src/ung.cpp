@@ -689,6 +689,17 @@ EXPORT void ung_material_set_texture(
         });
 }
 
+EXPORT ung_texture_id ung_material_get_texture(ung_material_id material, uint32_t binding)
+{
+    auto mat = get_material(material.id);
+    for (const auto& b : mat->bindings) {
+        if (b.type == MUGFX_BINDING_TYPE_TEXTURE && b.texture.binding == binding) {
+            return b.texture.id;
+        }
+    }
+    return { 0 };
+}
+
 EXPORT void* ung_material_get_dynamic_data(ung_material_id material)
 {
     auto mat = get_material(material.id);
