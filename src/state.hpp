@@ -102,4 +102,12 @@ struct State {
 
 extern State* state;
 
+template <typename T>
+auto get(Pool<T>& pool, SlotMap::Key key)
+{
+    auto obj = pool.find(key);
+    assert(obj);
+    return obj;
+}
+
 }

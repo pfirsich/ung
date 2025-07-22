@@ -285,14 +285,6 @@ EXPORT void ung_mouse_get(int* x, int* y, int* dx, int* dy)
     *dy = state->input.mouse_dy;
 }
 
-template <typename T>
-static auto get(Pool<T>& pool, SlotMap::Key key)
-{
-    auto obj = pool.find(key);
-    assert(obj);
-    return obj;
-}
-
 Transform* get_transform(SlotMap::Key key)
 {
     return get(state->transforms, key);
