@@ -1,3 +1,6 @@
 [submodule "mugfx"]
 	path = mugfx
 	url = https://github.com/pfirsich/mugfx.git
+[submodule "utxt"]
+	path = utxt
+	url = https://github.com/pfirsich/utxt.git

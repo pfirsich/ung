@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include <mugfx.h>
+#include <utxt.h>
 
 #include "types.h"
 
@@ -58,6 +59,13 @@ typedef struct {
 
 void ung_init(ung_init_params params);
 void ung_shutdown();
+
+ung_allocator* ung_get_allocator();
+void* ung_malloc(size_t size);
+void* ung_realloc(void* ptr, size_t new_size);
+void ung_free(void* ptr);
+void* ung_utxt_realloc(void* ptr, size_t old_size, size_t new_size, void*);
+utxt_alloc ung_get_utxt_alloc();
 
 /*
  * Window
@@ -214,6 +222,29 @@ void ung_sprite_add(
     ung_material_id mat, ung_transform_2d transform, ung_texture_region texture, ung_color color);
 
 void ung_sprite_flush();
+
+/*
+ * Text
+ */
+typedef struct {
+    utxt_font* font;
+    ung_texture_id texture;
+    ung_material_id material;
+} ung_font;
+
+typedef struct {
+    const char* ttf_path;
+    utxt_load_ttf_params load_params;
+    const char* vert_path;
+    const char* frag_path;
+    ung_material_create_params material_params;
+} ung_font_load_ttf_param;
+
+void ung_font_load_ttf(ung_font* font, ung_font_load_ttf_param params);
+
+void ung_font_draw_quad(const utxt_quad* quad, ung_color color);
+void ung_font_draw_quads(
+    const ung_font* font, const utxt_quad* quads, size_t num_quads, ung_color color);
 
 /*
  * Camera Management

@@ -207,6 +207,72 @@ EXPORT void* ung_get_gl_context()
     return state->context;
 }
 
+EXPORT ung_allocator* ung_get_allocator()
+{
+    return &allocator;
+}
+
+struct alignas(std::max_align_t) Malloced {
+    size_t size;
+};
+static_assert(alignof(Malloced) == alignof(std::max_align_t));
+static_assert(sizeof(Malloced) % alignof(std::max_align_t) == 0);
+
+EXPORT void* ung_malloc(size_t size)
+{
+    auto malloced = (Malloced*)allocator.allocate(sizeof(Malloced) + size, allocator.ctx);
+    if (!malloced) {
+        return nullptr;
+    }
+    malloced->size = sizeof(Malloced) + size;
+    return (uint8_t*)malloced + sizeof(Malloced);
+}
+
+EXPORT void* ung_realloc(void* ptr, size_t new_size)
+{
+    if (!ptr) {
+        return ung_malloc(new_size);
+    }
+    if (!new_size) {
+        ung_free(ptr);
+        return nullptr;
+    }
+    auto malloced = (Malloced*)((uint8_t*)ptr - sizeof(Malloced));
+    malloced = (Malloced*)allocator.reallocate(
+        malloced, malloced->size, sizeof(Malloced) + new_size, allocator.ctx);
+    if (!malloced) {
+        return nullptr;
+    }
+    malloced->size = sizeof(Malloced) + new_size;
+    return (uint8_t*)malloced + sizeof(Malloced);
+}
+
+EXPORT void ung_free(void* ptr)
+{
+    if (!ptr) {
+        return;
+    }
+    auto malloced = (Malloced*)((uint8_t*)ptr - sizeof(Malloced));
+    allocator.deallocate(malloced, malloced->size, allocator.ctx);
+}
+
+EXPORT void* ung_utxt_realloc(void* ptr, size_t old_size, size_t new_size, void*)
+{
+    if (!ptr) {
+        return allocator.allocate(new_size, allocator.ctx);
+    } else if (new_size) {
+        return allocator.reallocate(ptr, old_size, new_size, allocator.ctx);
+    } else {
+        allocator.deallocate(ptr, old_size, allocator.ctx);
+        return nullptr;
+    }
+}
+
+EXPORT utxt_alloc ung_get_utxt_alloc()
+{
+    return { ung_utxt_realloc, nullptr };
+}
+
 EXPORT void ung_get_window_size(u32* width, u32* height)
 {
     *width = state->win_width;
@@ -1340,6 +1406,56 @@ EXPORT void ung_sprite_flush()
             state->identity_trafo);
         state->sprite_renderer.vertex_offset = 0;
         state->sprite_renderer.index_offset = 0;
+    }
+}
+
+EXPORT void ung_font_load_ttf(ung_font* font, ung_font_load_ttf_param params)
+{
+    font->font = utxt_font_load_ttf(ung_get_utxt_alloc(), params.ttf_path, params.load_params);
+
+    uint32_t atlas_width, atlas_height, atlas_channels;
+    const auto atlas_data
+        = utxt_get_atlas(font->font, &atlas_width, &atlas_height, &atlas_channels);
+    assert(atlas_channels == 1);
+    font->texture = mugfx_texture_create({
+        .width = atlas_width,
+        .height = atlas_height,
+        .format = MUGFX_PIXEL_FORMAT_R8,
+        .data = { atlas_data, atlas_width * atlas_height },
+        .data_format = MUGFX_PIXEL_FORMAT_R8,
+    });
+
+    auto& gfxparams = params.material_params.mugfx_params;
+    gfxparams.depth_func = gfxparams.depth_func ? gfxparams.depth_func : MUGFX_DEPTH_FUNC_ALWAYS;
+    gfxparams.write_mask = gfxparams.write_mask ? gfxparams.write_mask : MUGFX_WRITE_MASK_RGBA,
+    gfxparams.cull_face = gfxparams.cull_face ? gfxparams.cull_face : MUGFX_CULL_FACE_MODE_NONE,
+    gfxparams.src_blend = gfxparams.src_blend ? gfxparams.src_blend : MUGFX_BLEND_FUNC_SRC_ALPHA,
+    gfxparams.dst_blend = gfxparams.dst_blend ? gfxparams.dst_blend : MUGFX_BLEND_FUNC_ONE_MINUS_SRC_ALPHA,
+
+    font->material = ung_material_load(params.vert_path, params.frag_path, {
+        .mugfx_params = {
+            .depth_func = MUGFX_DEPTH_FUNC_ALWAYS,
+            .write_mask = MUGFX_WRITE_MASK_RGBA,
+            .cull_face = MUGFX_CULL_FACE_MODE_NONE,
+            .src_blend = MUGFX_BLEND_FUNC_SRC_ALPHA,
+            .dst_blend = MUGFX_BLEND_FUNC_ONE_MINUS_SRC_ALPHA,
+        },
+    });
+    ung_material_set_texture(font->material, 0, font->texture);
+}
+
+EXPORT void ung_font_draw_quad(const utxt_quad* q, ung_color color)
+{
+    ung_sprite_add_quad(
+        q->x, q->y, q->w, q->h, { q->u0, q->v0, q->u1 - q->u0, q->v1 - q->v0 }, color);
+}
+
+EXPORT void ung_font_draw_quads(
+    const ung_font* font, const utxt_quad* quads, size_t num_quads, ung_color color)
+{
+    ung_sprite_set_material(font->material);
+    for (size_t i = 0; i < num_quads; ++i) {
+        ung_font_draw_quad(quads + i, color);
     }
 }
 
