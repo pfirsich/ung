@@ -15,6 +15,8 @@ struct Game {
     bool running = true;
     ung_draw_geometry_id level;
     ung_transform_id level_trafo;
+    ung_camera_id ui_camera;
+    ung_material_id sprite_material;
 
     void init()
     {
@@ -40,6 +42,19 @@ struct Game {
         ung_camera_set_perspective(camera, 45.0f, static_cast<float>(win_w) / win_h, 0.1f, 100.0f);
 
         ung_mouse_set_relative(true);
+
+        ui_camera = ung_camera_create();
+        ung_camera_set_orthographic_fullscreen(ui_camera);
+
+        sprite_material = ung_material_load("examples/sprite.vert", "examples/sprite.frag", {
+            .mugfx_params = {
+                  .depth_func = MUGFX_DEPTH_FUNC_ALWAYS,
+                  .write_mask = MUGFX_WRITE_MASK_RGBA,
+                  .cull_face = MUGFX_CULL_FACE_MODE_NONE,
+            },
+        });
+        const auto sprite_texture = ung_texture_load("examples/assets/checkerboard.png", {});
+        ung_material_set_texture(sprite_material, 0, sprite_texture);
     }
 
     void update(float dt)
@@ -75,10 +90,17 @@ struct Game {
     void draw()
     {
         ung_begin_frame();
+
         ung_begin_pass(MUGFX_RENDER_TARGET_BACKBUFFER, camera);
         mugfx_clear(MUGFX_CLEAR_COLOR_DEPTH, MUGFX_CLEAR_DEFAULT);
         ung_draw(material, level, level_trafo);
         ung_draw(material, geometry, trafo);
+        ung_end_pass();
+
+        ung_begin_pass(MUGFX_RENDER_TARGET_BACKBUFFER, ui_camera);
+        ung_sprite_add(sprite_material, { .x = 20.0f, .y = 160.0f }, UNG_REGION_FULL,
+            { 0.4f, 0.4f, 0.4f, 1.0f });
+        ung_sprite_flush();
         ung_end_pass();
         ung_end_frame();
     }

@@ -109,6 +109,54 @@ EXPORT void ung_init(ung_init_params params)
     state->cameras.init(params.max_num_cameras ? params.max_num_cameras : 8);
     state->geometry_data.init(params.max_num_geometry_data ? params.max_num_geometry_data : 256);
 
+    state->identity_trafo = ung_transform_create();
+
+    state->sprite_renderer = {
+        .vertices = nullptr,
+        .num_vertices = params.max_num_sprite_vertices ? params.max_num_sprite_vertices : 16 * 1024,
+        .indices = nullptr,
+        .num_indices = params.max_num_sprite_indices ? params.max_num_sprite_indices : 16 * 1024,
+        .vertex_buffer = { 0 },
+        .index_buffer = { 0 },
+        .geometry = { 0 },
+        .vertex_offset = 0,
+        .index_offset = 0,
+        .current_material = { 0 },
+        .current_tex_width = 0,
+        .current_tex_height = 0,
+    };
+
+    state->sprite_renderer.vertices
+        = allocate<SpriteRenderer::Vertex>(state->sprite_renderer.num_vertices);
+    state->sprite_renderer.vertex_buffer = mugfx_buffer_create({
+        .target = MUGFX_BUFFER_TARGET_ARRAY,
+        .usage = MUGFX_BUFFER_USAGE_HINT_STREAM,
+        .data = { .data = nullptr,
+            .length = sizeof(SpriteRenderer::Vertex) * state->sprite_renderer.num_vertices },
+    }),
+
+    state->sprite_renderer.indices = allocate<u16>(state->sprite_renderer.num_indices);
+    state->sprite_renderer.index_buffer = mugfx_buffer_create({
+        .target = MUGFX_BUFFER_TARGET_INDEX,
+        .usage = MUGFX_BUFFER_USAGE_HINT_STREAM,
+        .data = { .data = nullptr, .length = sizeof(u16) * state->sprite_renderer.num_indices },
+    });
+
+    state->sprite_renderer.geometry = mugfx_geometry_create({
+        .vertex_buffers = {
+            {
+                .buffer = state->sprite_renderer.vertex_buffer,
+                .attributes = {
+                    {.location = 0, .components = 2, .type = MUGFX_VERTEX_ATTRIBUTE_TYPE_F32}, // xy
+                    {.location = 1, .components = 2, .type = MUGFX_VERTEX_ATTRIBUTE_TYPE_U16_NORM}, // uv
+                    {.location = 2, .components = 4, .type = MUGFX_VERTEX_ATTRIBUTE_TYPE_U8_NORM}, // rgba
+                },
+            }
+        },
+        .index_buffer = state->sprite_renderer.index_buffer,
+        .index_type = MUGFX_INDEX_TYPE_U16,
+    });
+
     state->u_constant.screen_dimensions = um_vec4 {
         static_cast<float>(params.window_mode.width),
         static_cast<float>(params.window_mode.height),
@@ -1164,6 +1212,135 @@ EXPORT ung_draw_geometry_id ung_draw_geometry_load(const char* path)
     const auto geom = ung_draw_geometry_from_data(gdata);
     ung_geometry_data_destroy(gdata);
     return geom;
+}
+
+EXPORT void ung_sprite_set_material(ung_material_id mat)
+{
+    if (mat.id != state->sprite_renderer.current_material.id) {
+        ung_sprite_flush();
+        state->sprite_renderer.current_material = mat;
+        const auto tex = ung_material_get_texture(mat, 0);
+        mugfx_texture_get_size(tex, &state->sprite_renderer.current_tex_width,
+            &state->sprite_renderer.current_tex_height);
+    }
+}
+
+EXPORT uint16_t ung_sprite_add_vertex(float x, float y, float u, float v, ung_color color)
+{
+    assert(state->sprite_renderer.vertex_offset < state->sprite_renderer.num_vertices);
+    state->sprite_renderer.vertices[state->sprite_renderer.vertex_offset] = SpriteRenderer::Vertex {
+        x,
+        y,
+        f2u16norm(u),
+        f2u16norm(v),
+        f2u8norm(color.r),
+        f2u8norm(color.g),
+        f2u8norm(color.b),
+        f2u8norm(color.a),
+    };
+    return (u16)state->sprite_renderer.vertex_offset++;
+}
+
+EXPORT void ung_sprite_add_index(uint16_t idx)
+{
+    assert(state->sprite_renderer.index_offset < state->sprite_renderer.num_indices);
+    state->sprite_renderer.indices[state->sprite_renderer.index_offset++] = idx;
+}
+
+EXPORT void ung_sprite_add_quad(
+    float x, float y, float w, float h, ung_texture_region texture, ung_color color)
+{
+    const auto tl = ung_sprite_add_vertex(x, y, texture.x, texture.y, color);
+    const auto bl = ung_sprite_add_vertex(x, y + h, texture.x, texture.y + texture.h, color);
+    const auto tr = ung_sprite_add_vertex(x + w, y, texture.x + texture.w, texture.y, color);
+    const auto br
+        = ung_sprite_add_vertex(x + w, y + h, texture.x + texture.w, texture.y + texture.h, color);
+
+    ung_sprite_add_index(tl);
+    ung_sprite_add_index(bl);
+    ung_sprite_add_index(tr);
+
+    ung_sprite_add_index(bl);
+    ung_sprite_add_index(br);
+    ung_sprite_add_index(tr);
+}
+
+struct vec2 {
+    float x, y;
+};
+
+static vec2 transform_vec2(ung_transform_2d t, float x, float y)
+{
+    // offset
+    x += t.offset_x;
+    y += t.offset_y;
+
+    // scale
+    x *= t.scale_x;
+    y *= t.scale_y;
+
+    // rotate
+    const auto s = sinf(t.rotation);
+    const auto c = cosf(t.rotation);
+    const auto rx = x * c - y * s;
+    const auto ry = x * s + y * c;
+
+    // translate
+    x = rx + t.x;
+    y = ry + t.y;
+
+    return vec2 { x, y };
+}
+
+static u16 add_vertex(
+    const vec2& p, ung_transform_2d transform, ung_texture_region region, ung_color color)
+{
+    const auto pos = transform_vec2(transform,
+        p.x * (float)state->sprite_renderer.current_tex_width * region.w,
+        p.y * (float)state->sprite_renderer.current_tex_height * region.h);
+    const auto u = region.x + p.x * region.w;
+    const auto v = region.y + p.y * region.h;
+    return ung_sprite_add_vertex(pos.x, pos.y, u, v, color);
+}
+
+EXPORT void ung_sprite_add(
+    ung_material_id mat, ung_transform_2d transform, ung_texture_region texture, ung_color color)
+{
+    transform.scale_x = transform.scale_x != 0.0f ? transform.scale_x : 1.0f;
+    transform.scale_y = transform.scale_y != 0.0f ? transform.scale_y : 1.0f;
+
+    ung_sprite_set_material(mat);
+
+    const auto tl = add_vertex({ 0.0f, 0.0f }, transform, texture, color);
+    const auto bl = add_vertex({ 0.0f, 1.0f }, transform, texture, color);
+    const auto tr = add_vertex({ 1.0f, 0.0f }, transform, texture, color);
+    const auto br = add_vertex({ 1.0f, 1.0f }, transform, texture, color);
+
+    ung_sprite_add_index(tl);
+    ung_sprite_add_index(bl);
+    ung_sprite_add_index(tr);
+
+    ung_sprite_add_index(bl);
+    ung_sprite_add_index(br);
+    ung_sprite_add_index(tr);
+}
+
+EXPORT void ung_sprite_flush()
+{
+    if (state->sprite_renderer.index_offset > 0) {
+        mugfx_buffer_update(state->sprite_renderer.vertex_buffer, 0,
+            { .data = state->sprite_renderer.vertices,
+                .length = sizeof(SpriteRenderer::Vertex) * state->sprite_renderer.vertex_offset });
+        mugfx_buffer_update(state->sprite_renderer.index_buffer, 0,
+            { .data = state->sprite_renderer.indices,
+                .length = sizeof(u16) * state->sprite_renderer.index_offset });
+        mugfx_geometry_set_index_range(
+            state->sprite_renderer.geometry, 0, state->sprite_renderer.index_offset);
+        ung_draw(state->sprite_renderer.current_material, state->sprite_renderer.geometry,
+            state->identity_trafo);
+        state->sprite_renderer.vertex_offset = 0;
+        state->sprite_renderer.index_offset = 0;
+    }
 }
 
 Camera* get_camera(SlotMap::Key key)

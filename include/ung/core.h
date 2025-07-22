@@ -50,6 +50,8 @@ typedef struct {
     uint32_t max_num_materials; // default: 1024
     uint32_t max_num_cameras; // default: 8
     uint32_t max_num_geometry_data; // default: 256
+    uint32_t max_num_sprite_vertices; // default: 1024*16
+    uint32_t max_num_sprite_indices; // default: 1024*16
     mugfx_init_params mugfx_params;
     bool debug; // do error checking and panic if something is wrong
 } ung_init_params;
@@ -188,6 +190,30 @@ ung_draw_geometry_id ung_draw_geometry_from_data(ung_geometry_data_id gdata);
 ung_draw_geometry_id ung_draw_geometry_load(const char* path);
 ung_draw_geometry_id ung_draw_geometry_box(float w, float h, float d);
 ung_draw_geometry_id ung_draw_geometry_sphere(float radius);
+
+/*
+ * Sprites
+ */
+// I don't think multiple sprite renderers are very useful, so there is a singleton
+
+void ung_sprite_set_material(ung_material_id mat);
+uint16_t ung_sprite_add_vertex(float x, float y, float u, float v, ung_color color);
+void ung_sprite_add_index(uint16_t idx);
+
+void ung_sprite_add_quad(
+    float x, float y, float w, float h, ung_texture_region texture, ung_color color);
+
+typedef struct {
+    float x, y;
+    float rotation;
+    float scale_x, scale_y; // default: 1, 1
+    float offset_x, offset_y;
+} ung_transform_2d;
+
+void ung_sprite_add(
+    ung_material_id mat, ung_transform_2d transform, ung_texture_region texture, ung_color color);
+
+void ung_sprite_flush();
 
 /*
  * Camera Management

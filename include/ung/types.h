@@ -46,6 +46,20 @@ typedef struct {
 
 ung_string ung_zstr(const char* str); // calls strlen for length
 
+typedef struct {
+    // these are all texture coordinates
+    float x, y; // top-left
+    float w, h; // bottom-right
+} ung_texture_region;
+
+#define UNG_REGION_FULL ((ung_texture_region) { 0.0f, 0.0f, 1.0f, 1.0f })
+
+typedef struct {
+    float r, g, b, a;
+} ung_color;
+
+#define UNG_COLOR_WHITE ((ung_color) { 1.0f, 1.0f, 1.0f, 1.0f })
+
 #ifdef __cplusplus
 }
 #endif
