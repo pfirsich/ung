@@ -16,8 +16,6 @@
 #include "types.hpp"
 #include "um.h"
 
-#define EXPORT extern "C"
-
 namespace ung {
 
 State* state = nullptr;

@@ -8,6 +8,8 @@
 
 struct SDL_Window;
 
+#define EXPORT extern "C"
+
 namespace ung {
 struct UConstant {
     um_vec4 screen_dimensions; // xy: size, zw: reciprocal size
