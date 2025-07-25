@@ -27,7 +27,7 @@ struct Game {
         material = ung_material_load("examples/hello_game.vert", "examples/hello_game.frag",
             { .mugfx_params = { .cull_face = MUGFX_CULL_FACE_MODE_NONE } });
 
-        const auto texture = ung_texture_load("examples/assets/checkerboard.png", {});
+        const auto texture = ung_texture_load("examples/assets/checkerboard.png", false, {});
         ung_material_set_texture(material, 0, texture);
 
         geometry = ung_draw_geometry_load("examples/assets/Wasp.obj");
@@ -57,7 +57,7 @@ struct Game {
                   .cull_face = MUGFX_CULL_FACE_MODE_NONE,
             },
         });
-        const auto sprite_texture = ung_texture_load("examples/assets/checkerboard.png", {});
+        const auto sprite_texture = ung_texture_load("examples/assets/checkerboard.png", false, {});
         ung_material_set_texture(sprite_material, 0, sprite_texture);
 
         ung_font_load_ttf(&font,
