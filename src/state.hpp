@@ -4,6 +4,7 @@
 #include "um.h"
 #include "ung.h"
 
+#include <SDL_gamecontroller.h>
 #include <SDL_scancode.h>
 
 struct SDL_Window;
@@ -87,6 +88,20 @@ struct SpriteRenderer {
     u32 current_tex_height;
 };
 
+struct Gamepad {
+    SDL_GameController* controller;
+    int device_index;
+    int32_t instance_id;
+    bool connected;
+    uint8_t type;
+    ung_gamepad_info info;
+    float deadzone_inner;
+    float deadzone_outer;
+    float last_active;
+    std::array<uint32_t, SDL_CONTROLLER_BUTTON_MAX> button_pressed;
+    std::array<uint32_t, SDL_CONTROLLER_BUTTON_MAX> button_released;
+};
+
 constexpr usize MaxMouseButtons = 16;
 
 struct InputState {
@@ -98,6 +113,8 @@ struct InputState {
     std::array<bool, MaxMouseButtons> mouse_button_down;
     std::array<u8, MaxMouseButtons> mouse_button_pressed;
     std::array<u8, MaxMouseButtons> mouse_button_released;
+    Pool<Gamepad> gamepads;
+    u64 last_active_gamepad;
 };
 
 struct State {

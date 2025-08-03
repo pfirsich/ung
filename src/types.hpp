@@ -105,6 +105,10 @@ struct Pool {
     }
 
     void remove(u64 key) { ung_slotmap_remove(&sm, key); }
+
+    u32 capacity() const { return sm.capacity; }
+
+    u64 get_key(u32 idx) const { return ung_slotmap_get_key(&sm, idx); }
 };
 
 }

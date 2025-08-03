@@ -34,6 +34,10 @@ typedef struct {
     uint64_t id;
 } ung_geometry_data_id;
 
+typedef struct {
+    uint64_t id;
+} ung_gamepad_id;
+
 typedef mugfx_texture_id ung_texture_id;
 typedef mugfx_shader_id ung_shader_id;
 typedef mugfx_geometry_id ung_draw_geometry_id;
@@ -101,6 +105,7 @@ typedef struct {
     uint32_t max_num_geometry_data; // default: 256
     uint32_t max_num_sprite_vertices; // default: 1024*16
     uint32_t max_num_sprite_indices; // default: 1024*16
+    uint32_t max_num_gamepads; // default: 8
     mugfx_init_params mugfx_params;
     bool debug; // do error checking and panic if something is wrong
 } ung_init_params;
@@ -176,6 +181,62 @@ void ung_mouse_set_relative(bool relative);
 void ung_mouse_get(int* x, int* y, int* dx, int* dy);
 void ung_mouse_get_scroll_x(int* left, int* right);
 void ung_mouse_get_scroll_y(int* pos, int* neg); // pos = away from the user
+
+// Gamepads
+typedef enum {
+    UNG_CONTROLLER_ACTION_CONFIRM = 0x40, // PS: X, Nintendo: A, XBox: A
+    UNG_CONTROLLER_ACTION_CANCEL, // PS: O, Nintendo: B, XBox: B
+
+    UNG_CONTROLLER_ACTION_PRIMARY, // PS: X, Nintendo: A, XBox: A
+    UNG_CONTROLLER_ACTION_SECONDARY, // PS: O, Nintendo: X, XBox: X
+    UNG_CONTROLLER_ACTION_TERTIARY, // PS: Square, Nintendo: Y, XBox: Y
+    UNG_CONTROLLER_ACTION_QUATERNARY, // PS: Triangle, Nintendo: B, XBox: B
+} ung_gamepad_action;
+
+typedef struct {
+    char name[128]; // display name for menus/prompts
+    uint16_t vendor_id; // USB VID for model/quirk detection
+    uint16_t product_id; // USB PID for model/quirk detection
+    uint8_t guid[16]; // SDL mapping lookup key
+    char serial[64]; // unique per physical pad
+} ung_gamepad_info;
+
+// The returned gamepads are reused and matched by serial. I.e. it tries to represent
+// an individual physical gamepad.
+size_t ung_get_gamepads(ung_gamepad_id* gamepads, size_t max_num_gamepads);
+// This will return the most recently active, connected gamepad or 0 if no gamepad is connected
+// (anymore). Use this for single-player games and fall back to keyboard if it returns 0.
+ung_gamepad_id ung_gamepad_get_any();
+
+struct _SDL_GameController;
+typedef struct _SDL_GameController SDL_GameController;
+
+SDL_GameController* ung_gamepad_get_sdl(ung_gamepad_id gamepad);
+ung_gamepad_id ung_get_gamepad_from_event(uint32_t type, int32_t which);
+
+// instance id is unique for every gamepad connection, i.e. it changes whenever the
+// gamepad reconnect. -1 if not connected.
+int32_t ung_gamepad_instance_id(ung_gamepad_id gamepad);
+bool ung_gamepad_is_connected(ung_gamepad_id gamepad);
+const ung_gamepad_info* ung_gamepad_get_info(ung_gamepad_id gamepad);
+
+float ung_gamepad_axis(ung_gamepad_id gamepad, uint8_t axis); // SDL_GameControllerAxis
+// button may either be SDL_GameControllerButton or one of ung_gamepad_action.
+bool ung_gamepad_button_down(ung_gamepad_id gamepad, uint8_t button); // SDL_GameControllerButton
+uint32_t ung_gamepad_button_pressed(ung_gamepad_id gamepad, uint8_t button);
+uint32_t ung_gamepad_button_released(ung_gamepad_id gamepad, uint8_t button);
+
+int ung_gamepad_get_player_index(ung_gamepad_id gamepad); // negative = unset
+void ung_gamepad_set_player_index(ung_gamepad_id gamepad, int player_index);
+
+void ung_gamepad_rumble(
+    ung_gamepad_id gamepad, uint16_t low_freq, uint16_t high_freq, uint32_t duration_ms);
+void ung_gamepad_rumble_triggers(
+    ung_gamepad_id gamepad, uint16_t left, uint16_t right, uint32_t duration_ms);
+void ung_gamepad_set_led(ung_gamepad_id gamepad, uint8_t red, uint8_t green, uint8_t blue);
+
+// default: 0.1f, 0.9f
+void ung_gamepad_axis_deadzone(ung_gamepad_id gamepad, uint8_t axis, float inner, float outer);
 
 /*
  * Transforms
