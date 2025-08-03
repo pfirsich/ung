@@ -184,13 +184,13 @@ void ung_mouse_get_scroll_y(int* pos, int* neg); // pos = away from the user
 
 // Gamepads
 typedef enum {
-    UNG_CONTROLLER_ACTION_CONFIRM = 0x40, // PS: X, Nintendo: A, XBox: A
-    UNG_CONTROLLER_ACTION_CANCEL, // PS: O, Nintendo: B, XBox: B
+    UNG_GAMEPAD_ACTION_CONFIRM = 0x40, // PS: X, Nintendo: A, XBox: A
+    UNG_GAMEPAD_ACTION_CANCEL, // PS: O, Nintendo: B, XBox: B
 
-    UNG_CONTROLLER_ACTION_PRIMARY, // PS: X, Nintendo: A, XBox: A
-    UNG_CONTROLLER_ACTION_SECONDARY, // PS: O, Nintendo: X, XBox: X
-    UNG_CONTROLLER_ACTION_TERTIARY, // PS: Square, Nintendo: Y, XBox: Y
-    UNG_CONTROLLER_ACTION_QUATERNARY, // PS: Triangle, Nintendo: B, XBox: B
+    UNG_GAMEPAD_ACTION_PRIMARY, // PS: X, Nintendo: A, XBox: A
+    UNG_GAMEPAD_ACTION_SECONDARY, // PS: O, Nintendo: X, XBox: X
+    UNG_GAMEPAD_ACTION_TERTIARY, // PS: Square, Nintendo: Y, XBox: Y
+    UNG_GAMEPAD_ACTION_QUATERNARY, // PS: Triangle, Nintendo: B, XBox: B
 } ung_gamepad_action;
 
 typedef struct {

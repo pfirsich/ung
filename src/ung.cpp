@@ -704,8 +704,9 @@ EXPORT float ung_gamepad_axis(ung_gamepad_id gamepad, uint8_t axis)
 
 static SDL_GameControllerButton map_button(uint8_t type, uint8_t button)
 {
-    if (button >= UNG_CONTROLLER_ACTION_CONFIRM) {
-        assert(button <= UNG_CONTROLLER_ACTION_QUATERNARY);
+    if (button >= UNG_GAMEPAD_ACTION_CONFIRM) {
+        assert(button <= UNG_GAMEPAD_ACTION_QUATERNARY);
+        const size_t button_idx = button - UNG_GAMEPAD_ACTION_CONFIRM;
         // confirm, cancel, primary, secondary, tertiary, quaternary
         constexpr std::array<SDL_GameControllerButton, 6> xbox
             = { SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_B, SDL_CONTROLLER_BUTTON_A,
@@ -721,14 +722,14 @@ static SDL_GameControllerButton map_button(uint8_t type, uint8_t button)
         case SDL_CONTROLLER_TYPE_PS3:
         case SDL_CONTROLLER_TYPE_PS4:
         case SDL_CONTROLLER_TYPE_PS5:
-            return ps[button - UNG_CONTROLLER_ACTION_CONFIRM];
+            return ps[button_idx];
         case SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_PRO:
         case SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_LEFT:
         case SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT:
         case SDL_CONTROLLER_TYPE_NINTENDO_SWITCH_JOYCON_PAIR:
-            return nintendo[button - UNG_CONTROLLER_ACTION_CONFIRM];
+            return nintendo[button_idx];
         default: // default is xbox
-            return xbox[button - UNG_CONTROLLER_ACTION_CONFIRM];
+            return xbox[button_idx];
         }
     }
     return (SDL_GameControllerButton)button;
