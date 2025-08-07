@@ -94,6 +94,9 @@ struct Pool {
     {
         u32 idx = 0;
         const auto id = ung_slotmap_insert(&sm, &idx);
+        if (id == 0) {
+            return { 0, nullptr };
+        }
         T* obj = &data[idx];
         std::memset(obj, 0, sizeof(T));
         return { id, obj };
