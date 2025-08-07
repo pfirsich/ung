@@ -112,6 +112,8 @@ struct Pool {
     u32 capacity() const { return sm.capacity; }
 
     u64 get_key(u32 idx) const { return ung_slotmap_get_key(&sm, idx); }
+
+    bool contains(u64 key) { return ung_slotmap_contains(&sm, key); }
 };
 
 template <typename T>
