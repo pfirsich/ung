@@ -504,7 +504,7 @@ static constexpr u64 FreeMask = 0xFF00'0000'0000'0000;
 // set. The rest of the index contains the index to the next free element.
 // Key 0 is always invalid
 
-u64 make_key(u32 idx, u32 gen)
+static u64 make_key(u32 idx, u32 gen)
 {
     return gen << 24 | idx;
 }
