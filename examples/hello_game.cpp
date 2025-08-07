@@ -21,6 +21,8 @@ struct Game {
     std::array<utxt_quad, 1024> quads;
     utxt_layout* layout;
     utxt_style style;
+    ung_sound_source_id shoot_sound;
+    ung_sound_source_id explode_sound;
 
     void init()
     {
@@ -79,15 +81,25 @@ struct Game {
                 "füllen wird. Es geht gar nicht anders! Er ist so lang, dass vermutlich"));
         utxt_layout_add_text(layout, &style,
             UTXT_LITERAL(
-                "sogar mehr als zwei Zeilen nötig sein werden. Vielleicht sogar vier!\nDieser "
+                " sogar mehr als zwei Zeilen nötig sein werden. Vielleicht sogar vier!\nDieser "
                 "Teil sollte in einer eigenen Zeile sein."));
         utxt_layout_compute(layout);
+
+        shoot_sound = ung_sound_source_load("examples/assets/shoot.wav", {});
+        explode_sound = ung_sound_source_load("examples/assets/explode.wav", {});
     }
 
     void update(float dt)
     {
         if (ung_key_pressed("escape")) {
             running = false;
+        }
+
+        if (ung_key_pressed("j")) {
+            ung_sound_play(shoot_sound, {});
+        }
+        if (ung_key_pressed("k")) {
+            ung_sound_play(explode_sound, {});
         }
 
         const auto box_q = um_quat_from_axis_angle({ 0.0f, 1.0f, 0.0f }, ung_get_time());

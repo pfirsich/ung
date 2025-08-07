@@ -296,11 +296,10 @@ static void set_source(Sound* sound, SoundSource* source)
     sound->source = source;
 }
 
-static void set(Array<char>& array, std::string_view str)
+static void set(Array<char>& array, const char* str)
 {
-    array.init((uint32_t)str.size() + 1);
-    std::memcpy(array.data, str.data(), str.size());
-    array.data[str.size()] = '\0';
+    array.init((uint32_t)std::strlen(str) + 1);
+    std::strcpy(array.data, str);
 }
 
 EXPORT ung_sound_source_id ung_sound_source_load(
