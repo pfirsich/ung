@@ -19,6 +19,12 @@
 
 namespace ung {
 
+namespace sound {
+    void init(ung_init_params params);
+    void begin_frame();
+    void shutdown();
+}
+
 State* state = nullptr;
 
 EXPORT ung_string ung_zstr(const char* str)
@@ -194,6 +200,8 @@ EXPORT void ung_shutdown()
     if (!state) {
         return;
     }
+
+    sound::shutdown();
 
     mugfx_shutdown();
 
@@ -1930,6 +1938,7 @@ EXPORT void ung_begin_frame()
     state->u_frame.time.x = 0.0f;
     state->u_frame.time.y = 0.0f;
     mugfx_uniform_data_update(state->frame_data);
+    sound::begin_frame();
 }
 
 EXPORT void ung_begin_pass(mugfx_render_target_id target, ung_camera_id camera)

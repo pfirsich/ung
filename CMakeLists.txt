@@ -21,6 +21,7 @@ add_subdirectory(utxt)
 
 add_subdirectory(deps/stb)
 add_subdirectory(deps/fast_obj)
+add_subdirectory(deps/miniaudio)
 
 add_library(um src/um.cpp)
 target_include_directories(um PUBLIC include/)
@@ -31,6 +32,7 @@ set_no_rtti(um)
 set(UNG_SOURCES
   src/ung.cpp
   src/allocator.cpp
+  src/sound.cpp
 )
 
 add_library(ung ${UNG_SOURCES})
@@ -39,6 +41,7 @@ target_compile_definitions(ung PUBLIC SDL_MAIN_HANDLED) # don't override main()
 target_link_libraries(ung PRIVATE um)
 target_link_libraries(ung PRIVATE stb_image)
 target_link_libraries(ung PRIVATE fast_obj)
+target_link_libraries(ung PRIVATE miniaudio)
 target_link_libraries(ung PUBLIC utxt)
 target_link_libraries(ung PUBLIC mugfx)
 ung_set_wall(ung)

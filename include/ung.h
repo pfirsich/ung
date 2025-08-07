@@ -38,6 +38,14 @@ typedef struct {
     uint64_t id;
 } ung_gamepad_id;
 
+typedef struct {
+    uint64_t id;
+} ung_sound_source_id;
+
+typedef struct {
+    uint64_t id;
+} ung_sound_id;
+
 typedef mugfx_texture_id ung_texture_id;
 typedef mugfx_shader_id ung_shader_id;
 typedef mugfx_geometry_id ung_draw_geometry_id;
@@ -106,6 +114,9 @@ typedef struct {
     uint32_t max_num_sprite_vertices; // default: 1024*16
     uint32_t max_num_sprite_indices; // default: 1024*16
     uint32_t max_num_gamepads; // default: 8
+    uint32_t max_num_sound_sources; // default: 64
+    uint32_t max_num_sounds; // default: 64
+    uint32_t num_sound_groups; // default: 4
     mugfx_init_params mugfx_params;
     bool debug; // do error checking and panic if something is wrong
 } ung_init_params;
@@ -401,6 +412,42 @@ void ung_begin_pass(mugfx_render_target_id target, ung_camera_id camera);
 void ung_draw(ung_material_id material, ung_draw_geometry_id geometry, ung_transform_id transform);
 void ung_end_pass();
 void ung_end_frame();
+
+/*
+ * Sound
+ */
+typedef struct {
+    uint8_t group;
+    size_t num_prewarm_sounds;
+    bool stream;
+} ung_sound_source_load_params;
+
+ung_sound_source_id ung_sound_source_load(const char* path, ung_sound_source_load_params params);
+void ung_sound_source_destroy(ung_sound_source_id src);
+
+typedef struct {
+    float volume;
+    float pitch;
+    float position[3];
+    bool spatial;
+    bool loop;
+    bool fail_if_no_idle;
+} ung_sound_play_params;
+
+ung_sound_id ung_sound_play(ung_sound_source_id src, ung_sound_play_params params);
+void ung_sound_update(ung_sound_id snd, float position[3], float velocity[3]);
+bool ung_sound_is_playing(ung_sound_id snd);
+void ung_sound_set_paused(ung_sound_id snd, bool paused);
+void ung_sound_stop(ung_sound_id snd); // this is the same as delete
+
+void ung_update_listener(float position[3], float orientation_quat[4], float velocity[3]);
+
+float ung_sound_get_volume();
+void ung_sound_set_volume(float vol);
+
+float ung_sound_group_get_volume(uint8_t group);
+void ung_sound_group_set_volume(uint8_t group, float vol);
+void ung_sound_group_set_paused(uint8_t group, bool paused);
 
 // You don't have to use ung_run, but it will handle the mainloop in emscripten for you.
 // Return true if you want the program to continue and false if you want to terminate.
