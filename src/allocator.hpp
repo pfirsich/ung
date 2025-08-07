@@ -25,6 +25,9 @@ inline void* reallocate(void* ptr, size_t old_size, size_t new_size)
 template <typename T>
 void deallocate(T* ptr, size_t count = 1)
 {
+    if (!ptr) {
+        return;
+    }
     for (size_t i = 0; i < count; ++i) {
         (ptr + i)->~T();
     }
