@@ -111,4 +111,12 @@ struct Pool {
     u64 get_key(u32 idx) const { return ung_slotmap_get_key(&sm, idx); }
 };
 
+template <typename T>
+auto get(Pool<T>& pool, u64 key)
+{
+    auto obj = pool.find(key);
+    assert(obj);
+    return obj;
+}
+
 }

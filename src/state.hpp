@@ -151,12 +151,4 @@ struct State {
 
 extern State* state;
 
-template <typename T>
-static auto get(Pool<T>& pool, u64 key)
-{
-    auto obj = pool.find(key);
-    assert(obj);
-    return obj;
-}
-
 }
