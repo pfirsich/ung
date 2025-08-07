@@ -74,6 +74,7 @@ struct SpriteRenderer {
         uint16_t u, v;
         uint8_t r, g, b, a;
     };
+
     Vertex* vertices;
     size_t num_vertices;
     uint16_t* indices;
@@ -118,23 +119,32 @@ struct InputState {
 };
 
 struct State {
+    // Pools
     Pool<Transform> transforms;
     Pool<Material> materials;
     Pool<Camera> cameras;
     Pool<GeometryData> geometry_data;
+
+    // Uniform Buffers
     UConstant u_constant;
     UFrame u_frame;
     UCamera u_camera;
     mugfx_uniform_data_id constant_data;
     mugfx_uniform_data_id frame_data;
     mugfx_uniform_data_id camera_data;
+
+    // SDL
     SDL_Window* window;
     void* context; // SDL_GLContext
     ung_event_callback event_callback = nullptr;
     void* event_callback_ctx = nullptr;
     u32 win_width;
     u32 win_height;
+
+    // Input
     InputState input;
+
+    // Renderer
     ung_transform_id identity_trafo;
     SpriteRenderer sprite_renderer;
 };
