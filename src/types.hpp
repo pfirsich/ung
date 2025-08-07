@@ -60,20 +60,25 @@ struct StaticVector {
 
 template <typename T>
 struct Array {
-    T* data_ = nullptr;
-    u32 size_ = 0;
+    T* data;
+    u32 size;
 
-    void init(u32 size)
+    void init(u32 s)
     {
-        assert(!data_);
-        data_ = allocate<T>(size);
-        size_ = size;
+        assert(!data);
+        data = allocate<T>(s);
+        size = s;
     }
 
-    ~Array() { deallocate(data_, size_); }
+    void free()
+    {
+        deallocate(data, size);
+        data = nullptr;
+        size = 0;
+    }
 
-    T& operator[](u32 idx) { return data_[idx]; }
-    const T& operator[](u32 idx) const { return data_[idx]; }
+    T& operator[](u32 idx) { return data[idx]; }
+    const T& operator[](u32 idx) const { return data[idx]; }
 };
 
 template <typename T>
@@ -86,8 +91,14 @@ struct Pool {
     {
         keys.init(capacity);
         data.init(capacity);
-        sm = ung_slotmap { keys.data_, capacity, 0 };
+        sm = ung_slotmap { keys.data, capacity, 0 };
         ung_slotmap_init(&sm);
+    }
+
+    void free()
+    {
+        keys.free();
+        data.free();
     }
 
     std::pair<u64, T*> insert()

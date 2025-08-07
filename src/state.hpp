@@ -136,8 +136,8 @@ struct State {
     // SDL
     SDL_Window* window;
     void* context; // SDL_GLContext
-    ung_event_callback event_callback = nullptr;
-    void* event_callback_ctx = nullptr;
+    ung_event_callback event_callback;
+    void* event_callback_ctx;
     u32 win_width;
     u32 win_height;
 

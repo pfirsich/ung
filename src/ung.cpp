@@ -33,6 +33,7 @@ EXPORT void ung_init(ung_init_params params)
         allocator = *params.allocator;
     }
     state = allocate<State>();
+    std::memset(state, 0, sizeof(State));
 
     if (params.window_mode.fullscreen_mode == UNG_FULLSCREEN_MODE_DEFAULT) {
         params.window_mode.fullscreen_mode = UNG_FULLSCREEN_MODE_WINDOWED;
@@ -184,10 +185,16 @@ EXPORT void ung_init(ung_init_params params)
         .size = sizeof(UCamera),
         .cpu_buffer = &state->u_camera,
     });
+
+    sound::init(params);
 }
 
 EXPORT void ung_shutdown()
 {
+    if (!state) {
+        return;
+    }
+
     mugfx_shutdown();
 
     if (state->context) {
@@ -196,6 +203,11 @@ EXPORT void ung_shutdown()
     if (state->window) {
         SDL_DestroyWindow(state->window);
     }
+
+    state->transforms.free();
+    state->materials.free();
+    state->cameras.free();
+    state->geometry_data.free();
 
     deallocate(state);
 }
