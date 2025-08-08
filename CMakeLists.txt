@@ -32,6 +32,7 @@ set_no_rtti(um)
 set(UNG_SOURCES
   src/ung.cpp
   src/allocator.cpp
+  src/random.cpp
   src/sound.cpp
 )
 

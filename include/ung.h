@@ -449,6 +449,28 @@ float ung_sound_group_get_volume(uint8_t group);
 void ung_sound_group_set_volume(uint8_t group, float vol);
 void ung_sound_group_set_paused(uint8_t group, bool paused);
 
+/*
+ * Random Number Generator
+ */
+uint64_t ung_random_get_state();
+void ung_random_set_state(uint64_t state);
+
+// This returns the "raw" random value from the RNG without any processing.
+// Use this to build your own random primitives on top.
+uint64_t ung_random_u64();
+uint64_t ung_random_u64_s(uint64_t* state);
+
+// min and max are always inclusive!
+
+uint64_t ung_random_uint(uint64_t min, uint64_t max);
+uint64_t ung_random_uint_s(uint64_t min, uint64_t max, uint64_t* state);
+
+int64_t ung_random_int(int64_t min, int64_t max);
+int64_t ung_random_int_s(int64_t min, int64_t max, uint64_t* state);
+
+float ung_random_float(float min, float max);
+float ung_random_float_s(float min, float max, uint64_t* state);
+
 // You don't have to use ung_run, but it will handle the mainloop in emscripten for you.
 // Return true if you want the program to continue and false if you want to terminate.
 typedef bool (*ung_mainloop_func)(void* ctx, float dt);
