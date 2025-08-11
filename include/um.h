@@ -8,6 +8,8 @@ typedef struct {
     float x, y, z;
 } um_vec3;
 
+um_vec3 um_vec3_from_ptr(const float v[3]);
+void um_vec3_to_ptr(um_vec3 v, float p[3]);
 float um_vec3_len(um_vec3 v);
 float um_vec3_len_sq(um_vec3 v);
 um_vec3 um_vec3_normalized(um_vec3 v);
@@ -29,6 +31,8 @@ typedef struct {
     float x, y, z, w;
 } um_vec4;
 
+um_vec4 um_vec4_from_ptr(const float v[4]);
+void um_vec4_to_ptr(um_vec4 v, float p[4]);
 float um_vec4_len(um_vec4 v);
 float um_vec4_len_sq(um_vec4 v);
 um_vec4 um_vec4_normalized(um_vec4 v);
@@ -55,6 +59,8 @@ typedef struct {
 
 // Quaternion
 
+um_quat um_quat_from_ptr(const float q[4]);
+void um_quat_to_ptr(um_quat q, float p[4]);
 um_quat um_quat_identity();
 float um_quat_len(um_quat q);
 um_quat um_quat_normalized(um_quat q);
@@ -68,6 +74,8 @@ um_vec3 um_quat_mul_vec3(um_quat q, um_vec3 v);
 
 // Matrix
 
+um_mat um_mat_from_ptr(const float m[16]);
+void um_mat_to_ptr(um_mat m, float p[16]);
 um_mat um_mat_identity();
 um_mat um_mat_scale(um_vec3 v);
 um_mat um_mat_rotate(um_vec3 axis, float angle);

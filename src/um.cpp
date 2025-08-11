@@ -1,7 +1,19 @@
 #include "um.h"
+
+#include <cstring>
 #include <math.h>
 
 #define PIf 3.14159265358979323846f
+
+um_vec3 um_vec3_from_ptr(const float v[3])
+{
+    return { v[0], v[1], v[2] };
+}
+
+void um_vec3_to_ptr(um_vec3 v, float p[3])
+{
+    std::memcpy(p, &v.x, sizeof(float) * 3);
+}
 
 float um_vec3_len(um_vec3 v)
 {
@@ -67,6 +79,16 @@ bool um_vec3_eq(um_vec3 a, um_vec3 b)
 }
 
 // Vec4 implementations
+um_vec4 um_vec4_ptr(const float v[4])
+{
+    return { v[0], v[1], v[2], v[3] };
+}
+
+void um_vec4_to_ptr(um_vec4 v, float p[4])
+{
+    std::memcpy(p, &v.x, sizeof(float) * 4);
+}
+
 float um_vec4_len(um_vec4 v)
 {
     return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w);
@@ -127,6 +149,16 @@ bool um_vec4_eq(um_vec4 a, um_vec4 b)
 }
 
 // Quaternion implementations
+um_quat um_quat_from_ptr(const float v[4])
+{
+    return { v[0], v[1], v[2], v[3] };
+}
+
+void um_quat_to_ptr(um_quat q, float p[4])
+{
+    std::memcpy(p, &q.w, sizeof(float) * 4);
+}
+
 um_quat um_quat_identity()
 {
     return { 1.0f, 0.0f, 0.0f, 0.0f };
@@ -281,6 +313,19 @@ um_vec3 um_quat_mul_vec3(um_quat q, um_vec3 v)
 }
 
 // Matrix implementations
+um_mat um_mat_from_ptr(const float m[16])
+{
+    um_mat mat;
+    // I hope this is fine?
+    std::memcpy(&mat, m, sizeof(float) * 16);
+    return mat;
+}
+
+void um_mat_to_ptr(um_mat m, float p[16])
+{
+    std::memcpy(p, &m.cols[0].x, sizeof(float) * 16);
+}
+
 um_mat um_mat_identity()
 {
     um_mat m = {};
