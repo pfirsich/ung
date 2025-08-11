@@ -399,6 +399,38 @@ um_mat um_mat_from_quat(um_quat q)
     return m;
 }
 
+void um_mat_decompose_trs(um_mat m, um_vec3* translation, um_quat* rotation, um_vec3* scale)
+{
+    // translation
+    *translation = { m.cols[3].x, m.cols[3].y, m.cols[3].z };
+
+    // vec3 columns
+    const auto c0 = um_vec3_from_ptr(&m.cols[0].x);
+    const auto c1 = um_vec3_from_ptr(&m.cols[1].x);
+    const auto c2 = um_vec3_from_ptr(&m.cols[2].x);
+
+    // scale
+    *scale = { um_vec3_len(c0), um_vec3_len(c1), um_vec3_len(c2) };
+
+    // remove scale to get rotation basis
+    um_vec3 n0 = um_vec3_mul(c0, 1.0f / scale->x);
+    um_vec3 n1 = um_vec3_mul(c1, 1.0f / scale->y);
+    um_vec3 n2 = um_vec3_mul(c2, 1.0f / scale->z);
+
+    // Build a pure rotation matrix from n0|n1|n2
+    auto r = um_mat_identity();
+    r.cols[0].x = n0.x;
+    r.cols[0].y = n0.y;
+    r.cols[0].z = n0.z;
+    r.cols[1].x = n1.x;
+    r.cols[1].y = n1.y;
+    r.cols[1].z = n1.z;
+    r.cols[2].x = n2.x;
+    r.cols[2].y = n2.y;
+    r.cols[2].z = n2.z;
+    *rotation = um_quat_from_matrix(r);
+}
+
 um_mat um_mat_translate(um_vec3 vec)
 {
     um_mat m = um_mat_identity();

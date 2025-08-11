@@ -84,6 +84,7 @@ um_mat um_mat_ortho(float left, float right, float bottom, float top, float near
 um_mat um_mat_perspective(float fovy, float aspect, float near, float far);
 um_mat um_mat_look_at(um_vec3 eye, um_vec3 target, um_vec3 up);
 um_mat um_mat_from_quat(um_quat q);
+void um_mat_decompose_trs(um_mat m, um_vec3* translation, um_quat* rotation, um_vec3* scale);
 
 um_mat um_mat_transpose(um_mat m);
 um_mat um_mat_invert(um_mat m);
