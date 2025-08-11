@@ -46,6 +46,14 @@ typedef struct {
     uint64_t id;
 } ung_sound_id;
 
+typedef struct {
+    uint64_t id;
+} ung_skeleton_id;
+
+typedef struct {
+    uint64_t id;
+} ung_animation_id;
+
 typedef mugfx_texture_id ung_texture_id;
 typedef mugfx_shader_id ung_shader_id;
 typedef mugfx_geometry_id ung_draw_geometry_id;
@@ -117,6 +125,8 @@ typedef struct {
     uint32_t max_num_sound_sources; // default: 64
     uint32_t max_num_sounds; // default: 64
     uint32_t num_sound_groups; // default: 4
+    uint32_t max_num_skeletons; // default: 64
+    uint32_t max_num_animations; // default: 256
     mugfx_init_params mugfx_params;
     bool debug; // do error checking and panic if something is wrong
 } ung_init_params;
@@ -402,6 +412,106 @@ void ung_camera_set_orthographic_z(
 ung_transform_id ung_camera_get_transform(ung_camera_id camera);
 void ung_camera_get_view_matrix(ung_camera_id camera, float matrix[16]);
 void ung_camera_get_projection_matrix(ung_camera_id camera, float matrix[16]);
+
+/*
+ * Animation
+ */
+typedef struct {
+    float inverse_bind_matrix[16];
+    int16_t parent_index; // negative is root
+} ung_skeleton_joint;
+
+typedef struct {
+    float translation[3];
+    float rotation[4]; // quat: wxyz
+    float scale[3];
+} ung_joint_transform;
+
+typedef struct {
+    uint16_t num_joints;
+    const ung_skeleton_joint* joints; // these will be copied
+    // optional local bind pose transforms, one per joint, will be copied.
+    // if not provided, it will be determined from the inverse bind matrices
+    const ung_joint_transform* local_bind;
+} ung_skeleton_create_params;
+
+// The joints must be topologically ordered (i.e. parent before child!)
+ung_skeleton_id ung_skeleton_create(ung_skeleton_create_params params);
+void ung_skeleton_destroy(ung_skeleton_id skel);
+
+// This is already done on creation.
+void ung_skeleton_reset_to_bind_pose(ung_skeleton_id skel);
+
+// The returned pointer is valid for the lifetime of the skeleton.
+// The returned joint transforms are local to the parent and should be written
+// before obtaining joint matrices using the function below.
+ung_joint_transform* ung_skeleton_get_joint_transforms(ung_skeleton_id skel, uint16_t* num_joints);
+
+// Returns a pointer to num_joints joint matrices (mat4) to pass to a shader.
+// The returned pointer is valid for the lifetime of the skeleton.
+// The joint matrices are updated when this function is called (so it is not cheap).
+const float* ung_skeleton_update_joint_matrices(ung_skeleton_id skel, uint16_t* num_joints);
+
+// The weights are not normalized!
+// for each joint i: `out[i] = a[i] * a_weight + b[i] * b_weight * joint_mask[i]`
+// you can use this to mask single joints from b (as a float for flexibility).
+// joint_mask may be NULL.
+// translation and scale are interpolated linearly, rotation is NLERPed.
+// results are undefined for: a_weight + b_weight * joint_mask[i] == 0
+void ung_blend_poses(const ung_joint_transform* a, float a_weight, const ung_joint_transform* b,
+    float b_weight, const float* joint_mask, ung_joint_transform* out, uint16_t num_joints);
+
+typedef enum {
+    UNG_JOINT_DOF_INVALID = 0,
+    UNG_JOINT_DOF_TRANSLATION,
+    UNG_JOINT_DOF_ROTATION,
+    UNG_JOINT_DOF_SCALE,
+} ung_joint_dof;
+
+typedef struct {
+    uint16_t joint_index;
+    ung_joint_dof dof;
+} ung_animation_key;
+
+typedef enum {
+    // add scalar, vec2, vec4 later, when needed
+    UNG_ANIM_SAMPLER_TYPE_INVALID = 0,
+    UNG_ANIM_SAMPLER_TYPE_VEC3,
+    UNG_ANIM_SAMPLER_TYPE_QUAT,
+} ung_animation_sampler_type;
+
+typedef enum {
+    UNG_ANIM_INTERP_INVALID = 0,
+    UNG_ANIM_INTERP_STEP,
+    UNG_ANIM_INTERP_LINEAR,
+    // UNG_ANIM_INTERP_CUBIC,
+} ung_animation_interp;
+
+typedef struct {
+    ung_animation_key key;
+    ung_animation_sampler_type sampler_type;
+    ung_animation_interp interp_type;
+    size_t num_samples;
+    // times and values are copied as well, times must be sorted (ascending)!
+    const float* times;
+    const float* values; // vec3 or quat per sample
+} ung_animation_channel;
+
+typedef struct {
+    // channels will be copied in ung_animation_create
+    const ung_animation_channel* channels;
+    size_t num_channels;
+    float duration_s;
+} ung_animation_create_params;
+
+ung_animation_id ung_animation_create(ung_animation_create_params params);
+void ung_animation_destroy(ung_animation_id anim);
+
+float ung_animation_get_duration(ung_animation_id anim);
+
+// t will be clamped to [0, duration_s]
+void ung_animation_sample(
+    ung_animation_id anim, float t, ung_joint_transform* joints, uint16_t num_joints);
 
 /*
  * Render Context
