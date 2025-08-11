@@ -26,7 +26,8 @@ struct Game {
 
     void init()
     {
-        material = ung_material_load("examples/hello_game.vert", "examples/hello_game.frag",
+        material = ung_material_load("examples/assets/hello_game.vert",
+            "examples/assets/hello_game.frag",
             { .mugfx_params = { .cull_face = MUGFX_CULL_FACE_MODE_NONE } });
 
         const auto texture = ung_texture_load("examples/assets/checkerboard.png", false, {});
@@ -52,7 +53,7 @@ struct Game {
         ui_camera = ung_camera_create();
         ung_camera_set_orthographic_fullscreen(ui_camera);
 
-        sprite_material = ung_material_load("examples/sprite.vert", "examples/sprite.frag", {
+        sprite_material = ung_material_load("examples/assets/sprite.vert", "examples/assets/sprite.frag", {
             .mugfx_params = {
                   .depth_func = MUGFX_DEPTH_FUNC_ALWAYS,
                   .write_mask = MUGFX_WRITE_MASK_RGBA,
@@ -66,8 +67,8 @@ struct Game {
             {
                 .ttf_path = "examples/assets/NotoSans.ttf",
                 .load_params = { .size = 50, .atlas_size = 1024 },
-                .vert_path = "examples/sprite.vert",
-                .frag_path = "examples/text.frag",
+                .vert_path = "examples/assets/sprite.vert",
+                .frag_path = "examples/assets/text.frag",
             });
         utxt_draw_text(quads.data(), quads.size(), font.font,
             UTXT_LITERAL("Hallo, Jana! Guck dir mal den Text an :)"), 20.0f, 40.0f);
