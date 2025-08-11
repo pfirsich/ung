@@ -25,6 +25,10 @@ namespace sound {
     void shutdown();
 }
 
+namespace random {
+    void init();
+}
+
 State* state = nullptr;
 
 EXPORT ung_string ung_zstr(const char* str)
@@ -193,6 +197,8 @@ EXPORT void ung_init(ung_init_params params)
     });
 
     sound::init(params);
+
+    random::init();
 }
 
 EXPORT void ung_shutdown()
