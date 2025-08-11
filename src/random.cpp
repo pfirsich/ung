@@ -65,22 +65,22 @@ EXPORT void ung_random_set_state(uint64_t s)
     state = s;
 }
 
-uint64_t ung_random_u64()
+EXPORT uint64_t ung_random_u64()
 {
     return random(state);
 }
 
-uint64_t ung_random_u64_s(uint64_t* s)
+EXPORT uint64_t ung_random_u64_s(uint64_t* s)
 {
     return random(*s);
 }
 
-uint64_t ung_random_uint(uint64_t min, uint64_t max)
+EXPORT uint64_t ung_random_uint(uint64_t min, uint64_t max)
 {
     return ung_random_uint_s(min, max, &state);
 }
 
-uint64_t ung_random_uint_s(uint64_t min, uint64_t max, uint64_t* s)
+EXPORT uint64_t ung_random_uint_s(uint64_t min, uint64_t max, uint64_t* s)
 {
     assert(min <= max);
     if (min == max) {
@@ -107,12 +107,12 @@ uint64_t ung_random_uint_s(uint64_t min, uint64_t max, uint64_t* s)
     }
 }
 
-int64_t ung_random_int(int64_t min, int64_t max)
+EXPORT int64_t ung_random_int(int64_t min, int64_t max)
 {
     return ung_random_int_s(min, max, &state);
 }
 
-int64_t ung_random_int_s(int64_t min, int64_t max, uint64_t* s)
+EXPORT int64_t ung_random_int_s(int64_t min, int64_t max, uint64_t* s)
 {
     assert(min <= max);
     if (min == max) {
