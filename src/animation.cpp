@@ -286,7 +286,7 @@ EXPORT ung_animation_id ung_animation_create(ung_animation_create_params params)
         dst.times = allocate<float>(dst.num_samples);
         std::memcpy(dst.times, src.times, sizeof(float) * dst.num_samples);
         for (size_t s = 0; s < dst.num_samples - 1; ++s) {
-            assert(src.times[s] < src.times[s + 1]);
+            assert(dst.times[s] < dst.times[s + 1]);
         }
 
         const size_t stride = dst.sampler_type == UNG_ANIM_SAMPLER_TYPE_VEC3 ? 3 : 4;
