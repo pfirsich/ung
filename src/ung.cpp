@@ -114,6 +114,8 @@ EXPORT void ung_init(ung_init_params params)
         std::exit(1);
     }
 
+    SDL_GL_SetSwapInterval(params.window_mode.vsync);
+
     // mugfx
     if (!params.mugfx_params.allocator) {
         params.mugfx_params.allocator = &mugfx_alloc;
