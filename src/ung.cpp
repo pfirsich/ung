@@ -1238,8 +1238,8 @@ EXPORT void ung_material_update(ung_material_id material)
     }
 }
 
-EXPORT mugfx_texture_id ung_texture_load(
-    const char* path, bool flip_y, mugfx_texture_create_params params)
+static mugfx_texture_id create_texture(
+    const void* data, int width, int height, int comp, mugfx_texture_create_params params)
 {
     mugfx_pixel_format pixel_formats[] {
         MUGFX_PIXEL_FORMAT_DEFAULT,
@@ -1248,13 +1248,6 @@ EXPORT mugfx_texture_id ung_texture_load(
         MUGFX_PIXEL_FORMAT_RGB8,
         MUGFX_PIXEL_FORMAT_RGBA8,
     };
-    int width, height, comp;
-    stbi_set_flip_vertically_on_load(flip_y);
-    auto data = stbi_load(path, &width, &height, &comp, 0);
-    if (!data) {
-        std::fprintf(stderr, "Could not load texture: %s\n", stbi_failure_reason());
-        std::exit(1);
-    }
     assert(width > 0 && height > 0 && comp > 0);
     assert(comp <= 4);
     params.width = static_cast<usize>(width);
@@ -1263,7 +1256,36 @@ EXPORT mugfx_texture_id ung_texture_load(
     params.data.length = static_cast<usize>(width * height * comp);
     params.format = pixel_formats[comp];
     params.data_format = pixel_formats[comp];
-    const auto texture = mugfx_texture_create(params);
+    return mugfx_texture_create(params);
+}
+
+EXPORT mugfx_texture_id ung_texture_load(
+    const char* path, bool flip_y, mugfx_texture_create_params params)
+{
+    int width, height, comp;
+    stbi_set_flip_vertically_on_load(flip_y);
+    auto data = stbi_load(path, &width, &height, &comp, 0);
+    if (!data) {
+        std::fprintf(stderr, "Could not load texture: %s\n", stbi_failure_reason());
+        std::exit(1);
+    }
+    const auto texture = create_texture(data, width, height, comp, params);
+    stbi_image_free(data);
+    return texture;
+}
+
+EXPORT mugfx_texture_id ung_texture_load_buffer(
+    const void* buffer, size_t size, bool flip_y, mugfx_texture_create_params params)
+{
+
+    int width, height, comp;
+    stbi_set_flip_vertically_on_load(flip_y);
+    auto data = stbi_load_from_memory((const uint8_t*)buffer, (int)size, &width, &height, &comp, 0);
+    if (!data) {
+        std::fprintf(stderr, "Could not load texture: %s\n", stbi_failure_reason());
+        std::exit(1);
+    }
+    const auto texture = create_texture(data, width, height, comp, params);
     stbi_image_free(data);
     return texture;
 }

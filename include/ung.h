@@ -325,8 +325,10 @@ void ung_material_update(ung_material_id material);
 /*
  * Resources
  */
-ung_texture_id ung_texture_load(const char* path, bool flip_y,
-    mugfx_texture_create_params params); // many params fields are ignored
+ung_texture_id ung_texture_load(const char* path, bool flip_y, mugfx_texture_create_params params);
+
+ung_texture_id ung_texture_load_buffer(
+    const void* buffer, size_t size, bool flip_y, mugfx_texture_create_params params);
 
 // This will load the source from the given path and try to determine the bindings from either
 // a .meta file (same as path + ".meta") (TODO) or from parsing the GLSL source. If the bindings are
