@@ -559,10 +559,10 @@ um_mat um_mat_invert(um_mat m)
     return result;
 }
 
-um_vec3 um_mat_mul_vec3(um_mat m, um_vec3 v)
+um_vec3 um_mat_mul_vec3(um_mat m, um_vec3 v, float w)
 {
     // Convert vector to homogeneous coordinates (w=1)
-    um_vec4 v4 = { v.x, v.y, v.z, 1.0f };
+    um_vec4 v4 = { v.x, v.y, v.z, w };
 
     // Multiply matrix by vector
     um_vec4 result = um_mat_mul_vec4(m, v4);

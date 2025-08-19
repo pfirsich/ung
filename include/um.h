@@ -89,7 +89,7 @@ void um_mat_decompose_trs(um_mat m, um_vec3* translation, um_quat* rotation, um_
 um_mat um_mat_transpose(um_mat m);
 um_mat um_mat_invert(um_mat m);
 
-um_vec3 um_mat_mul_vec3(um_mat m, um_vec3 v);
+um_vec3 um_mat_mul_vec3(um_mat m, um_vec3 v, float w);
 um_vec4 um_mat_mul_vec4(um_mat m, um_vec4 v);
 
 um_mat um_mat_mul(um_mat a, um_mat b);
