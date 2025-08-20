@@ -34,6 +34,12 @@ namespace animation {
     void shutdown();
 }
 
+namespace files {
+    void init(ung_init_params params);
+    void begin_frame();
+    void shutdown();
+}
+
 State* state = nullptr;
 
 EXPORT ung_string ung_zstr(const char* str)
@@ -222,6 +228,8 @@ EXPORT void ung_init(ung_init_params params)
     random::init();
 
     animation::init(params);
+
+    files::init(params);
 }
 
 EXPORT void ung_shutdown()
@@ -229,6 +237,8 @@ EXPORT void ung_shutdown()
     if (!state) {
         return;
     }
+
+    files::shutdown();
 
     animation::shutdown();
 
@@ -2152,6 +2162,7 @@ EXPORT void ung_camera_get_projection_matrix(ung_camera_id camera, float matrix[
 
 EXPORT void ung_begin_frame()
 {
+    files::begin_frame();
     mugfx_begin_frame();
     state->u_frame.time.x = 0.0f;
     state->u_frame.time.y = 0.0f;

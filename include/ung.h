@@ -133,6 +133,7 @@ typedef struct {
     uint32_t num_sound_groups; // default: 4
     uint32_t max_num_skeletons; // default: 64
     uint32_t max_num_animations; // default: 256
+    uint32_t max_num_file_watches; // default: 128
     mugfx_init_params mugfx;
     bool debug; // do error checking and panic if something is wrong
 } ung_init_params;
@@ -353,6 +354,28 @@ void ung_material_update(ung_material_id material);
  */
 char* ung_read_whole_file(const char* path, size_t* size);
 void ung_free_file_data(char* data, size_t size);
+
+// Returns platform file modification time, units are platform-dependent (both rate and epoch).
+// You should only compare values with values returned from the same function earlier (i.e. check if
+// a file is newer/same/older, nothing else).
+// Returns 0 on WASM (noop).
+// In the future this function might insert the path into a file watcher on first use, but for now
+// it will just stat(), which is probably good enough.
+uint64_t ung_file_get_mtime(const char* path);
+
+typedef void (*ung_file_watch_cb)(void* ctx, const char* changed_path);
+
+typedef struct {
+    uint64_t id;
+} ung_file_watch_id;
+
+// The callback will be called from ung_begin_frame.
+// Inside this function you can queue _reloads, which will be applied transactionally when this
+// function terminates. If you need to update a watch, just recreate it.
+ung_file_watch_id ung_file_watch_create(
+    const char* const* paths, size_t num_paths, ung_file_watch_cb cb, void* ctx);
+
+void ung_file_watch_destroy(ung_file_watch_id watch);
 
 /*
  * Geometry
