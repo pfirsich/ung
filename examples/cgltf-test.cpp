@@ -13,7 +13,7 @@
 #include <cgltf.h>
 
 struct Primitive {
-    ung_draw_geometry_id geometry;
+    ung_geometry_id geometry;
     ung_material_id material;
 };
 

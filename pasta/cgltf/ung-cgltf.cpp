@@ -117,7 +117,7 @@ static size_t get_location(const cgltf_attribute* attr)
     }
 }
 
-EXPORT mugfx_geometry_id get_geom_from_cgltf(const cgltf_primitive* prim)
+EXPORT ung_geometry_id get_geom_from_cgltf(const cgltf_primitive* prim)
 {
     assert(prim);
 
@@ -217,7 +217,7 @@ EXPORT mugfx_geometry_id get_geom_from_cgltf(const cgltf_primitive* prim)
         params.index_count = acc->count;
     }
 
-    return mugfx_geometry_create(params);
+    return ung_geometry_create(params);
 }
 
 static int16_t get_joint_index(const cgltf_skin* skin, const cgltf_node* node)

@@ -36,6 +36,18 @@ struct UTransform {
     um_mat model_view_projection;
 };
 
+struct Texture {
+    mugfx_texture_id texture;
+};
+
+struct Shader {
+    mugfx_shader_id shader;
+};
+
+struct Geomery {
+    mugfx_geometry_id geometry;
+};
+
 struct Transform {
     um_mat local_matrix;
     um_quat orientation;
@@ -75,7 +87,7 @@ struct SpriteRenderer {
     size_t num_indices;
     mugfx_buffer_id vertex_buffer;
     mugfx_buffer_id index_buffer;
-    ung_draw_geometry_id geometry;
+    ung_geometry_id geometry;
     size_t vertex_offset;
     size_t index_offset;
     ung_material_id current_material;
@@ -114,6 +126,9 @@ struct InputState {
 
 struct State {
     // Pools
+    Pool<Texture> textures;
+    Pool<Shader> shaders;
+    Pool<Geomery> geometries;
     Pool<Transform> transforms;
     Pool<Material> materials;
     Pool<Camera> cameras;

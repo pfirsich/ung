@@ -118,9 +118,26 @@ EXPORT void ung_init(ung_init_params params)
     if (!params.mugfx.allocator) {
         params.mugfx.allocator = &mugfx_alloc;
     }
+
+    params.max_num_textures = params.max_num_textures ? params.max_num_textures : 128;
+    params.mugfx.max_num_textures
+        = params.mugfx.max_num_textures ? params.mugfx.max_num_textures : params.max_num_textures;
+
+    params.max_num_shaders = params.max_num_shaders ? params.max_num_shaders : 64;
+    params.mugfx.max_num_shaders
+        = params.mugfx.max_num_shaders ? params.mugfx.max_num_shaders : params.max_num_shaders;
+
+    params.max_num_geometries = params.max_num_geometries ? params.max_num_geometries : 1024;
+    params.mugfx.max_num_geometries = params.mugfx.max_num_geometries
+        ? params.mugfx.max_num_geometries
+        : params.max_num_geometries;
+
     mugfx_init(params.mugfx);
 
     // Objects
+    state->textures.init(params.max_num_textures);
+    state->shaders.init(params.max_num_shaders);
+    state->geometries.init(params.max_num_geometries);
     state->transforms.init(params.max_num_transforms ? params.max_num_transforms : 1024);
     state->materials.init(params.max_num_materials ? params.max_num_materials : 1024);
     state->cameras.init(params.max_num_cameras ? params.max_num_cameras : 8);
@@ -158,7 +175,7 @@ EXPORT void ung_init(ung_init_params params)
         .data = { .data = nullptr, .length = sizeof(u16) * state->sprite_renderer.num_indices },
     });
 
-    state->sprite_renderer.geometry = mugfx_geometry_create({
+    state->sprite_renderer.geometry = ung_geometry_create({
         .vertex_buffers = {
             {
                 .buffer = state->sprite_renderer.vertex_buffer,
@@ -1083,185 +1100,24 @@ EXPORT ung_transform_id ung_transform_get_next_sibling(ung_transform_id transfor
     return { trafo->next_sibling };
 }
 
-Material* get_material(u64 key)
+EXPORT ung_shader_id ung_shader_create(mugfx_shader_create_params params)
 {
-    return get(state->materials, key);
-}
-
-EXPORT ung_material_id ung_material_create(ung_material_create_params params)
-{
-    const auto [id, material] = state->materials.insert();
-    material->material = mugfx_material_create(params.mugfx);
-    material->bindings.append() = {
-        .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
-        .uniform_data = { .binding = 0, .id = state->constant_data },
-    };
-    material->bindings.append() = {
-        .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
-        .uniform_data = { .binding = 1, .id = state->frame_data },
-    };
-    material->bindings.append() = {
-        .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
-        .uniform_data = { .binding = 2, .id = state->camera_data },
-    };
-    material->bindings.append() = {
-        .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
-        .uniform_data = { .binding = 3, .id = { 0 } }, // Transform, replaced before draw
-    };
-    if (params.constant_data_size) {
-        material->constant_data = mugfx_uniform_data_create({
-            .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_CONSTANT,
-            .size = params.constant_data_size,
-        });
-        if (params.constant_data) {
-            std::memcpy(mugfx_uniform_data_get_ptr(material->constant_data), params.constant_data,
-                params.constant_data_size);
-        }
-        material->bindings.append() = {
-            .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
-            .uniform_data = { .binding = 8, .id = material->constant_data },
-        };
+    const auto sh = mugfx_shader_create(params);
+    if (!sh.id) {
+        std::exit(1);
     }
-    if (params.dynamic_data_size) {
-        material->dynamic_data = mugfx_uniform_data_create({
-            .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_FRAME,
-            .size = params.dynamic_data_size,
-        });
-        material->bindings.append() = {
-            .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
-            .uniform_data = { .binding = 9, .id = material->dynamic_data },
-        };
-    }
+    const auto [id, shader] = state->shaders.insert();
+    shader->shader = sh;
     return { id };
 }
 
-EXPORT ung_material_id ung_material_load(
-    const char* vert_path, const char* frag_path, ung_material_create_params params)
+EXPORT void ung_shader_recreate(ung_shader_id shader, mugfx_shader_create_params params)
 {
-    const auto vert = ung_shader_load(MUGFX_SHADER_STAGE_VERTEX, vert_path, {});
-    const auto frag = ung_shader_load(MUGFX_SHADER_STAGE_FRAGMENT, frag_path, {});
-    assert(params.mugfx.vert_shader.id == 0);
-    params.mugfx.vert_shader = vert;
-    assert(params.mugfx.frag_shader.id == 0);
-    params.mugfx.frag_shader = frag;
-    return ung_material_create(params);
-}
-
-EXPORT void ung_material_destroy(ung_material_id material)
-{
-    auto mat = get_material(material.id);
-    if (mat->constant_data.id) {
-        mugfx_uniform_data_destroy(mat->constant_data);
+    const auto sh = mugfx_shader_create(params);
+    if (!sh.id) {
+        return;
     }
-    if (mat->dynamic_data.id) {
-        mugfx_uniform_data_destroy(mat->dynamic_data);
-    }
-    mugfx_material_destroy(mat->material);
-    state->materials.remove(material.id);
-}
-
-static bool is_same_binding(const mugfx_draw_binding& a, const mugfx_draw_binding& b)
-{
-    if (a.type != b.type) {
-        return false;
-    }
-    switch (a.type) {
-    case MUGFX_BINDING_TYPE_UNIFORM_DATA:
-        return a.uniform_data.binding == b.uniform_data.binding;
-    case MUGFX_BINDING_TYPE_TEXTURE:
-        return a.texture.binding == b.texture.binding;
-    case MUGFX_BINDING_TYPE_BUFFER:
-        return a.buffer.binding == b.buffer.binding;
-    default:
-        return false;
-    }
-}
-
-EXPORT void ung_material_set_binding(ung_material_id material, mugfx_draw_binding binding)
-{
-    auto mat = get_material(material.id);
-    for (auto& b : mat->bindings) {
-        if (is_same_binding(b, binding)) {
-            b = binding;
-            return;
-        }
-    }
-    mat->bindings.append() = binding;
-}
-
-EXPORT void ung_material_set_uniform_data(
-    ung_material_id material, u32 binding, mugfx_uniform_data_id uniform_data)
-{
-    ung_material_set_binding(material,
-        {
-            .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
-            .uniform_data = { .binding = binding, .id = uniform_data },
-        });
-}
-
-EXPORT void ung_material_set_texture(
-    ung_material_id material, u32 binding, mugfx_texture_id texture)
-{
-    ung_material_set_binding(material,
-        {
-            .type = MUGFX_BINDING_TYPE_TEXTURE,
-            .texture = { .binding = binding, .id = texture },
-        });
-}
-
-EXPORT ung_texture_id ung_material_get_texture(ung_material_id material, uint32_t binding)
-{
-    auto mat = get_material(material.id);
-    for (const auto& b : mat->bindings) {
-        if (b.type == MUGFX_BINDING_TYPE_TEXTURE && b.texture.binding == binding) {
-            return b.texture.id;
-        }
-    }
-    return { 0 };
-}
-
-EXPORT void* ung_material_get_dynamic_data(ung_material_id material)
-{
-    auto mat = get_material(material.id);
-    return mat->dynamic_data.id ? mugfx_uniform_data_get_ptr(mat->dynamic_data) : nullptr;
-}
-
-EXPORT void ung_material_update(ung_material_id material)
-{
-    auto mat = get_material(material.id);
-    if (mat->dynamic_data.id) {
-        mugfx_uniform_data_update(mat->dynamic_data);
-    }
-}
-
-EXPORT mugfx_texture_id ung_texture_load(
-    const char* path, bool flip_y, mugfx_texture_create_params params)
-{
-    mugfx_pixel_format pixel_formats[] {
-        MUGFX_PIXEL_FORMAT_DEFAULT,
-        MUGFX_PIXEL_FORMAT_R8,
-        MUGFX_PIXEL_FORMAT_RG8,
-        MUGFX_PIXEL_FORMAT_RGB8,
-        MUGFX_PIXEL_FORMAT_RGBA8,
-    };
-    int width, height, comp;
-    stbi_set_flip_vertically_on_load(flip_y);
-    auto data = stbi_load(path, &width, &height, &comp, 0);
-    if (!data) {
-        std::fprintf(stderr, "Could not load texture: %s\n", stbi_failure_reason());
-        std::exit(1);
-    }
-    assert(width > 0 && height > 0 && comp > 0);
-    assert(comp <= 4);
-    params.width = static_cast<usize>(width);
-    params.height = static_cast<usize>(height);
-    params.data.data = data;
-    params.data.length = static_cast<usize>(width * height * comp);
-    params.format = pixel_formats[comp];
-    params.data_format = pixel_formats[comp];
-    const auto texture = mugfx_texture_create(params);
-    stbi_image_free(data);
-    return texture;
+    get(state->shaders, shader.id)->shader = sh;
 }
 
 static std::string_view ltrim(std::string_view str)
@@ -1328,8 +1184,7 @@ static bool parse_shader_bindings(std::string_view src, mugfx_shader_create_para
     return true;
 }
 
-EXPORT mugfx_shader_id ung_shader_load(
-    mugfx_shader_stage stage, const char* path, mugfx_shader_create_params params)
+mugfx_shader_id load_shader(mugfx_shader_stage stage, const char* path)
 {
     usize size = 0;
     const auto data = ung_read_whole_file(path, &size);
@@ -1337,6 +1192,7 @@ EXPORT mugfx_shader_id ung_shader_load(
         std::printf("Could not read '%s': %s\n", path, SDL_GetError());
         return { 0 };
     }
+    mugfx_shader_create_params params;
     params.stage = stage;
     params.source = data;
     if (params.bindings[0].type == MUGFX_SHADER_BINDING_TYPE_NONE) {
@@ -1351,6 +1207,245 @@ EXPORT mugfx_shader_id ung_shader_load(
     const auto shader = mugfx_shader_create(params);
     ung_free_file_data(data, size);
     return shader;
+}
+
+EXPORT ung_shader_id ung_shader_load(mugfx_shader_stage stage, const char* path)
+{
+    const auto sh = load_shader(stage, path);
+    if (!sh.id) {
+        std::exit(1);
+    }
+    const auto [id, shader] = state->shaders.insert();
+    shader->shader = sh;
+    return { id };
+}
+
+EXPORT void ung_shader_reload(ung_shader_id shader, mugfx_shader_stage stage, const char* path)
+{
+    const auto sh = load_shader(stage, path);
+    if (!sh.id) {
+        return;
+    }
+    get(state->shaders, shader.id)->shader = sh;
+}
+
+EXPORT ung_texture_id ung_texture_create(mugfx_texture_create_params params)
+{
+    const auto t = mugfx_texture_create(params);
+    if (!t.id) {
+        std::exit(1);
+    }
+    const auto [id, texture] = state->textures.insert();
+    texture->texture = t;
+    return { id };
+}
+
+EXPORT void ung_texture_recreate(ung_texture_id texture, mugfx_texture_create_params params)
+{
+    const auto t = mugfx_texture_create(params);
+    if (!t.id) {
+        return;
+    }
+    get(state->textures, texture.id)->texture = t;
+}
+
+static mugfx_texture_id load_texture(
+    const char* path, bool flip_y, mugfx_texture_create_params params)
+{
+    mugfx_pixel_format pixel_formats[] {
+        MUGFX_PIXEL_FORMAT_DEFAULT,
+        MUGFX_PIXEL_FORMAT_R8,
+        MUGFX_PIXEL_FORMAT_RG8,
+        MUGFX_PIXEL_FORMAT_RGB8,
+        MUGFX_PIXEL_FORMAT_RGBA8,
+    };
+    int width, height, comp;
+    stbi_set_flip_vertically_on_load(flip_y);
+    auto data = stbi_load(path, &width, &height, &comp, 0);
+    if (!data) {
+        std::fprintf(stderr, "Could not load texture: %s\n", stbi_failure_reason());
+        std::exit(1);
+    }
+    assert(width > 0 && height > 0 && comp > 0);
+    assert(comp <= 4);
+    params.width = static_cast<usize>(width);
+    params.height = static_cast<usize>(height);
+    params.data.data = data;
+    params.data.length = static_cast<usize>(width * height * comp);
+    params.format = pixel_formats[comp];
+    params.data_format = pixel_formats[comp];
+    const auto texture = mugfx_texture_create(params);
+    stbi_image_free(data);
+    return texture;
+}
+
+EXPORT ung_texture_id ung_texture_load(
+    const char* path, bool flip_y, mugfx_texture_create_params params)
+{
+    const auto t = load_texture(path, flip_y, params);
+    if (!t.id) {
+        std::exit(1);
+    }
+    const auto [id, texture] = state->textures.insert();
+    texture->texture = t;
+    return { id };
+}
+
+EXPORT void ung_texture_reload(
+    ung_texture_id texture, const char* path, bool flip_y, mugfx_texture_create_params params)
+{
+    const auto t = load_texture(path, flip_y, params);
+    if (!t.id) {
+        return;
+    }
+    get(state->textures, texture.id)->texture = t;
+}
+
+Material* get_material(u64 key)
+{
+    return get(state->materials, key);
+}
+
+EXPORT ung_material_id ung_material_create(ung_material_create_params params)
+{
+    assert(params.mugfx.vert_shader.id == 0);
+    assert(params.mugfx.frag_shader.id == 0);
+    const auto vert = get(state->shaders, params.vert.id);
+    const auto frag = get(state->shaders, params.frag.id);
+    params.mugfx.vert_shader = vert->shader;
+    params.mugfx.frag_shader = frag->shader;
+
+    const auto [id, material] = state->materials.insert();
+    material->material = mugfx_material_create(params.mugfx);
+    material->bindings.append() = {
+        .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
+        .uniform_data = { .binding = 0, .id = state->constant_data },
+    };
+    material->bindings.append() = {
+        .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
+        .uniform_data = { .binding = 1, .id = state->frame_data },
+    };
+    material->bindings.append() = {
+        .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
+        .uniform_data = { .binding = 2, .id = state->camera_data },
+    };
+    material->bindings.append() = {
+        .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
+        .uniform_data = { .binding = 3, .id = { 0 } }, // Transform, replaced before draw
+    };
+    if (params.constant_data_size) {
+        material->constant_data = mugfx_uniform_data_create({
+            .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_CONSTANT,
+            .size = params.constant_data_size,
+        });
+        if (params.constant_data) {
+            std::memcpy(mugfx_uniform_data_get_ptr(material->constant_data), params.constant_data,
+                params.constant_data_size);
+        }
+        material->bindings.append() = {
+            .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
+            .uniform_data = { .binding = 8, .id = material->constant_data },
+        };
+    }
+    if (params.dynamic_data_size) {
+        material->dynamic_data = mugfx_uniform_data_create({
+            .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_FRAME,
+            .size = params.dynamic_data_size,
+        });
+        material->bindings.append() = {
+            .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
+            .uniform_data = { .binding = 9, .id = material->dynamic_data },
+        };
+    }
+    return { id };
+}
+
+EXPORT ung_material_id ung_material_load(
+    const char* vert_path, const char* frag_path, ung_material_create_params params)
+{
+    const auto vert = ung_shader_load(MUGFX_SHADER_STAGE_VERTEX, vert_path);
+    const auto frag = ung_shader_load(MUGFX_SHADER_STAGE_FRAGMENT, frag_path);
+    assert(params.vert.id == 0);
+    params.vert = vert;
+    assert(params.frag.id == 0);
+    params.frag = frag;
+    return ung_material_create(params);
+}
+
+EXPORT void ung_material_destroy(ung_material_id material)
+{
+    auto mat = get_material(material.id);
+    if (mat->constant_data.id) {
+        mugfx_uniform_data_destroy(mat->constant_data);
+    }
+    if (mat->dynamic_data.id) {
+        mugfx_uniform_data_destroy(mat->dynamic_data);
+    }
+    mugfx_material_destroy(mat->material);
+    state->materials.remove(material.id);
+}
+
+static bool is_same_binding(const mugfx_draw_binding& a, const mugfx_draw_binding& b)
+{
+    if (a.type != b.type) {
+        return false;
+    }
+    switch (a.type) {
+    case MUGFX_BINDING_TYPE_UNIFORM_DATA:
+        return a.uniform_data.binding == b.uniform_data.binding;
+    case MUGFX_BINDING_TYPE_TEXTURE:
+        return a.texture.binding == b.texture.binding;
+    case MUGFX_BINDING_TYPE_BUFFER:
+        return a.buffer.binding == b.buffer.binding;
+    default:
+        return false;
+    }
+}
+
+EXPORT void ung_material_set_binding(ung_material_id material, mugfx_draw_binding binding)
+{
+    auto mat = get_material(material.id);
+    for (auto& b : mat->bindings) {
+        if (is_same_binding(b, binding)) {
+            b = binding;
+            return;
+        }
+    }
+    mat->bindings.append() = binding;
+}
+
+EXPORT void ung_material_set_uniform_data(
+    ung_material_id material, u32 binding, mugfx_uniform_data_id uniform_data)
+{
+    ung_material_set_binding(material,
+        {
+            .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
+            .uniform_data = { .binding = binding, .id = uniform_data },
+        });
+}
+
+EXPORT void ung_material_set_texture(ung_material_id material, u32 binding, ung_texture_id texture)
+{
+    const auto tex = get(state->textures, texture.id);
+    ung_material_set_binding(material,
+        {
+            .type = MUGFX_BINDING_TYPE_TEXTURE,
+            .texture = { .binding = binding, .id = tex->texture },
+        });
+}
+
+EXPORT void* ung_material_get_dynamic_data(ung_material_id material)
+{
+    auto mat = get_material(material.id);
+    return mat->dynamic_data.id ? mugfx_uniform_data_get_ptr(mat->dynamic_data) : nullptr;
+}
+
+EXPORT void ung_material_update(ung_material_id material)
+{
+    auto mat = get_material(material.id);
+    if (mat->dynamic_data.id) {
+        mugfx_uniform_data_update(mat->dynamic_data);
+    }
 }
 
 EXPORT char* ung_read_whole_file(const char* path, usize* size)
@@ -1399,7 +1494,7 @@ struct Vertex {
     u8 r, g, b, a;
 };
 
-EXPORT mugfx_geometry_id ung_draw_geometry_box(float w, float h, float d)
+EXPORT ung_geometry_id ung_geometry_box(float w, float h, float d)
 {
     const auto n_px = pack1010102(1.0f, 0.0f, 0.0f);
     const auto n_nx = pack1010102(-1.0f, 0.0f, 0.0f);
@@ -1473,7 +1568,7 @@ EXPORT mugfx_geometry_id ung_draw_geometry_box(float w, float h, float d)
         .data = { indices.data(), indices.size() * sizeof(indices[0]) },
     });
 
-    const auto geometry = mugfx_geometry_create({
+    const auto geometry = ung_geometry_create({
         .vertex_buffers = {
             {
                 .buffer = vertex_buffer,
@@ -1644,71 +1739,27 @@ EXPORT void ung_geometry_data_destroy(ung_geometry_data gdata)
     deallocate(gdata.indices, gdata.num_indices);
 }
 
-static Vertex* build_vertex_buffer_data(usize num_vertices, fastObjMesh* mesh)
+EXPORT ung_geometry_id ung_geometry_create(mugfx_geometry_create_params params)
 {
-    auto vertices = allocate<Vertex>(num_vertices);
-
-    usize vert_idx = 0;
-    for (unsigned int face = 0; face < mesh->face_count; ++face) {
-        u8 r = 0xff, g = 0xff, b = 0xff, a = 0xff;
-        if (mesh->face_materials[face] < mesh->material_count) {
-            const auto& mat = mesh->materials[mesh->face_materials[face]];
-            r = f2u8norm(mat.Kd[0]);
-            g = f2u8norm(mat.Kd[1]);
-            b = f2u8norm(mat.Kd[2]);
-            a = f2u8norm(mat.d);
-        }
-
-        for (unsigned int vtx = 0; vtx < mesh->face_vertices[face]; ++vtx) {
-            const auto [p, t, n] = mesh->indices[vert_idx];
-
-            const auto x = mesh->positions[3 * p + 0];
-            const auto y = mesh->positions[3 * p + 1];
-            const auto z = mesh->positions[3 * p + 2];
-
-            // t or n might be zero, but we don't have to check, becaust fast_obj will add a
-            // dummy element that's all zeros.
-            const auto nx = mesh->normals[3 * n + 0];
-            const auto ny = mesh->normals[3 * n + 1];
-            const auto nz = mesh->normals[3 * n + 2];
-
-            const auto u = mesh->texcoords[2 * t + 0];
-            const auto v = mesh->texcoords[2 * t + 1];
-
-            vertices[vert_idx]
-                = { x, y, z, f2u16norm(u), f2u16norm(v), pack1010102(nx, ny, nz), r, g, b, a };
-            vert_idx++;
-        }
+    const auto geom = mugfx_geometry_create(params);
+    if (!geom.id) {
+        std::exit(1);
     }
 
-    return vertices;
+    const auto [id, geometry] = state->geometries.insert();
+    geometry->geometry = geom;
+    return { id };
 }
 
-template <typename Idx>
-static Idx* build_index_buffer_data(usize num_indices, fastObjMesh* mesh)
+EXPORT void ung_geometry_recreate(ung_geometry_id geometry_id, mugfx_geometry_create_params params)
 {
-    auto indices = allocate<Idx>(num_indices);
-
-    auto indices_it = indices;
-    Idx base_vtx = 0;
-    for (unsigned int face = 0; face < mesh->face_count; ++face) {
-        if (mesh->face_vertices[face] == 3) {
-            *(indices_it++) = base_vtx + 0;
-            *(indices_it++) = base_vtx + 1;
-            *(indices_it++) = base_vtx + 2;
-        } else if (mesh->face_vertices[face] == 4) {
-            *(indices_it++) = base_vtx + 0;
-            *(indices_it++) = base_vtx + 1;
-            *(indices_it++) = base_vtx + 2;
-
-            *(indices_it++) = base_vtx + 0;
-            *(indices_it++) = base_vtx + 2;
-            *(indices_it++) = base_vtx + 3;
-        }
-        base_vtx += (u16)mesh->face_vertices[face];
+    const auto geom = mugfx_geometry_create(params);
+    if (!geom.id) {
+        return;
     }
 
-    return indices;
+    auto geometry = get(state->geometries, geometry_id.id);
+    geometry->geometry = geom;
 }
 
 static mugfx_geometry_id create_geometry(
@@ -1773,7 +1824,7 @@ static Vertex* build_vertex_buffer_data(ung_geometry_data gdata)
     return vertices;
 }
 
-EXPORT ung_draw_geometry_id ung_draw_geometry_from_data(ung_geometry_data gdata)
+static mugfx_geometry_id geometry_from_data(ung_geometry_data gdata)
 {
     // We cannot build a proper indexed mesh trivially, because a face will reference different
     // position, texcoord and normal indices, so you would have to generate all used combinations
@@ -1781,20 +1832,66 @@ EXPORT ung_draw_geometry_id ung_draw_geometry_from_data(ung_geometry_data gdata)
 
     auto vertices = build_vertex_buffer_data(gdata);
 
-    const auto geometry
+    const auto geom
         = create_geometry(vertices, gdata.num_vertices, gdata.indices, gdata.num_indices);
 
     deallocate(vertices, gdata.num_vertices);
 
-    return geometry;
+    return geom;
 }
 
-EXPORT ung_draw_geometry_id ung_draw_geometry_load(const char* path)
+EXPORT ung_geometry_id ung_geometry_create_from_data(ung_geometry_data gdata)
+{
+    const auto geom = geometry_from_data(gdata);
+    if (!geom.id) {
+        std::exit(1);
+    }
+
+    const auto [id, geometry] = state->geometries.insert();
+    geometry->geometry = geom;
+    return { id };
+}
+
+mugfx_geometry_id load_geometry(const char* path)
 {
     const auto gdata = ung_geometry_data_load(path);
-    const auto geom = ung_draw_geometry_from_data(gdata);
+    const auto geom = geometry_from_data(gdata);
     ung_geometry_data_destroy(gdata);
     return geom;
+}
+
+EXPORT ung_geometry_id ung_geometry_load(const char* path)
+{
+    const auto geom = load_geometry(path);
+    if (!geom.id) {
+        std::exit(1);
+    }
+
+    const auto [id, geometry] = state->geometries.insert();
+    geometry->geometry = geom;
+    return { id };
+}
+
+EXPORT void ung_geometry_reload(ung_geometry_id geometry_id, const char* path)
+{
+    const auto geom = load_geometry(path);
+    if (!geom.id) {
+        return;
+    }
+
+    const auto geometry = get(state->geometries, geometry_id.id);
+    geometry->geometry = geom;
+}
+
+static mugfx_texture_id get_texture(ung_material_id material, uint32_t binding)
+{
+    auto mat = get_material(material.id);
+    for (const auto& b : mat->bindings) {
+        if (b.type == MUGFX_BINDING_TYPE_TEXTURE && b.texture.binding == binding) {
+            return b.texture.id;
+        }
+    }
+    return { 0 };
 }
 
 EXPORT void ung_sprite_set_material(ung_material_id mat)
@@ -1802,7 +1899,7 @@ EXPORT void ung_sprite_set_material(ung_material_id mat)
     if (mat.id != state->sprite_renderer.current_material.id) {
         ung_sprite_flush();
         state->sprite_renderer.current_material = mat;
-        const auto tex = ung_material_get_texture(mat, 0);
+        const auto tex = get_texture(mat, 0);
         mugfx_texture_get_size(tex, &state->sprite_renderer.current_tex_width,
             &state->sprite_renderer.current_tex_height);
     }
@@ -1911,14 +2008,14 @@ EXPORT void ung_sprite_add(
 EXPORT void ung_sprite_flush()
 {
     if (state->sprite_renderer.index_offset > 0) {
+        const auto geom = get(state->geometries, state->sprite_renderer.geometry.id);
         mugfx_buffer_update(state->sprite_renderer.vertex_buffer, 0,
             { .data = state->sprite_renderer.vertices,
                 .length = sizeof(SpriteRenderer::Vertex) * state->sprite_renderer.vertex_offset });
         mugfx_buffer_update(state->sprite_renderer.index_buffer, 0,
             { .data = state->sprite_renderer.indices,
                 .length = sizeof(u16) * state->sprite_renderer.index_offset });
-        mugfx_geometry_set_index_range(
-            state->sprite_renderer.geometry, 0, state->sprite_renderer.index_offset);
+        mugfx_geometry_set_index_range(geom->geometry, 0, state->sprite_renderer.index_offset);
         ung_draw(state->sprite_renderer.current_material, state->sprite_renderer.geometry,
             state->identity_trafo);
         state->sprite_renderer.vertex_offset = 0;
@@ -1934,7 +2031,7 @@ EXPORT void ung_font_load_ttf(ung_font* font, ung_font_load_ttf_param params)
     const auto atlas_data
         = utxt_get_atlas(font->font, &atlas_width, &atlas_height, &atlas_channels);
     assert(atlas_channels == 1);
-    font->texture = mugfx_texture_create({
+    font->texture = ung_texture_create({
         .width = atlas_width,
         .height = atlas_height,
         .format = MUGFX_PIXEL_FORMAT_R8,
@@ -2081,11 +2178,11 @@ EXPORT void ung_begin_pass(mugfx_render_target_id target, ung_camera_id camera)
     }
 }
 
-EXPORT void ung_draw(
-    ung_material_id material, mugfx_geometry_id geometry, ung_transform_id transform)
+EXPORT void ung_draw(ung_material_id material, ung_geometry_id geometry, ung_transform_id transform)
 {
     static UTransform u_trafo;
     auto mat = get_material(material.id);
+    auto geom = get(state->geometries, geometry.id);
     auto trafo = get_transform(transform.id);
 
     u_trafo.model = get_world_matrix(trafo);
@@ -2098,7 +2195,7 @@ EXPORT void ung_draw(
     assert(mat->bindings[3].uniform_data.binding == 3);
     mat->bindings[3].uniform_data.id = trafo->uniform_data;
 
-    mugfx_draw(mat->material, geometry, mat->bindings.data(), mat->bindings.size());
+    mugfx_draw(mat->material, geom->geometry, mat->bindings.data(), mat->bindings.size());
 }
 
 EXPORT void ung_end_pass()

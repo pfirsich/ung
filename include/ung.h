@@ -50,9 +50,17 @@ typedef struct {
     uint64_t id;
 } ung_animation_id;
 
-typedef mugfx_texture_id ung_texture_id;
-typedef mugfx_shader_id ung_shader_id;
-typedef mugfx_geometry_id ung_draw_geometry_id;
+typedef struct {
+    uint64_t id;
+} ung_texture_id;
+
+typedef struct {
+    uint64_t id;
+} ung_shader_id;
+
+typedef struct {
+    uint64_t id;
+} ung_geometry_id;
 
 typedef struct {
     const char* data;
@@ -111,6 +119,9 @@ typedef struct {
     const char* title;
     ung_window_mode window_mode;
     ung_allocator* allocator;
+    uint32_t max_num_textures; // default: 128
+    uint32_t max_num_shaders; // default: 64
+    uint32_t max_num_geometries; // default: 1024
     uint32_t max_num_transforms; // default: 1024
     uint32_t max_num_materials; // default: 1024
     uint32_t max_num_cameras; // default: 8
@@ -287,6 +298,25 @@ ung_transform_id ung_transform_get_first_child(ung_transform_id transform);
 ung_transform_id ung_transform_get_next_sibling(ung_transform_id transform);
 
 /*
+ * Graphics
+ */
+ung_shader_id ung_shader_create(mugfx_shader_create_params params);
+void ung_shader_recreate(ung_shader_id shader, mugfx_shader_create_params params);
+
+// This will load the source from the given path and try to determine the bindings from either
+// a .meta file (same as path + ".meta") (TODO) or from parsing the GLSL source. If the bindings are
+// already in params, no attempt to determine the bindings in another way is made.
+ung_shader_id ung_shader_load(mugfx_shader_stage stage, const char* path);
+void ung_shader_reload(ung_shader_id shader, mugfx_shader_stage stage, const char* path);
+
+ung_texture_id ung_texture_create(mugfx_texture_create_params params);
+void ung_texture_recreate(ung_texture_id texture, mugfx_texture_create_params params);
+
+ung_texture_id ung_texture_load(const char* path, bool flip_y, mugfx_texture_create_params params);
+void ung_texture_reload(
+    ung_texture_id texture, const char* path, bool flip_y, mugfx_texture_create_params params);
+
+/*
  * Materials
  * These wrap a mugfx material (i.e. pipeline), all uniform buffers and bindings.
  * You should create a separate material for each different set of material parameters you want to
@@ -296,6 +326,8 @@ ung_transform_id ung_transform_get_next_sibling(ung_transform_id transform);
  */
 typedef struct {
     mugfx_material_create_params mugfx;
+    ung_shader_id vert;
+    ung_shader_id frag;
     const void* constant_data;
     size_t constant_data_size;
     size_t dynamic_data_size;
@@ -312,23 +344,13 @@ void ung_material_set_uniform_data(
 void ung_material_set_texture(ung_material_id material, uint32_t binding, ung_texture_id texture);
 // Getting this data pointer marks the associated uniform buffer dirty, because it is assumed
 // you modified it
-ung_texture_id ung_material_get_texture(ung_material_id material, uint32_t binding);
 void* ung_material_get_dynamic_data(ung_material_id material);
 // You can mark the associated uniform buffers dirty with this function
 void ung_material_update(ung_material_id material);
 
 /*
- * Resources
+ * Files
  */
-ung_texture_id ung_texture_load(const char* path, bool flip_y,
-    mugfx_texture_create_params params); // many params fields are ignored
-
-// This will load the source from the given path and try to determine the bindings from either
-// a .meta file (same as path + ".meta") (TODO) or from parsing the GLSL source. If the bindings are
-// already in params, no attempt to determine the bindings in another way is made.
-ung_shader_id ung_shader_load(
-    mugfx_shader_stage stage, const char* path, mugfx_shader_create_params params);
-
 char* ung_read_whole_file(const char* path, size_t* size);
 void ung_free_file_data(char* data, size_t size);
 
@@ -353,11 +375,14 @@ ung_geometry_data ung_geometry_data_box(float w, float h, float d);
 ung_geometry_data ung_geometry_data_sphere(float radius);
 void ung_geometry_data_destroy(ung_geometry_data gdata);
 
-ung_draw_geometry_id ung_draw_geometry_from_data(ung_geometry_data gdata);
+ung_geometry_id ung_geometry_create(mugfx_geometry_create_params params);
+void ung_geometry_recreate(ung_geometry_id geom, mugfx_geometry_create_params params);
+ung_geometry_id ung_geometry_create_from_data(ung_geometry_data gdata);
 // creates geometry data, creates draw geometry, destroys geometry data
-ung_draw_geometry_id ung_draw_geometry_load(const char* path);
-ung_draw_geometry_id ung_draw_geometry_box(float w, float h, float d);
-ung_draw_geometry_id ung_draw_geometry_sphere(float radius);
+ung_geometry_id ung_geometry_load(const char* path);
+void ung_geometry_reload(ung_geometry_id geom, const char* path);
+ung_geometry_id ung_geometry_box(float w, float h, float d);
+ung_geometry_id ung_geometry_sphere(float radius);
 
 /*
  * Sprites
@@ -529,7 +554,7 @@ void ung_animation_sample(
 // use mugfx_clear, mugfx_set_viewport, mugfx_set_scissor
 void ung_begin_frame();
 void ung_begin_pass(mugfx_render_target_id target, ung_camera_id camera);
-void ung_draw(ung_material_id material, ung_draw_geometry_id geometry, ung_transform_id transform);
+void ung_draw(ung_material_id material, ung_geometry_id geometry, ung_transform_id transform);
 void ung_end_pass();
 void ung_end_frame();
 
