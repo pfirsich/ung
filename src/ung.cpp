@@ -124,7 +124,6 @@ EXPORT void ung_init(ung_init_params params)
     state->transforms.init(params.max_num_transforms ? params.max_num_transforms : 1024);
     state->materials.init(params.max_num_materials ? params.max_num_materials : 1024);
     state->cameras.init(params.max_num_cameras ? params.max_num_cameras : 8);
-    state->geometry_data.init(params.max_num_geometry_data ? params.max_num_geometry_data : 256);
 
     state->identity_trafo = ung_transform_create();
 
@@ -230,7 +229,6 @@ EXPORT void ung_shutdown()
     state->transforms.free();
     state->materials.free();
     state->cameras.free();
-    state->geometry_data.free();
 
     deallocate(state);
 }
@@ -1504,44 +1502,6 @@ static float saturate(float v)
     return clamp(v, 0.0f, 1.0f);
 }
 
-GeometryData* get_geometry_data(u64 key)
-{
-    return get(state->geometry_data, key);
-}
-
-EXPORT ung_geometry_data_id ung_geometry_data_load(const char* path)
-{
-    const auto [id, gdata] = state->geometry_data.insert();
-
-    auto mesh = fast_obj_read(path);
-    gdata->mesh = (void*)mesh;
-    if (!mesh) {
-        std::printf("Failed to load geometry '%s'\n", path);
-        return { 0 };
-    }
-
-    gdata->num_vertices = 0;
-    gdata->num_indices = 0;
-    for (unsigned int face = 0; face < mesh->face_count; ++face) {
-        assert(mesh->face_vertices[face] == 3 || mesh->face_vertices[face] == 4);
-        gdata->num_vertices += mesh->face_vertices[face];
-        if (mesh->face_vertices[face] == 3) {
-            gdata->num_indices += 3;
-        } else if (mesh->face_vertices[face] == 4) {
-            gdata->num_indices += 6; // two triangles
-        }
-    }
-
-    return { id };
-}
-
-EXPORT void ung_geometry_data_destroy(ung_geometry_data_id gdata_id)
-{
-    auto gdata = get_geometry_data(gdata_id.id);
-    fast_obj_destroy((fastObjMesh*)gdata->mesh);
-    state->geometry_data.remove(gdata_id.id);
-}
-
 static u16 f2u16norm(float v)
 {
     return (u16)(65535.0f * saturate(v));
@@ -1550,6 +1510,138 @@ static u16 f2u16norm(float v)
 static u8 f2u8norm(float v)
 {
     return (u8)(255.0f * saturate(v));
+}
+
+EXPORT ung_geometry_data ung_geometry_data_load(const char* path)
+{
+    auto mesh = fast_obj_read(path);
+    if (!mesh) {
+        std::printf("Failed to load geometry '%s'\n", path);
+        return {};
+    }
+
+    ung_geometry_data gdata = {};
+
+    usize vidx = 0;
+    bool normals = false, texcoords = false, colors = false;
+    for (unsigned int face = 0; face < mesh->face_count; ++face) {
+        if (mesh->face_materials[face] < mesh->material_count) {
+            colors = true;
+        }
+
+        gdata.num_vertices += mesh->face_vertices[face];
+
+        if (mesh->face_vertices[face] == 3) {
+            gdata.num_indices += 3;
+        } else if (mesh->face_vertices[face] == 4) {
+            gdata.num_indices += 6; // two triangles
+        } else {
+            std::printf("Only triangles and quads are supported - '%s'\n", path);
+            return {};
+        }
+
+        for (unsigned int vtx = 0; vtx < mesh->face_vertices[face]; ++vtx) {
+            const auto [p, t, n] = mesh->indices[vidx++];
+            if (t) {
+                texcoords = true;
+            }
+            if (n) {
+                normals = true;
+            }
+        }
+    }
+
+    gdata.positions
+        = allocate<float>(gdata.num_vertices * (3 + normals * 3 + texcoords * 2 + colors * 4));
+    if (normals) {
+        gdata.normals = gdata.positions + gdata.num_vertices * 3;
+    }
+    if (texcoords) {
+        gdata.texcoords = gdata.positions + gdata.num_vertices * (3 + normals * 3);
+    }
+    if (colors) {
+        gdata.colors = gdata.positions + gdata.num_vertices * (3 + normals * 3 + texcoords * 2);
+    }
+
+    vidx = 0;
+    for (unsigned int face = 0; face < mesh->face_count; ++face) {
+        float r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f;
+        if (mesh->face_materials[face] < mesh->material_count) {
+            const auto& mat = mesh->materials[mesh->face_materials[face]];
+            r = mat.Kd[0];
+            g = mat.Kd[1];
+            b = mat.Kd[2];
+            a = mat.d;
+        }
+
+        for (unsigned int vtx = 0; vtx < mesh->face_vertices[face]; ++vtx) {
+            const auto [p, t, n] = mesh->indices[vidx];
+
+            gdata.positions[vidx * 3 + 0] = mesh->positions[3 * p + 0]; // x
+            gdata.positions[vidx * 3 + 1] = mesh->positions[3 * p + 1]; // y
+            gdata.positions[vidx * 3 + 2] = mesh->positions[3 * p + 2]; // z
+
+            // t or n might be zero, but we don't have to check, becaust fast_obj will add a
+            // dummy element that's all zeros.
+
+            if (gdata.texcoords) {
+                gdata.texcoords[vidx * 2 + 0] = mesh->texcoords[2 * t + 0]; // u
+                gdata.texcoords[vidx * 2 + 1] = mesh->texcoords[2 * t + 1]; // v
+            }
+
+            if (gdata.normals) {
+                gdata.normals[vidx * 3 + 0] = mesh->normals[3 * n + 0]; // x
+                gdata.normals[vidx * 3 + 1] = mesh->normals[3 * n + 1]; // y
+                gdata.normals[vidx * 3 + 2] = mesh->normals[3 * n + 2]; // z
+            }
+
+            if (gdata.colors) {
+                gdata.colors[vidx * 4 + 0] = r; // x
+                gdata.colors[vidx * 4 + 1] = g; // y
+                gdata.colors[vidx * 4 + 2] = b; // z
+                gdata.colors[vidx * 4 + 3] = a; // z
+            }
+
+            vidx++;
+        }
+    }
+
+    // TODO: Generate normals if none a present!
+
+    gdata.indices = allocate<uint32_t>(gdata.num_indices);
+
+    auto indices_it = gdata.indices;
+    uint32_t base_vtx = 0;
+    for (unsigned int face = 0; face < mesh->face_count; ++face) {
+        if (mesh->face_vertices[face] == 3) {
+            *(indices_it++) = base_vtx + 0;
+            *(indices_it++) = base_vtx + 1;
+            *(indices_it++) = base_vtx + 2;
+        } else if (mesh->face_vertices[face] == 4) {
+            *(indices_it++) = base_vtx + 0;
+            *(indices_it++) = base_vtx + 1;
+            *(indices_it++) = base_vtx + 2;
+
+            *(indices_it++) = base_vtx + 0;
+            *(indices_it++) = base_vtx + 2;
+            *(indices_it++) = base_vtx + 3;
+        }
+        base_vtx += mesh->face_vertices[face];
+    }
+
+    fast_obj_destroy(mesh);
+
+    return gdata;
+}
+
+EXPORT void ung_geometry_data_destroy(ung_geometry_data gdata)
+{
+    const bool normals = gdata.normals;
+    const bool texcoords = gdata.texcoords;
+    const bool colors = gdata.colors;
+    const auto num_floats = gdata.num_vertices * (3 + normals * 3 + texcoords * 2 + colors * 4);
+    deallocate(gdata.positions, num_floats);
+    deallocate(gdata.indices, gdata.num_indices);
 }
 
 static Vertex* build_vertex_buffer_data(usize num_vertices, fastObjMesh* mesh)
@@ -1620,7 +1712,7 @@ static Idx* build_index_buffer_data(usize num_indices, fastObjMesh* mesh)
 }
 
 static mugfx_geometry_id create_geometry(
-    Vertex* vertices, usize num_vertices, u16* indices, usize num_indices)
+    Vertex* vertices, usize num_vertices, u32* indices, usize num_indices)
 {
     mugfx_buffer_id vertex_buffer = mugfx_buffer_create({
         .target = MUGFX_BUFFER_TARGET_ARRAY,
@@ -1631,7 +1723,7 @@ static mugfx_geometry_id create_geometry(
     if (indices) {
         index_buffer = mugfx_buffer_create({
             .target = MUGFX_BUFFER_TARGET_INDEX,
-            .data = { indices, num_indices * sizeof(u16) },
+            .data = { indices, num_indices * sizeof(u32) },
         });
     }
 
@@ -1650,35 +1742,49 @@ static mugfx_geometry_id create_geometry(
     };
     if (index_buffer.id) {
         geometry_params.index_buffer = index_buffer;
-        geometry_params.index_type = MUGFX_INDEX_TYPE_U16;
+        geometry_params.index_type = MUGFX_INDEX_TYPE_U32;
     }
 
     return mugfx_geometry_create(geometry_params);
 }
 
-EXPORT ung_draw_geometry_id ung_draw_geometry_from_data(ung_geometry_data_id gdata_id)
+static Vertex* build_vertex_buffer_data(ung_geometry_data gdata)
 {
-    const auto gdata = get_geometry_data(gdata_id.id);
+    auto vertices = allocate<Vertex>(gdata.num_vertices);
+    for (size_t i = 0; i < gdata.num_vertices; ++i) {
+        const auto x = gdata.positions[i * 3 + 0];
+        const auto y = gdata.positions[i * 3 + 1];
+        const auto z = gdata.positions[i * 3 + 2];
 
-    // We cannot build an indexed mesh trivially, because a face will reference different position,
-    // texcoord and normal indices, so you would have to generate all used combinations and build
-    // new indices. It's too bothersome and will not be fast.
+        const auto u = f2u16norm(gdata.texcoords ? gdata.texcoords[i * 2 + 0] : 0.0f);
+        const auto v = f2u16norm(gdata.texcoords ? gdata.texcoords[i * 2 + 1] : 0.0f);
 
-    auto vertices = build_vertex_buffer_data(gdata->num_vertices, (fastObjMesh*)gdata->mesh);
+        const auto nx = gdata.normals ? gdata.normals[i * 3 + 0] : 0.0f;
+        const auto ny = gdata.normals ? gdata.normals[i * 3 + 1] : 0.0f;
+        const auto nz = gdata.normals ? gdata.normals[i * 3 + 2] : 0.0f;
 
-    // Only use index buffer if there are quad faces
-    u16* indices = nullptr;
-    if (gdata->num_indices != gdata->num_vertices) {
-        indices = build_index_buffer_data<u16>(gdata->num_indices, (fastObjMesh*)gdata->mesh);
+        const auto r = f2u8norm(gdata.colors ? gdata.colors[i * 4 + 0] : 1.0f);
+        const auto g = f2u8norm(gdata.colors ? gdata.colors[i * 4 + 1] : 1.0f);
+        const auto b = f2u8norm(gdata.colors ? gdata.colors[i * 4 + 2] : 1.0f);
+        const auto a = f2u8norm(gdata.colors ? gdata.colors[i * 4 + 3] : 1.0f);
+
+        vertices[i] = { x, y, z, u, v, pack1010102(nx, ny, nz), r, g, b, a };
     }
+    return vertices;
+}
+
+EXPORT ung_draw_geometry_id ung_draw_geometry_from_data(ung_geometry_data gdata)
+{
+    // We cannot build a proper indexed mesh trivially, because a face will reference different
+    // position, texcoord and normal indices, so you would have to generate all used combinations
+    // and build new indices. It's too bothersome and will not be fast.
+
+    auto vertices = build_vertex_buffer_data(gdata);
 
     const auto geometry
-        = create_geometry(vertices, gdata->num_vertices, indices, gdata->num_indices);
+        = create_geometry(vertices, gdata.num_vertices, gdata.indices, gdata.num_indices);
 
-    if (indices) {
-        deallocate(indices, gdata->num_indices);
-    }
-    deallocate(vertices, gdata->num_vertices);
+    deallocate(vertices, gdata.num_vertices);
 
     return geometry;
 }

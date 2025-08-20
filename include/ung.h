@@ -32,10 +32,6 @@ typedef struct {
 
 typedef struct {
     uint64_t id;
-} ung_geometry_data_id;
-
-typedef struct {
-    uint64_t id;
 } ung_gamepad_id;
 
 typedef struct {
@@ -118,7 +114,6 @@ typedef struct {
     uint32_t max_num_transforms; // default: 1024
     uint32_t max_num_materials; // default: 1024
     uint32_t max_num_cameras; // default: 8
-    uint32_t max_num_geometry_data; // default: 256
     uint32_t max_num_sprite_vertices; // default: 1024*16
     uint32_t max_num_sprite_indices; // default: 1024*16
     uint32_t max_num_gamepads; // default: 8
@@ -340,11 +335,26 @@ void ung_free_file_data(char* data, size_t size);
 /*
  * Geometry
  */
-ung_geometry_data_id ung_geometry_data_load(const char* path); // Wavefront OBJ
-void ung_geometry_data_destroy(ung_geometry_data_id gdata);
+typedef struct {
+    size_t num_vertices;
+    float* positions; // non-null, 3 values per vertex (xyz)
+    float* normals; // null or 3 values per vertex (xyz)
+    float* texcoords; // null or 2 values per vertex (uv)
+    float* colors; // null or 4 values per vertex (rgba)
+    uint16_t* joints; // null or 4 values per vertex
+    float* weights; // null or 4 values per vertex
 
-ung_draw_geometry_id ung_draw_geometry_from_data(ung_geometry_data_id gdata);
-// loads data, creates draw geometry, frees data
+    size_t num_indices; // always 3 vertices per face
+    uint32_t* indices;
+} ung_geometry_data;
+
+ung_geometry_data ung_geometry_data_load(const char* path); // Wavefront OBJ
+ung_geometry_data ung_geometry_data_box(float w, float h, float d);
+ung_geometry_data ung_geometry_data_sphere(float radius);
+void ung_geometry_data_destroy(ung_geometry_data gdata);
+
+ung_draw_geometry_id ung_draw_geometry_from_data(ung_geometry_data gdata);
+// creates geometry data, creates draw geometry, destroys geometry data
 ung_draw_geometry_id ung_draw_geometry_load(const char* path);
 ung_draw_geometry_id ung_draw_geometry_box(float w, float h, float d);
 ung_draw_geometry_id ung_draw_geometry_sphere(float radius);

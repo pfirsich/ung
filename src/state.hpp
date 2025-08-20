@@ -62,12 +62,6 @@ struct Camera {
     ung_transform_id transform;
 };
 
-struct GeometryData {
-    void* mesh; // fastObjMesh
-    usize num_vertices;
-    usize num_indices;
-};
-
 struct SpriteRenderer {
     struct Vertex {
         float x, y;
@@ -123,7 +117,6 @@ struct State {
     Pool<Transform> transforms;
     Pool<Material> materials;
     Pool<Camera> cameras;
-    Pool<GeometryData> geometry_data;
 
     // Uniform Buffers
     UConstant u_constant;
