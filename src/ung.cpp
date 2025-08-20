@@ -1116,18 +1116,22 @@ EXPORT ung_shader_id ung_shader_create(mugfx_shader_create_params params)
     if (!sh.id) {
         std::exit(1);
     }
+
     const auto [id, shader] = state->shaders.insert();
     shader->shader = sh;
     return { id };
 }
 
-EXPORT void ung_shader_recreate(ung_shader_id shader, mugfx_shader_create_params params)
+EXPORT void ung_shader_recreate(ung_shader_id shader_id, mugfx_shader_create_params params)
 {
     const auto sh = mugfx_shader_create(params);
     if (!sh.id) {
         return;
     }
-    get(state->shaders, shader.id)->shader = sh;
+
+    auto shader = get(state->shaders, shader_id.id);
+    mugfx_shader_destroy(shader->shader);
+    shader->shader = sh;
 }
 
 static std::string_view ltrim(std::string_view str)
@@ -1225,18 +1229,22 @@ EXPORT ung_shader_id ung_shader_load(mugfx_shader_stage stage, const char* path)
     if (!sh.id) {
         std::exit(1);
     }
+
     const auto [id, shader] = state->shaders.insert();
     shader->shader = sh;
     return { id };
 }
 
-EXPORT void ung_shader_reload(ung_shader_id shader, mugfx_shader_stage stage, const char* path)
+EXPORT void ung_shader_reload(ung_shader_id shader_id, mugfx_shader_stage stage, const char* path)
 {
     const auto sh = load_shader(stage, path);
     if (!sh.id) {
         return;
     }
-    get(state->shaders, shader.id)->shader = sh;
+
+    const auto shader = get(state->shaders, shader_id.id);
+    mugfx_shader_destroy(shader->shader);
+    shader->shader = sh;
 }
 
 EXPORT ung_texture_id ung_texture_create(mugfx_texture_create_params params)
@@ -1245,18 +1253,22 @@ EXPORT ung_texture_id ung_texture_create(mugfx_texture_create_params params)
     if (!t.id) {
         std::exit(1);
     }
+
     const auto [id, texture] = state->textures.insert();
     texture->texture = t;
     return { id };
 }
 
-EXPORT void ung_texture_recreate(ung_texture_id texture, mugfx_texture_create_params params)
+EXPORT void ung_texture_recreate(ung_texture_id texture_id, mugfx_texture_create_params params)
 {
     const auto t = mugfx_texture_create(params);
     if (!t.id) {
         return;
     }
-    get(state->textures, texture.id)->texture = t;
+
+    auto texture = get(state->textures, texture_id.id);
+    mugfx_texture_destroy(texture->texture);
+    texture->texture = t;
 }
 
 static mugfx_texture_id load_texture(
@@ -1296,19 +1308,23 @@ EXPORT ung_texture_id ung_texture_load(
     if (!t.id) {
         std::exit(1);
     }
+
     const auto [id, texture] = state->textures.insert();
     texture->texture = t;
     return { id };
 }
 
 EXPORT void ung_texture_reload(
-    ung_texture_id texture, const char* path, bool flip_y, mugfx_texture_create_params params)
+    ung_texture_id texture_id, const char* path, bool flip_y, mugfx_texture_create_params params)
 {
     const auto t = load_texture(path, flip_y, params);
     if (!t.id) {
         return;
     }
-    get(state->textures, texture.id)->texture = t;
+
+    auto texture = get(state->textures, texture_id.id);
+    mugfx_texture_destroy(texture->texture);
+    texture->texture = t;
 }
 
 Material* get_material(u64 key)
@@ -1769,6 +1785,7 @@ EXPORT void ung_geometry_recreate(ung_geometry_id geometry_id, mugfx_geometry_cr
     }
 
     auto geometry = get(state->geometries, geometry_id.id);
+    mugfx_geometry_destroy(geometry->geometry);
     geometry->geometry = geom;
 }
 
@@ -1890,6 +1907,7 @@ EXPORT void ung_geometry_reload(ung_geometry_id geometry_id, const char* path)
     }
 
     const auto geometry = get(state->geometries, geometry_id.id);
+    mugfx_geometry_destroy(geometry->geometry);
     geometry->geometry = geom;
 }
 
