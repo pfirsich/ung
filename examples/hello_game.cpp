@@ -28,7 +28,7 @@ struct Game {
     {
         material = ung_material_load("examples/assets/hello_game.vert",
             "examples/assets/hello_game.frag",
-            { .mugfx_params = { .cull_face = MUGFX_CULL_FACE_MODE_NONE } });
+            { .mugfx = { .cull_face = MUGFX_CULL_FACE_MODE_NONE } });
 
         const auto texture = ung_texture_load("examples/assets/checkerboard.png", false, {});
         ung_material_set_texture(material, 0, texture);
@@ -54,7 +54,7 @@ struct Game {
         ung_camera_set_orthographic_fullscreen(ui_camera);
 
         sprite_material = ung_material_load("examples/assets/sprite.vert", "examples/assets/sprite.frag", {
-            .mugfx_params = {
+            .mugfx = {
                   .depth_func = MUGFX_DEPTH_FUNC_ALWAYS,
                   .write_mask = MUGFX_WRITE_MASK_RGBA,
                   .cull_face = MUGFX_CULL_FACE_MODE_NONE,

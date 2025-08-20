@@ -45,7 +45,7 @@ struct Game {
         material
             = ung_material_load("examples/assets/skinning.vert", "examples/assets/skinning.frag",
                 {
-                    .mugfx_params = { .cull_face = MUGFX_CULL_FACE_MODE_NONE },
+                    .mugfx = { .cull_face = MUGFX_CULL_FACE_MODE_NONE },
                     .dynamic_data_size = 64 * 16 * sizeof(float),
                 });
         const auto texture = ung_texture_load("examples/assets/checkerboard.png", false, {});

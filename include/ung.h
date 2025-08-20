@@ -122,7 +122,7 @@ typedef struct {
     uint32_t num_sound_groups; // default: 4
     uint32_t max_num_skeletons; // default: 64
     uint32_t max_num_animations; // default: 256
-    mugfx_init_params mugfx_params;
+    mugfx_init_params mugfx;
     bool debug; // do error checking and panic if something is wrong
 } ung_init_params;
 
@@ -295,7 +295,7 @@ ung_transform_id ung_transform_get_next_sibling(ung_transform_id transform);
  * uniform buffer with the constant material data will be at binding 8, the dynamic data at 9.
  */
 typedef struct {
-    mugfx_material_create_params mugfx_params;
+    mugfx_material_create_params mugfx;
     const void* constant_data;
     size_t constant_data_size;
     size_t dynamic_data_size;

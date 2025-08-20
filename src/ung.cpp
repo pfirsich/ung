@@ -115,10 +115,10 @@ EXPORT void ung_init(ung_init_params params)
     }
 
     // mugfx
-    if (!params.mugfx_params.allocator) {
-        params.mugfx_params.allocator = &mugfx_alloc;
+    if (!params.mugfx.allocator) {
+        params.mugfx.allocator = &mugfx_alloc;
     }
-    mugfx_init(params.mugfx_params);
+    mugfx_init(params.mugfx);
 
     // Objects
     state->transforms.init(params.max_num_transforms ? params.max_num_transforms : 1024);
@@ -1091,7 +1091,7 @@ Material* get_material(u64 key)
 EXPORT ung_material_id ung_material_create(ung_material_create_params params)
 {
     const auto [id, material] = state->materials.insert();
-    material->material = mugfx_material_create(params.mugfx_params);
+    material->material = mugfx_material_create(params.mugfx);
     material->bindings.append() = {
         .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
         .uniform_data = { .binding = 0, .id = state->constant_data },
@@ -1140,10 +1140,10 @@ EXPORT ung_material_id ung_material_load(
 {
     const auto vert = ung_shader_load(MUGFX_SHADER_STAGE_VERTEX, vert_path, {});
     const auto frag = ung_shader_load(MUGFX_SHADER_STAGE_FRAGMENT, frag_path, {});
-    assert(params.mugfx_params.vert_shader.id == 0);
-    params.mugfx_params.vert_shader = vert;
-    assert(params.mugfx_params.frag_shader.id == 0);
-    params.mugfx_params.frag_shader = frag;
+    assert(params.mugfx.vert_shader.id == 0);
+    params.mugfx.vert_shader = vert;
+    assert(params.mugfx.frag_shader.id == 0);
+    params.mugfx.frag_shader = frag;
     return ung_material_create(params);
 }
 
@@ -1942,7 +1942,7 @@ EXPORT void ung_font_load_ttf(ung_font* font, ung_font_load_ttf_param params)
         .data_format = MUGFX_PIXEL_FORMAT_R8,
     });
 
-    auto& gfxparams = params.material_params.mugfx_params;
+    auto& gfxparams = params.material_params.mugfx;
     gfxparams.depth_func = gfxparams.depth_func ? gfxparams.depth_func : MUGFX_DEPTH_FUNC_ALWAYS;
     gfxparams.write_mask = gfxparams.write_mask ? gfxparams.write_mask : MUGFX_WRITE_MASK_RGBA,
     gfxparams.cull_face = gfxparams.cull_face ? gfxparams.cull_face : MUGFX_CULL_FACE_MODE_NONE,
@@ -1950,7 +1950,7 @@ EXPORT void ung_font_load_ttf(ung_font* font, ung_font_load_ttf_param params)
     gfxparams.dst_blend = gfxparams.dst_blend ? gfxparams.dst_blend : MUGFX_BLEND_FUNC_ONE_MINUS_SRC_ALPHA,
 
     font->material = ung_material_load(params.vert_path, params.frag_path, {
-        .mugfx_params = {
+        .mugfx = {
             .depth_func = MUGFX_DEPTH_FUNC_ALWAYS,
             .write_mask = MUGFX_WRITE_MASK_RGBA,
             .cull_face = MUGFX_CULL_FACE_MODE_NONE,
