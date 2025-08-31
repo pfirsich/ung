@@ -22,6 +22,8 @@ using usize = size_t;
 
 #include "allocator.hpp"
 
+#define EXPORT extern "C"
+
 namespace ung {
 
 template <typename T, size_t Capacity>

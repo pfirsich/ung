@@ -3,8 +3,6 @@
 
 #include "types.hpp"
 
-#define EXPORT extern "C"
-
 namespace ung {
 static constexpr u32 MaxIdx = 0xFF'FFFF;
 static constexpr u64 FreeMask = 0xFF00'0000'0000'0000;

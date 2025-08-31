@@ -7,8 +7,6 @@
 
 #include "um.h"
 
-#define EXPORT extern "C"
-
 /*
  * I realize this seems much more complicated than it could be, but I go through all this trouble
  * so I can avoid initializing sounds as much as possible.

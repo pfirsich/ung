@@ -1,9 +1,7 @@
-#include "types.hpp"
-
 #include <cstdio>
 #include <cstdlib>
 
-#define EXPORT extern "C"
+#include "types.hpp"
 
 namespace ung::files {
 struct Watch {

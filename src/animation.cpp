@@ -7,8 +7,6 @@
 
 #include "um.h"
 
-#define EXPORT extern "C"
-
 namespace ung::animation {
 struct Joint {
     um_mat inverse_bind_matrix;

@@ -4,8 +4,6 @@
 #include <cstdlib>
 #include <random>
 
-#define EXPORT extern "C"
-
 namespace ung::random {
 
 uint64_t state;
