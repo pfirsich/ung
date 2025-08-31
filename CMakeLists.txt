@@ -36,6 +36,7 @@ set(UNG_SOURCES
   src/files.cpp
   src/input.cpp
   src/random.cpp
+  src/slotmap.cpp
   src/sound.cpp
 )
 
