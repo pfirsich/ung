@@ -403,7 +403,7 @@ void ung_geometry_recreate(ung_geometry_id geom, mugfx_geometry_create_params pa
 ung_geometry_id ung_geometry_create_from_data(ung_geometry_data gdata);
 // creates geometry data, creates draw geometry, destroys geometry data
 ung_geometry_id ung_geometry_load(const char* path);
-void ung_geometry_reload(ung_geometry_id geom, const char* path);
+bool ung_geometry_reload(ung_geometry_id geom, const char* path);
 ung_geometry_id ung_geometry_box(float w, float h, float d);
 ung_geometry_id ung_geometry_sphere(float radius);
 

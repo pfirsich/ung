@@ -1199,6 +1199,18 @@ mugfx_geometry_id load_geometry(const char* path)
     return geom;
 }
 
+static bool reload_geometry(Geometry* geometry, const char* path)
+{
+    const auto geom = load_geometry(path);
+    if (!geom.id) {
+        return false;
+    }
+
+    mugfx_geometry_destroy(geometry->geometry);
+    geometry->geometry = geom;
+    return true;
+}
+
 EXPORT ung_geometry_id ung_geometry_load(const char* path)
 {
     const auto geom = load_geometry(path);
@@ -1211,16 +1223,10 @@ EXPORT ung_geometry_id ung_geometry_load(const char* path)
     return { id };
 }
 
-EXPORT void ung_geometry_reload(ung_geometry_id geometry_id, const char* path)
+EXPORT bool ung_geometry_reload(ung_geometry_id geometry_id, const char* path)
 {
-    const auto geom = load_geometry(path);
-    if (!geom.id) {
-        return;
-    }
-
     const auto geometry = get(state->geometries, geometry_id.id);
-    mugfx_geometry_destroy(geometry->geometry);
-    geometry->geometry = geom;
+    return reload_geometry(geometry, path);
 }
 
 static mugfx_texture_id get_texture(ung_material_id material, uint32_t binding)
