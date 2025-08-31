@@ -577,7 +577,7 @@ EXPORT void ung_texture_recreate(ung_texture_id texture_id, mugfx_texture_create
 }
 
 static mugfx_texture_id load_texture(
-    const char* path, bool flip_y, mugfx_texture_create_params params)
+    const char* path, bool flip_y, mugfx_texture_create_params& params)
 {
     mugfx_pixel_format pixel_formats[] {
         MUGFX_PIXEL_FORMAT_DEFAULT,
@@ -606,6 +606,19 @@ static mugfx_texture_id load_texture(
     return texture;
 }
 
+static bool reload_texture(
+    Texture* texture, const char* path, bool flip_y, mugfx_texture_create_params& params)
+{
+    const auto tex = load_texture(path, flip_y, params);
+    if (!tex.id) {
+        return false;
+    }
+
+    mugfx_texture_destroy(texture->texture);
+    texture->texture = tex;
+    return true;
+}
+
 EXPORT ung_texture_id ung_texture_load(
     const char* path, bool flip_y, mugfx_texture_create_params params)
 {
@@ -619,17 +632,11 @@ EXPORT ung_texture_id ung_texture_load(
     return { id };
 }
 
-EXPORT void ung_texture_reload(
+EXPORT bool ung_texture_reload(
     ung_texture_id texture_id, const char* path, bool flip_y, mugfx_texture_create_params params)
 {
-    const auto t = load_texture(path, flip_y, params);
-    if (!t.id) {
-        return;
-    }
-
-    auto texture = get(state->textures, texture_id.id);
-    mugfx_texture_destroy(texture->texture);
-    texture->texture = t;
+    const auto texture = get(state->textures, texture_id.id);
+    return reload_texture(texture, path, flip_y, params);
 }
 
 Material* get_material(u64 key)
