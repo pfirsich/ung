@@ -9,7 +9,6 @@
 #include <SDL.h>
 #include <fast_obj.h>
 #include <stb_image.h>
-#include <tuple>
 
 #include "ung.h"
 
@@ -37,6 +36,13 @@ namespace animation {
 namespace files {
     void init(ung_init_params params);
     void begin_frame();
+    void shutdown();
+}
+
+namespace input {
+    void init(ung_init_params params);
+    void reset();
+    void process_event(SDL_Event* event);
     void shutdown();
 }
 
