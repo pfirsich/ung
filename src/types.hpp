@@ -86,6 +86,87 @@ struct Array {
 void assign(Array<char>& arr, const char* str);
 
 template <typename T>
+struct Vector {
+    static_assert(std::is_trivially_copyable_v<T>);
+
+    T* data;
+    u32 size;
+    u32 capacity;
+
+    void init(u32 c)
+    {
+        assert(!data);
+        data = allocate<T>(c);
+        capacity = c;
+        size = 0;
+    }
+
+    void push(T v)
+    {
+        if (size == capacity) {
+            auto temp = allocate<T>(capacity * 2);
+            std::memcpy(temp, data, size * sizeof(T));
+            deallocate(data, capacity);
+            data = temp;
+            capacity = capacity * 2;
+        }
+        data[size++] = std::move(v);
+    }
+
+    void remove(u32 idx)
+    {
+        assert(idx < size);
+        for (size_t i = idx; i < size - 1; ++i) {
+            data[i] = data[i + 1];
+        }
+        size--;
+    }
+
+    void clear() { size = 0; }
+
+    void free()
+    {
+        deallocate(data, capacity);
+        data = nullptr;
+        size = 0;
+        capacity = 0;
+    }
+
+    T& operator[](u32 idx) { return data[idx]; }
+    const T& operator[](u32 idx) const { return data[idx]; }
+};
+
+template <typename Container, typename T>
+u32 find(const Container& c, const T& v)
+{
+    static_assert(std::is_trivially_copyable_v<T>);
+    for (u32 i = 0; i < c.size; ++i) {
+        if (std::memcmp(&c.data[i], &v, sizeof(T)) == 0) {
+            return i;
+        }
+    }
+    return (u32)-1;
+}
+
+template <typename Container>
+void remove(Container& c, u32 idx)
+{
+    assert(idx < c.size);
+    for (size_t i = idx; i < c.size - 1; ++i) {
+        c.data[i] = c.data[i + 1];
+    }
+    c.size--;
+}
+
+template <typename Container, typename T>
+void remove_v(Container& c, const T& v)
+{
+    const auto idx = find(c, v);
+    assert(idx < c.size);
+    remove(c, idx);
+}
+
+template <typename T>
 struct Pool {
     Array<u64> keys;
     Array<T> data;
