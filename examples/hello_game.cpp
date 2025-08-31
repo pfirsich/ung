@@ -23,6 +23,7 @@ struct Game {
     utxt_style style;
     ung_sound_source_id shoot_sound;
     ung_sound_source_id explode_sound;
+    bool mouse_captured = true;
 
     void init()
     {
@@ -48,7 +49,7 @@ struct Game {
         camera = ung_camera_create();
         ung_camera_set_perspective(camera, 45.0f, static_cast<float>(win_w) / win_h, 0.1f, 100.0f);
 
-        ung_mouse_set_relative(true);
+        ung_mouse_set_relative(mouse_captured);
 
         ui_camera = ung_camera_create();
         ung_camera_set_orthographic_fullscreen(ui_camera);
@@ -96,6 +97,11 @@ struct Game {
             running = false;
         }
 
+        if (ung_key_pressed("c")) {
+            mouse_captured = !mouse_captured;
+            ung_mouse_set_relative(mouse_captured);
+        }
+
         if (ung_key_pressed("j")) {
             ung_sound_play(shoot_sound, {});
         }
@@ -106,23 +112,28 @@ struct Game {
         const auto box_q = um_quat_from_axis_angle({ 0.0f, 1.0f, 0.0f }, ung_get_time());
         ung_transform_set_orientation(trafo, box_q.w, box_q.x, box_q.y, box_q.z);
 
-        // Camera Movement
-        int mx, my, mdx, mdy;
-        ung_mouse_get(&mx, &my, &mdx, &mdy);
-        const auto sens = 1.0f;
-        cam_yaw -= mdx * dt * sens;
-        cam_pitch -= mdy * dt * sens;
-        const auto yaw_q = um_quat_from_axis_angle({ 0.0f, 1.0f, 0.0f }, cam_yaw);
-        const auto pitch_q = um_quat_from_axis_angle({ 1.0f, 0.0f, 0.0f }, cam_pitch);
-        const auto cam_q = um_quat_mul(yaw_q, pitch_q);
         const auto cam_trafo = ung_camera_get_transform(camera);
-        ung_transform_set_orientation(cam_trafo, cam_q.w, cam_q.x, cam_q.y, cam_q.z);
+
+        if (mouse_captured) {
+            // Camera Movement
+            int mx, my, mdx, mdy;
+            ung_mouse_get(&mx, &my, &mdx, &mdy);
+            const auto sens = 1.0f;
+            cam_yaw -= mdx * dt * sens;
+            cam_pitch -= mdy * dt * sens;
+            const auto yaw_q = um_quat_from_axis_angle({ 0.0f, 1.0f, 0.0f }, cam_yaw);
+            const auto pitch_q = um_quat_from_axis_angle({ 1.0f, 0.0f, 0.0f }, cam_pitch);
+            const auto cam_q = um_quat_mul(yaw_q, pitch_q);
+            ung_transform_set_orientation(cam_trafo, cam_q.w, cam_q.x, cam_q.y, cam_q.z);
+        }
 
         const auto move_speed = 10.0f;
         const auto move_x = ung_key_down("d") - ung_key_down("a");
         const auto move_z = ung_key_down("w") - ung_key_down("s");
         const auto move = um_vec3_normalized({ (float)move_x, 0.0f, -(float)move_z });
-        const auto world_move = um_quat_mul_vec3(cam_q, move);
+        um_quat q;
+        ung_transform_get_orientation(cam_trafo, &q.w);
+        const auto world_move = um_quat_mul_vec3(q, move);
         cam_pos = um_vec3_add(cam_pos, um_vec3_mul(world_move, move_speed * dt));
         ung_transform_set_position(cam_trafo, cam_pos.x, cam_pos.y, cam_pos.z);
     }
