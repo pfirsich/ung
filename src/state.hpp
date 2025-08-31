@@ -59,6 +59,10 @@ struct Transform {
 
 struct Material {
     mugfx_material_id material;
+    // ung_material_load creates shaders so the material may own shaders. These are set iff material
+    // owns them.
+    ung_shader_id vert;
+    ung_shader_id frag;
     mugfx_uniform_data_id constant_data;
     mugfx_uniform_data_id dynamic_data;
     StaticVector<mugfx_draw_binding, 16> bindings;

@@ -335,9 +335,12 @@ typedef struct {
 } ung_material_create_params;
 
 ung_material_id ung_material_create(ung_material_create_params params);
+bool ung_material_recreate(ung_material_id material, ung_material_create_params params);
 // This will use ung_shader_load for both shaders (see notes below)
 ung_material_id ung_material_load(
     const char* vert_path, const char* frag_path, ung_material_create_params params);
+bool ung_material_reload(ung_material_id material, const char* vert_path, const char* frag_path,
+    ung_material_create_params params);
 void ung_material_destroy(ung_material_id material);
 void ung_material_set_binding(ung_material_id material, mugfx_draw_binding binding);
 void ung_material_set_uniform_data(

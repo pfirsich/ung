@@ -701,13 +701,106 @@ EXPORT ung_material_id ung_material_create(ung_material_create_params params)
 EXPORT ung_material_id ung_material_load(
     const char* vert_path, const char* frag_path, ung_material_create_params params)
 {
-    const auto vert = ung_shader_load(MUGFX_SHADER_STAGE_VERTEX, vert_path);
-    const auto frag = ung_shader_load(MUGFX_SHADER_STAGE_FRAGMENT, frag_path);
     assert(params.vert.id == 0);
-    params.vert = vert;
     assert(params.frag.id == 0);
-    params.frag = frag;
-    return ung_material_create(params);
+    params.vert = ung_shader_load(MUGFX_SHADER_STAGE_VERTEX, vert_path);
+    params.frag = ung_shader_load(MUGFX_SHADER_STAGE_FRAGMENT, frag_path);
+
+    const auto mat_id = ung_material_create(params);
+    auto mat = get_material(mat_id.id);
+    mat->vert = params.vert;
+    mat->frag = params.frag;
+
+    return mat_id;
+}
+
+EXPORT bool ung_material_recreate(ung_material_id material_id, ung_material_create_params params)
+{
+    auto mat = get_material(material_id.id);
+
+    assert(params.mugfx.vert_shader.id == 0);
+    assert(params.mugfx.frag_shader.id == 0);
+    auto vert = get(state->shaders, params.vert.id);
+    auto frag = get(state->shaders, params.frag.id);
+    params.mugfx.vert_shader = vert->shader;
+    params.mugfx.frag_shader = frag->shader;
+
+    const auto new_mat = mugfx_material_create(params.mugfx);
+    if (!new_mat.id) {
+        return false;
+    }
+
+    mugfx_material_destroy(mat->material);
+    mat->material = new_mat;
+
+    if (params.constant_data_size) {
+        if (mat->constant_data.id) {
+            mugfx_uniform_data_destroy(mat->constant_data);
+        }
+        mat->constant_data = mugfx_uniform_data_create({
+            .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_CONSTANT,
+            .size = params.constant_data_size,
+        });
+        if (params.constant_data) {
+            std::memcpy(mugfx_uniform_data_get_ptr(mat->constant_data), params.constant_data,
+                params.constant_data_size);
+        }
+        for (auto& b : mat->bindings) {
+            if (b.type == MUGFX_BINDING_TYPE_UNIFORM_DATA && b.uniform_data.binding == 8) {
+                b.uniform_data.id = mat->constant_data;
+                break;
+            }
+        }
+    }
+
+    if (params.dynamic_data_size) {
+        if (mat->dynamic_data.id) {
+            mugfx_uniform_data_destroy(mat->dynamic_data);
+        }
+        mat->dynamic_data = mugfx_uniform_data_create({
+            .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_FRAME,
+            .size = params.dynamic_data_size,
+        });
+        for (auto& b : mat->bindings) {
+            if (b.type == MUGFX_BINDING_TYPE_UNIFORM_DATA && b.uniform_data.binding == 9) {
+                b.uniform_data.id = mat->dynamic_data;
+                break;
+            }
+        }
+    }
+
+    return true;
+}
+
+EXPORT bool ung_material_reload(ung_material_id material_id, const char* vert_path,
+    const char* frag_path, ung_material_create_params params)
+{
+    assert(params.vert.id == 0);
+    assert(params.frag.id == 0);
+
+    auto mat = get_material(material_id.id);
+
+    if (mat->vert.id) {
+        ung_shader_reload(mat->vert, vert_path);
+    } else {
+        mat->vert = ung_shader_load(MUGFX_SHADER_STAGE_VERTEX, vert_path);
+    }
+
+    if (mat->frag.id) {
+        ung_shader_reload(mat->frag, frag_path);
+    } else {
+        mat->frag = ung_shader_load(MUGFX_SHADER_STAGE_FRAGMENT, frag_path);
+    }
+
+    params.vert = mat->vert;
+    params.frag = mat->frag;
+
+    const auto res = ung_material_recreate(material_id, params);
+    if (!res) {
+        return false;
+    }
+
+    return true;
 }
 
 EXPORT void ung_material_destroy(ung_material_id material)
@@ -720,6 +813,16 @@ EXPORT void ung_material_destroy(ung_material_id material)
         mugfx_uniform_data_destroy(mat->dynamic_data);
     }
     mugfx_material_destroy(mat->material);
+
+    /* ung_shader_destroy is not implemented yet
+    if (mat->vert.id) {
+        ung_shader_destroy(mat->vert);
+    }
+    if (mat->frag.id) {
+        ung_shader_destroy(mat->frag);
+    }
+    */
+
     state->materials.remove(material.id);
 }
 
