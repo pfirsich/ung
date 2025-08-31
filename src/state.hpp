@@ -36,6 +36,7 @@ struct Texture {
 };
 
 struct Shader {
+    mugfx_shader_stage stage;
     mugfx_shader_id shader;
 };
 

@@ -308,7 +308,7 @@ void ung_shader_recreate(ung_shader_id shader, mugfx_shader_create_params params
 // a .meta file (same as path + ".meta") (TODO) or from parsing the GLSL source. If the bindings are
 // already in params, no attempt to determine the bindings in another way is made.
 ung_shader_id ung_shader_load(mugfx_shader_stage stage, const char* path);
-void ung_shader_reload(ung_shader_id shader, mugfx_shader_stage stage, const char* path);
+bool ung_shader_reload(ung_shader_id shader, const char* path);
 
 ung_texture_id ung_texture_create(mugfx_texture_create_params params);
 void ung_texture_recreate(ung_texture_id texture, mugfx_texture_create_params params);

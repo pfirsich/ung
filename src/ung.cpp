@@ -406,6 +406,7 @@ EXPORT ung_shader_id ung_shader_create(mugfx_shader_create_params params)
 
     const auto [id, shader] = state->shaders.insert();
     shader->shader = sh;
+    shader->stage = params.stage;
     return { id };
 }
 
@@ -417,6 +418,7 @@ EXPORT void ung_shader_recreate(ung_shader_id shader_id, mugfx_shader_create_par
     }
 
     auto shader = get(state->shaders, shader_id.id);
+    assert(shader->stage == params.stage);
     mugfx_shader_destroy(shader->shader);
     shader->shader = sh;
 }
@@ -510,6 +512,18 @@ mugfx_shader_id load_shader(mugfx_shader_stage stage, const char* path)
     return shader;
 }
 
+static bool reload_shader(Shader* shader, const char* path)
+{
+    const auto sh = load_shader(shader->stage, path);
+    if (!sh.id) {
+        return false;
+    }
+
+    mugfx_shader_destroy(shader->shader);
+    shader->shader = sh;
+    return true;
+}
+
 EXPORT ung_shader_id ung_shader_load(mugfx_shader_stage stage, const char* path)
 {
     const auto sh = load_shader(stage, path);
@@ -519,19 +533,23 @@ EXPORT ung_shader_id ung_shader_load(mugfx_shader_stage stage, const char* path)
 
     const auto [id, shader] = state->shaders.insert();
     shader->shader = sh;
+    shader->stage = stage;
+
+    if (state->auto_reload) {
+        shader->reload_ctx = allocate<ShaderReloadCtx>();
+        shader->reload_ctx->shader = { id };
+        assign(shader->reload_ctx->path, path);
+        shader->resource = ung_resource_create(shader_reload_cb, shader->reload_ctx);
+        ung_resource_set_deps(shader->resource, &path, 1, nullptr, 0);
+    }
+
     return { id };
 }
 
-EXPORT void ung_shader_reload(ung_shader_id shader_id, mugfx_shader_stage stage, const char* path)
+EXPORT bool ung_shader_reload(ung_shader_id shader_id, const char* path)
 {
-    const auto sh = load_shader(stage, path);
-    if (!sh.id) {
-        return;
-    }
-
     const auto shader = get(state->shaders, shader_id.id);
-    mugfx_shader_destroy(shader->shader);
-    shader->shader = sh;
+    return reload_shader(shader, path);
 }
 
 EXPORT ung_texture_id ung_texture_create(mugfx_texture_create_params params)
