@@ -185,6 +185,7 @@ int main(int, char**)
     ung_init({
         .title = "Hello Game",
         .window_mode = { .width = 1600, .height = 900 },
+        .auto_reload = true,
     });
     Game game;
     game.init();

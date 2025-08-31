@@ -31,17 +31,40 @@ struct UTransform {
     um_mat model_view_projection;
 };
 
+struct TextureReloadCtx {
+    ung_texture_id texture;
+    Array<char> path;
+    bool flip_y;
+    mugfx_texture_create_params params;
+};
+
 struct Texture {
     mugfx_texture_id texture;
+    ung_resource_id resource;
+    TextureReloadCtx* reload_ctx;
+};
+
+struct ShaderReloadCtx {
+    ung_shader_id shader;
+    Array<char> path;
 };
 
 struct Shader {
     mugfx_shader_stage stage;
     mugfx_shader_id shader;
+    ung_resource_id resource;
+    ShaderReloadCtx* reload_ctx;
+};
+
+struct GeometryReloadCtx {
+    ung_geometry_id geometry;
+    Array<char> path;
 };
 
 struct Geometry {
     mugfx_geometry_id geometry;
+    ung_resource_id resource;
+    GeometryReloadCtx* reload_ctx;
 };
 
 struct Transform {
@@ -57,6 +80,24 @@ struct Transform {
     bool local_matrix_dirty;
 };
 
+struct MaterialReloadCtx {
+    ung_material_id material;
+    Array<char> vert_path;
+    Array<char> frag_path;
+    mugfx_material_create_params params;
+    size_t constant_data_size;
+    size_t dynamic_data_size;
+
+    // We have to remember vert and frag, even if the shaders are not owned, so they are duplicated
+    // here. These are always set.
+    ung_shader_id vert;
+    uint32_t vert_version;
+    ung_shader_id frag;
+    uint32_t frag_version;
+    // Auxiliary data to Material::bindings
+    std::array<ung_texture_id, 16> textures;
+};
+
 struct Material {
     mugfx_material_id material;
     // ung_material_load creates shaders so the material may own shaders. These are set iff material
@@ -66,6 +107,8 @@ struct Material {
     mugfx_uniform_data_id constant_data;
     mugfx_uniform_data_id dynamic_data;
     StaticVector<mugfx_draw_binding, 16> bindings;
+    ung_resource_id resource;
+    MaterialReloadCtx* reload_ctx;
 };
 
 struct Camera {
@@ -122,6 +165,8 @@ struct State {
     // Renderer
     ung_transform_id identity_trafo;
     SpriteRenderer sprite_renderer;
+
+    bool auto_reload;
 };
 
 extern State* state;

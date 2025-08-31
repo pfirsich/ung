@@ -134,8 +134,12 @@ typedef struct {
     uint32_t max_num_skeletons; // default: 64
     uint32_t max_num_animations; // default: 256
     uint32_t max_num_file_watches; // default: 128
+    // default for max_num_resources: 0 if auto_reload is false, sum of textures, shaders,
+    // geometries, materials otherwise.
+    uint32_t max_num_resources;
     mugfx_init_params mugfx;
     bool debug; // do error checking and panic if something is wrong
+    bool auto_reload;
 } ung_init_params;
 
 void ung_init(ung_init_params params);
@@ -379,6 +383,35 @@ ung_file_watch_id ung_file_watch_create(
     const char* const* paths, size_t num_paths, ung_file_watch_cb cb, void* ctx);
 
 void ung_file_watch_destroy(ung_file_watch_id watch);
+
+// Resources
+// This is just so you can add auto-reloading for custom resource files (e.g. glTF).
+// If auto_reload is false, all these will no-op as much as possible.
+
+typedef struct {
+    uint64_t id;
+} ung_resource_id;
+
+// If false is returned, the reload is considered failed and dependents are not reloaded.
+typedef bool (*ung_resource_reload_cb)(void* ctx);
+
+// The reload callback will be called only after all dependencies were reloaded.
+ung_resource_id ung_resource_create(ung_resource_reload_cb cb, void* ctx);
+
+// This function may be called inside the reload callback (e.g. if dependencies change).
+void ung_resource_set_deps(ung_resource_id resource, const char* const* files_deps,
+    size_t num_files_deps, const ung_resource_id* res_deps, size_t num_res_deps);
+
+// Whenever the resource is reloaded, this version incremented.
+uint32_t ung_resource_get_version(ung_resource_id resource);
+
+void ung_resource_destroy(ung_resource_id resource);
+
+ung_resource_id ung_shader_get_resource(ung_shader_id shader);
+ung_resource_id ung_material_get_resource(ung_material_id material);
+ung_resource_id ung_texture_get_resource(ung_texture_id texture);
+ung_resource_id ung_geometry_get_resource(ung_geometry_id geometry);
+ung_resource_id ung_sound_get_resource(ung_sound_id sound);
 
 /*
  * Geometry

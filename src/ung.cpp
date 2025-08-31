@@ -240,6 +240,8 @@ EXPORT void ung_init(ung_init_params params)
         .cpu_buffer = &state->u_camera,
     });
 
+    state->auto_reload = params.auto_reload;
+
     input::init(params);
 
     transform::init(params);
@@ -524,6 +526,14 @@ static bool reload_shader(Shader* shader, const char* path)
     return true;
 }
 
+static bool shader_reload_cb(void* userdata)
+{
+    auto ctx = (ShaderReloadCtx*)userdata;
+    std::fprintf(stderr, "Reloading shader: %s\n", ctx->path.data);
+    auto shader = get(state->shaders, ctx->shader.id);
+    return reload_shader(shader, ctx->path.data);
+}
+
 EXPORT ung_shader_id ung_shader_load(mugfx_shader_stage stage, const char* path)
 {
     const auto sh = load_shader(stage, path);
@@ -549,6 +559,13 @@ EXPORT ung_shader_id ung_shader_load(mugfx_shader_stage stage, const char* path)
 EXPORT bool ung_shader_reload(ung_shader_id shader_id, const char* path)
 {
     const auto shader = get(state->shaders, shader_id.id);
+
+    if (shader->reload_ctx) {
+        shader->reload_ctx->path.free();
+        assign(shader->reload_ctx->path, path);
+        ung_resource_set_deps(shader->resource, &path, 1, nullptr, 0);
+    }
+
     return reload_shader(shader, path);
 }
 
@@ -576,16 +593,28 @@ EXPORT void ung_texture_recreate(ung_texture_id texture_id, mugfx_texture_create
     texture->texture = t;
 }
 
-static mugfx_texture_id load_texture(
-    const char* path, bool flip_y, mugfx_texture_create_params& params)
+static mugfx_texture_id create_texture(
+    const void* data, int width, int height, int comp, mugfx_texture_create_params& params)
 {
-    mugfx_pixel_format pixel_formats[] {
+    static constexpr mugfx_pixel_format pixel_formats[] {
         MUGFX_PIXEL_FORMAT_DEFAULT,
         MUGFX_PIXEL_FORMAT_R8,
         MUGFX_PIXEL_FORMAT_RG8,
         MUGFX_PIXEL_FORMAT_RGB8,
         MUGFX_PIXEL_FORMAT_RGBA8,
     };
+    assert(width > 0 && height > 0 && comp > 0);
+    assert(comp <= 4);
+    params.width = (usize)(width);
+    params.data.length = (usize)(width * height * comp);
+    params.format = pixel_formats[comp];
+    params.data_format = pixel_formats[comp];
+    return mugfx_texture_create(params);
+}
+
+static mugfx_texture_id load_texture(
+    const char* path, bool flip_y, mugfx_texture_create_params& params)
+{
     int width, height, comp;
     stbi_set_flip_vertically_on_load(flip_y);
     auto data = stbi_load(path, &width, &height, &comp, 0);
@@ -593,15 +622,7 @@ static mugfx_texture_id load_texture(
         std::fprintf(stderr, "Could not load texture: %s\n", stbi_failure_reason());
         std::exit(1);
     }
-    assert(width > 0 && height > 0 && comp > 0);
-    assert(comp <= 4);
-    params.width = static_cast<usize>(width);
-    params.height = static_cast<usize>(height);
-    params.data.data = data;
-    params.data.length = static_cast<usize>(width * height * comp);
-    params.format = pixel_formats[comp];
-    params.data_format = pixel_formats[comp];
-    const auto texture = mugfx_texture_create(params);
+    const auto texture = create_texture(data, width, height, comp, params);
     stbi_image_free(data);
     return texture;
 }
@@ -619,6 +640,14 @@ static bool reload_texture(
     return true;
 }
 
+static bool texture_reload_cb(void* userdata)
+{
+    auto ctx = (TextureReloadCtx*)userdata;
+    std::fprintf(stderr, "Reloading texture %#lx: %s\n", ctx->texture.id, ctx->path.data);
+    auto texture = get(state->textures, ctx->texture.id);
+    return reload_texture(texture, ctx->path.data, ctx->flip_y, ctx->params);
+}
+
 EXPORT ung_texture_id ung_texture_load(
     const char* path, bool flip_y, mugfx_texture_create_params params)
 {
@@ -629,6 +658,17 @@ EXPORT ung_texture_id ung_texture_load(
 
     const auto [id, texture] = state->textures.insert();
     texture->texture = t;
+
+    if (state->auto_reload) {
+        texture->reload_ctx = allocate<TextureReloadCtx>();
+        texture->reload_ctx->texture = { id };
+        assign(texture->reload_ctx->path, path);
+        texture->reload_ctx->flip_y = flip_y;
+        texture->reload_ctx->params = params;
+        texture->resource = ung_resource_create(texture_reload_cb, texture->reload_ctx);
+        ung_resource_set_deps(texture->resource, &path, 1, nullptr, 0);
+    }
+
     return { id };
 }
 
@@ -636,12 +676,88 @@ EXPORT bool ung_texture_reload(
     ung_texture_id texture_id, const char* path, bool flip_y, mugfx_texture_create_params params)
 {
     const auto texture = get(state->textures, texture_id.id);
+
+    if (texture->reload_ctx) {
+        texture->reload_ctx->path.free();
+        assign(texture->reload_ctx->path, path);
+        texture->reload_ctx->flip_y = flip_y;
+        texture->reload_ctx->params = params;
+        ung_resource_set_deps(texture->resource, &path, 1, nullptr, 0);
+    }
+
     return reload_texture(texture, path, flip_y, params);
 }
 
 Material* get_material(u64 key)
 {
     return get(state->materials, key);
+}
+
+static bool recreate_material(Material* mat, MaterialReloadCtx* ctx, Shader* vert, Shader* frag)
+{
+    auto params = ctx->params;
+    params.vert_shader = vert->shader;
+    params.frag_shader = frag->shader;
+
+    const auto new_mat = mugfx_material_create(params);
+    if (!new_mat.id) {
+        return false;
+    }
+
+    mugfx_material_destroy(mat->material);
+    mat->material = new_mat;
+
+    return true;
+}
+
+static void update_texture_bindings(Material* mat, MaterialReloadCtx* ctx)
+{
+    for (size_t i = 0; i < mat->bindings.size(); ++i) {
+        if (mat->bindings[i].type == MUGFX_BINDING_TYPE_TEXTURE) {
+            ung_material_set_texture(
+                ctx->material, mat->bindings[i].texture.binding, ctx->textures[i]);
+        }
+    }
+}
+
+static bool reload_material(Material* mat, MaterialReloadCtx* ctx)
+{
+    const auto vert = get(state->shaders, ctx->vert.id);
+    const auto frag = get(state->shaders, ctx->frag.id);
+    const auto recreate = ung_resource_get_version(vert->resource) != ctx->vert_version
+        || ung_resource_get_version(frag->resource) != ctx->frag_version;
+
+    bool res = true;
+    if (recreate) {
+        res = recreate_material(mat, ctx, vert, frag);
+    }
+
+    update_texture_bindings(mat, ctx);
+    return res;
+}
+
+static bool material_reload_cb(void* userdata)
+{
+    auto ctx = (MaterialReloadCtx*)userdata;
+    std::fprintf(stderr, "Reloading material\n");
+    auto mat = get(state->materials, ctx->material.id);
+    return reload_material(mat, ctx);
+}
+
+static void update_deps(Material* mat)
+{
+    StaticVector<ung_resource_id, 32> deps = {};
+    deps.append() = ung_shader_get_resource(mat->reload_ctx->vert);
+    deps.append() = ung_shader_get_resource(mat->reload_ctx->frag);
+    for (const auto tex : mat->reload_ctx->textures) {
+        if (tex.id) {
+            const auto res = ung_texture_get_resource(tex);
+            if (res.id) {
+                deps.append() = res;
+            }
+        }
+    }
+    ung_resource_set_deps(mat->resource, nullptr, 0, deps.data(), deps.size());
 }
 
 EXPORT ung_material_id ung_material_create(ung_material_create_params params)
@@ -695,6 +811,25 @@ EXPORT ung_material_id ung_material_create(ung_material_create_params params)
             .uniform_data = { .binding = 9, .id = material->dynamic_data },
         };
     }
+
+    if (state->auto_reload) {
+        material->reload_ctx = allocate<MaterialReloadCtx>();
+        material->reload_ctx->material = { id };
+        material->reload_ctx->params = params.mugfx;
+        material->reload_ctx->constant_data_size = params.constant_data_size;
+        material->reload_ctx->dynamic_data_size = params.dynamic_data_size;
+
+        material->reload_ctx->vert = params.vert;
+        material->reload_ctx->vert_version
+            = ung_resource_get_version(ung_shader_get_resource(params.vert));
+        material->reload_ctx->frag = params.frag;
+        material->reload_ctx->frag_version
+            = ung_resource_get_version(ung_shader_get_resource(params.frag));
+        material->resource = ung_resource_create(material_reload_cb, material->reload_ctx);
+
+        update_deps(material);
+    }
+
     return { id };
 }
 
@@ -710,6 +845,11 @@ EXPORT ung_material_id ung_material_load(
     auto mat = get_material(mat_id.id);
     mat->vert = params.vert;
     mat->frag = params.frag;
+
+    if (state->auto_reload) {
+        assign(mat->reload_ctx->vert_path, vert_path);
+        assign(mat->reload_ctx->frag_path, frag_path);
+    }
 
     return mat_id;
 }
@@ -769,6 +909,18 @@ EXPORT bool ung_material_recreate(ung_material_id material_id, ung_material_crea
         }
     }
 
+    if (mat->reload_ctx) {
+        mat->reload_ctx->params = params.mugfx;
+        mat->reload_ctx->constant_data_size = params.constant_data_size;
+        mat->reload_ctx->dynamic_data_size = params.dynamic_data_size;
+        mat->reload_ctx->vert = params.vert;
+        mat->reload_ctx->vert_version = ung_resource_get_version(vert->resource);
+        mat->reload_ctx->frag = params.frag;
+        mat->reload_ctx->frag_version = ung_resource_get_version(frag->resource);
+
+        update_deps(mat);
+    }
+
     return true;
 }
 
@@ -800,6 +952,11 @@ EXPORT bool ung_material_reload(ung_material_id material_id, const char* vert_pa
         return false;
     }
 
+    if (mat->reload_ctx) {
+        assign(mat->reload_ctx->vert_path, vert_path);
+        assign(mat->reload_ctx->frag_path, frag_path);
+    }
+
     return true;
 }
 
@@ -813,6 +970,16 @@ EXPORT void ung_material_destroy(ung_material_id material)
         mugfx_uniform_data_destroy(mat->dynamic_data);
     }
     mugfx_material_destroy(mat->material);
+
+    if (mat->resource.id) {
+        ung_resource_destroy(mat->resource);
+    }
+
+    if (mat->reload_ctx) {
+        mat->reload_ctx->vert_path.free();
+        mat->reload_ctx->frag_path.free();
+        deallocate(mat->reload_ctx);
+    }
 
     /* ung_shader_destroy is not implemented yet
     if (mat->vert.id) {
@@ -865,14 +1032,34 @@ EXPORT void ung_material_set_uniform_data(
         });
 }
 
+static void store_texture(
+    Material* mat, MaterialReloadCtx* ctx, u32 binding, ung_texture_id texture)
+{
+    for (size_t i = 0; i < mat->bindings.size(); ++i) {
+        if (mat->bindings[i].type == MUGFX_BINDING_TYPE_TEXTURE
+            && mat->bindings[i].texture.binding == binding) {
+            ctx->textures[i] = texture;
+        }
+    }
+}
+
 EXPORT void ung_material_set_texture(ung_material_id material, u32 binding, ung_texture_id texture)
 {
     const auto tex = get(state->textures, texture.id);
+
     ung_material_set_binding(material,
         {
             .type = MUGFX_BINDING_TYPE_TEXTURE,
             .texture = { .binding = binding, .id = tex->texture },
         });
+
+    if (state->auto_reload) {
+        auto mat = get_material(material.id);
+        if (mat->reload_ctx) {
+            store_texture(mat, mat->reload_ctx, binding, texture);
+            update_deps(mat);
+        }
+    }
 }
 
 EXPORT void* ung_material_get_dynamic_data(ung_material_id material)
@@ -1314,6 +1501,14 @@ static bool reload_geometry(Geometry* geometry, const char* path)
     return true;
 }
 
+static bool geometry_reload_cb(void* userdata)
+{
+    auto ctx = (GeometryReloadCtx*)userdata;
+    std::fprintf(stderr, "Reloading geometry: %s\n", ctx->path.data);
+    auto geometry = get(state->geometries, ctx->geometry.id);
+    return reload_geometry(geometry, ctx->path.data);
+}
+
 EXPORT ung_geometry_id ung_geometry_load(const char* path)
 {
     const auto geom = load_geometry(path);
@@ -1323,12 +1518,28 @@ EXPORT ung_geometry_id ung_geometry_load(const char* path)
 
     const auto [id, geometry] = state->geometries.insert();
     geometry->geometry = geom;
+
+    if (state->auto_reload) {
+        geometry->reload_ctx = allocate<GeometryReloadCtx>();
+        geometry->reload_ctx->geometry = { id };
+        assign(geometry->reload_ctx->path, path);
+        geometry->resource = ung_resource_create(geometry_reload_cb, geometry->reload_ctx);
+        ung_resource_set_deps(geometry->resource, &path, 1, nullptr, 0);
+    }
+
     return { id };
 }
 
 EXPORT bool ung_geometry_reload(ung_geometry_id geometry_id, const char* path)
 {
     const auto geometry = get(state->geometries, geometry_id.id);
+
+    if (state->auto_reload) {
+        geometry->reload_ctx->path.free();
+        assign(geometry->reload_ctx->path, path);
+        ung_resource_set_deps(geometry->resource, &path, 1, nullptr, 0);
+    }
+
     return reload_geometry(geometry, path);
 }
 
