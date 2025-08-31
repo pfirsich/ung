@@ -39,7 +39,7 @@ struct Shader {
     mugfx_shader_id shader;
 };
 
-struct Geomery {
+struct Geometry {
     mugfx_geometry_id geometry;
 };
 
@@ -94,7 +94,7 @@ struct State {
     // Pools
     Pool<Texture> textures;
     Pool<Shader> shaders;
-    Pool<Geomery> geometries;
+    Pool<Geometry> geometries;
     Pool<Material> materials;
     Pool<Camera> cameras;
 
