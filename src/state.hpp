@@ -95,7 +95,6 @@ struct State {
     Pool<Texture> textures;
     Pool<Shader> shaders;
     Pool<Geomery> geometries;
-    Pool<Transform> transforms;
     Pool<Material> materials;
     Pool<Camera> cameras;
 
