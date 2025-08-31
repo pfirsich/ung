@@ -117,27 +117,6 @@ struct Camera {
     ung_transform_id transform;
 };
 
-struct SpriteRenderer {
-    struct Vertex {
-        float x, y;
-        uint16_t u, v;
-        uint8_t r, g, b, a;
-    };
-
-    Vertex* vertices;
-    size_t num_vertices;
-    uint16_t* indices;
-    size_t num_indices;
-    mugfx_buffer_id vertex_buffer;
-    mugfx_buffer_id index_buffer;
-    ung_geometry_id geometry;
-    size_t vertex_offset;
-    size_t index_offset;
-    ung_material_id current_material;
-    u32 current_tex_width;
-    u32 current_tex_height;
-};
-
 struct State {
     // Pools
     Pool<Texture> textures;
@@ -161,10 +140,6 @@ struct State {
     void* event_callback_ctx;
     u32 win_width;
     u32 win_height;
-
-    // Renderer
-    ung_transform_id identity_trafo;
-    SpriteRenderer sprite_renderer;
 
     bool auto_reload;
 };
