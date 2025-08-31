@@ -4,9 +4,6 @@
 #include "um.h"
 #include "ung.h"
 
-#include <SDL_gamecontroller.h>
-#include <SDL_scancode.h>
-
 struct SDL_Window;
 
 #define EXPORT extern "C"
@@ -95,35 +92,6 @@ struct SpriteRenderer {
     u32 current_tex_height;
 };
 
-struct Gamepad {
-    SDL_GameController* controller;
-    int device_index;
-    int32_t instance_id;
-    bool connected;
-    uint8_t type;
-    ung_gamepad_info info;
-    float deadzone_inner;
-    float deadzone_outer;
-    float last_active;
-    std::array<uint32_t, SDL_CONTROLLER_BUTTON_MAX> button_pressed;
-    std::array<uint32_t, SDL_CONTROLLER_BUTTON_MAX> button_released;
-};
-
-constexpr usize MaxMouseButtons = 16;
-
-struct InputState {
-    std::array<bool, SDL_NUM_SCANCODES> key_down;
-    std::array<u8, SDL_NUM_SCANCODES> key_pressed;
-    std::array<u8, SDL_NUM_SCANCODES> key_released;
-    int mouse_x, mouse_y, mouse_dx, mouse_dy;
-    int mouse_scroll_left, mouse_scroll_right, mouse_scroll_y_pos, mouse_scroll_y_neg;
-    std::array<bool, MaxMouseButtons> mouse_button_down;
-    std::array<u8, MaxMouseButtons> mouse_button_pressed;
-    std::array<u8, MaxMouseButtons> mouse_button_released;
-    Pool<Gamepad> gamepads;
-    u64 last_active_gamepad;
-};
-
 struct State {
     // Pools
     Pool<Texture> textures;
@@ -148,9 +116,6 @@ struct State {
     void* event_callback_ctx;
     u32 win_width;
     u32 win_height;
-
-    // Input
-    InputState input;
 
     // Renderer
     ung_transform_id identity_trafo;

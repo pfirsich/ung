@@ -34,6 +34,7 @@ set(UNG_SOURCES
   src/animation.cpp
   src/allocator.cpp
   src/files.cpp
+  src/input.cpp
   src/random.cpp
   src/sound.cpp
 )
