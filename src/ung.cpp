@@ -245,6 +245,8 @@ EXPORT void ung_init(ung_init_params params)
 
     state->auto_reload = params.auto_reload;
 
+    files::init(params);
+
     input::init(params);
 
     transform::init(params);
@@ -255,8 +257,6 @@ EXPORT void ung_init(ung_init_params params)
 
     animation::init(params);
 
-    files::init(params);
-
     state->identity_trafo = ung_transform_create();
 }
 
@@ -265,8 +265,6 @@ EXPORT void ung_shutdown()
     if (!state) {
         return;
     }
-
-    files::shutdown();
 
     animation::shutdown();
 
@@ -287,6 +285,8 @@ EXPORT void ung_shutdown()
 
     state->materials.free();
     state->cameras.free();
+
+    files::shutdown();
 
     deallocate(state);
 }
