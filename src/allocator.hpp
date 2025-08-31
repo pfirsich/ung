@@ -1,5 +1,7 @@
 #pragma once
 
+#include <new> // needed for placement new
+
 #include "ung.h"
 
 namespace ung {

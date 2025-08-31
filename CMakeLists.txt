@@ -38,6 +38,7 @@ set(UNG_SOURCES
   src/random.cpp
   src/slotmap.cpp
   src/sound.cpp
+  src/transform.cpp
 )
 
 add_library(ung ${UNG_SOURCES})
