@@ -1,6 +1,7 @@
 #include "allocator.hpp"
 
 #include <cstdlib>
+#include <cstring>
 
 namespace ung {
 
@@ -47,5 +48,22 @@ mugfx_allocator mugfx_alloc {
     .deallocate = mugfx_deallocate,
     .ctx = nullptr,
 };
+
+char* allocate_string(const char* str)
+{
+    const auto len = std::strlen(str);
+    auto ret = allocate<char>(len + 1);
+    strncpy(ret, str, len);
+    return ret;
+}
+
+void deallocate_string(char* str)
+{
+    if (!str) {
+        return;
+    }
+    const auto len = std::strlen(str);
+    deallocate(str, len + 1);
+}
 
 }

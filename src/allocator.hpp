@@ -36,4 +36,7 @@ void deallocate(T* ptr, size_t count = 1)
     allocator.deallocate(ptr, sizeof(T) * count, allocator.ctx);
 }
 
+char* allocate_string(const char* str);
+void deallocate_string(char* str);
+
 }

@@ -7,7 +7,7 @@
 
 namespace ung::files {
 struct Watch {
-    Array<Array<char>> paths;
+    Array<char*> paths;
     Array<uint64_t> last_mtime;
     ung_file_watch_cb cb;
     void* ctx;
@@ -56,9 +56,9 @@ void begin_frame()
         if (state->watches.contains(state->watches.keys[w])) {
             auto& watch = state->watches.data[w];
             for (u32 p = 0; p < watch.paths.size; ++p) {
-                const auto mtime = ung_file_get_mtime(watch.paths[p].data);
+                const auto mtime = ung_file_get_mtime(watch.paths[p]);
                 if (mtime > watch.last_mtime[p]) {
-                    watch.cb(watch.ctx, watch.paths[p].data);
+                    watch.cb(watch.ctx, watch.paths[p]);
                     watch.last_mtime[p] = mtime;
                 }
             }
@@ -76,8 +76,7 @@ EXPORT ung_file_watch_id ung_file_watch_create(
     watch->paths.init((u32)num_paths);
     watch->last_mtime.init((u32)num_paths);
     for (u32 i = 0; i < (u32)num_paths; ++i) {
-        watch->paths[i].init((uint32_t)std::strlen(paths[i]) + 1);
-        std::strcpy(watch->paths[i].data, paths[i]);
+        watch->paths[i] = allocate_string(paths[i]);
         watch->last_mtime[i] = ung_file_get_mtime(paths[i]);
     }
     watch->cb = cb;
@@ -91,7 +90,7 @@ EXPORT void ung_file_watch_destroy(ung_file_watch_id watch_id)
     auto watch = get(state->watches, watch_id.id);
 
     for (u32 p = 0; p < watch->paths.size; ++p) {
-        watch->paths[p].free();
+        deallocate_string(watch->paths[p]);
     }
     watch->paths.free();
     watch->last_mtime.free();
