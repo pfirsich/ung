@@ -57,6 +57,9 @@ State* state = nullptr;
 
 void assign(Array<char>& arr, const char* str)
 {
+    if (arr.data == str) {
+        return;
+    }
     if (arr.data) {
         arr.free();
     }
