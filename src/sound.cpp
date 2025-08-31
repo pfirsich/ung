@@ -294,18 +294,12 @@ static void set_source(Sound* sound, SoundSource* source)
     sound->source = source;
 }
 
-static void set(Array<char>& array, const char* str)
-{
-    array.init((uint32_t)std::strlen(str) + 1);
-    std::strcpy(array.data, str);
-}
-
 EXPORT ung_sound_source_id ung_sound_source_load(
     const char* path, ung_sound_source_load_params params)
 {
     const auto [id, source] = state->sound_sources.insert();
 
-    set(source->path, path);
+    assign(source->path, path);
     assert(source->path.size);
     source->flags = MA_SOUND_FLAG_DECODE;
     if (params.stream) {

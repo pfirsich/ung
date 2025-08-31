@@ -48,6 +48,15 @@ namespace input {
 
 State* state = nullptr;
 
+void assign(Array<char>& arr, const char* str)
+{
+    if (arr.data) {
+        arr.free();
+    }
+    arr.init((uint32_t)std::strlen(str) + 1);
+    std::strcpy(arr.data, str);
+}
+
 EXPORT ung_string ung_zstr(const char* str)
 {
     return { str, std::strlen(str) };

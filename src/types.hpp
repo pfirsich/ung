@@ -83,6 +83,8 @@ struct Array {
     const T& operator[](u32 idx) const { return data[idx]; }
 };
 
+void assign(Array<char>& arr, const char* str);
+
 template <typename T>
 struct Pool {
     Array<u64> keys;
