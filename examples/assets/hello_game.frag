@@ -11,7 +11,7 @@ void main() {
     vec3 light_dir = normalize(-vs_out_position); // camera is at origin
     vec3 normal = normalize(vs_out_normal);
     float ndotl = max(dot(light_dir, normal), 0.0);
-    vec3 ambient = vs_out_color.rgb * vec3(0.7);
+    vec3 ambient = vs_out_color.rgb * vec3(0.5);
     vec3 diffuse = ndotl * vs_out_color.rgb * 0.3;
     frag_color = vec4(diffuse + ambient, 1.0);
     //frag_color = vec4(normal * 0.5 + 0.5, 1.0);
