@@ -26,6 +26,11 @@ using usize = size_t;
 
 namespace ung {
 
+float clamp(float v, float min, float max);
+float saturate(float v);
+u16 f2u16norm(float v);
+u8 f2u8norm(float v);
+
 template <typename T, size_t Capacity>
 struct StaticVector {
     std::array<T, Capacity> data_;

@@ -1215,22 +1215,22 @@ EXPORT ung_geometry_id ung_geometry_box(float w, float h, float d)
     return geometry;
 }
 
-static float clamp(float v, float min, float max)
+float clamp(float v, float min, float max)
 {
     return std::fmin(std::fmax(v, min), max);
 }
 
-static float saturate(float v)
+float saturate(float v)
 {
     return clamp(v, 0.0f, 1.0f);
 }
 
-static u16 f2u16norm(float v)
+u16 f2u16norm(float v)
 {
     return (u16)(65535.0f * saturate(v));
 }
 
-static u8 f2u8norm(float v)
+u8 f2u8norm(float v)
 {
     return (u8)(255.0f * saturate(v));
 }
