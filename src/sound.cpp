@@ -1,10 +1,11 @@
-#include "types.hpp"
 
 #include <cstdio>
 #include <cstdlib>
 
 #include <miniaudio.h>
 
+#include "state.hpp"
+#include "types.hpp"
 #include "um.h"
 
 /*
@@ -23,12 +24,14 @@
 namespace ung::sound {
 struct Sound;
 
+// We don't have a separate reload context, because the source saves the path already.
 struct SoundSource {
     ma_sound sound;
     Array<char> path;
     // This represents a list of idle sounds for this source.
     // A sound in this list, should be in sounds_idle_lru as well (and vice-versa)!
     Sound* source_idle_head;
+    ung_resource_id resource;
     u32 flags;
     u8 group;
 };
@@ -257,13 +260,37 @@ static void unset_source(Sound* sound)
     sound->source = nullptr;
 }
 
-static void load_sound(const char* path, uint32_t flags, ma_sound_group* group, ma_sound* sound)
+static bool load_sound(const char* path, uint32_t flags, ma_sound_group* group, ma_sound* sound)
 {
     const auto res
         = ma_sound_init_from_file(&state->sound_engine, path, flags, group, nullptr, sound);
     if (res != MA_SUCCESS) {
         std::fprintf(stderr, "Could not load sound '%s': %s\n", path, ma_result_description(res));
-        std::exit(1);
+        return false;
+    }
+    return true;
+}
+
+static bool load_sound(SoundSource* source)
+{
+    return load_sound(source->path.data, source->flags, nullptr, &source->sound);
+}
+
+static bool load_sound(Sound* sound)
+{
+    const auto source = sound->source;
+    if (source->flags & MA_SOUND_FLAG_STREAM) {
+        return load_sound(
+            source->path.data, source->flags, &state->sound_groups[source->group], &sound->sound);
+    } else {
+        const auto res = ma_sound_init_copy(&state->sound_engine, &source->sound, source->flags,
+            &state->sound_groups[source->group], &sound->sound);
+        if (res != MA_SUCCESS) {
+            std::fprintf(stderr, "Could not copy sound '%s': %s\n", source->path.data,
+                ma_result_description(res));
+            return false;
+        }
+        return true;
     }
 }
 
@@ -277,21 +304,56 @@ static void set_source(Sound* sound, SoundSource* source)
     if (sound->source) {
         unset_source(sound);
     }
+    sound->source = source;
 
-    if (source->flags & MA_SOUND_FLAG_STREAM) {
-        load_sound(
-            source->path.data, source->flags, &state->sound_groups[source->group], &sound->sound);
-    } else {
-        const auto res = ma_sound_init_copy(&state->sound_engine, &source->sound, source->flags,
-            &state->sound_groups[source->group], &sound->sound);
-        if (res != MA_SUCCESS) {
-            std::fprintf(stderr, "Could not copy sound '%s': %s\n", source->path.data,
-                ma_result_description(res));
-            std::exit(1);
+    if (!load_sound(sound)) {
+        std::exit(1);
+    }
+}
+
+static bool reload_source(SoundSource* source, const char* path)
+{
+    assign(source->path, path);
+
+    // The miniaudio resource manager caches file data by path. We have to unload everything first
+    // to get rid of the cache entry and then load again.
+
+    // Unload
+    if ((source->flags & MA_SOUND_FLAG_STREAM) == 0) {
+        ma_sound_uninit(&source->sound);
+    }
+
+    auto cur = source->source_idle_head;
+    while (cur) {
+        ma_sound_uninit(&cur->sound);
+        cur = cur->source_idle_next;
+    }
+
+    // Reload
+    if ((source->flags & MA_SOUND_FLAG_STREAM) == 0) {
+        std::printf("reload source\n");
+        if (!load_sound(source)) {
+            return false;
         }
     }
 
-    sound->source = source;
+    cur = source->source_idle_head;
+    while (cur) {
+        std::printf("reload idle sound\n");
+        if (!load_sound(cur)) {
+            return false;
+        }
+        cur = cur->source_idle_next;
+    }
+
+    return true;
+}
+
+static bool source_reload_cb(void* userdata)
+{
+    auto source = (SoundSource*)userdata;
+    std::fprintf(stderr, "Reloading sound source: %s\n", source->path.data);
+    return reload_source(source, source->path.data);
 }
 
 EXPORT ung_sound_source_id ung_sound_source_load(
@@ -308,7 +370,9 @@ EXPORT ung_sound_source_id ung_sound_source_load(
     source->group = params.group;
 
     if (!params.stream) {
-        load_sound(source->path.data, source->flags, nullptr, &source->sound);
+        if (!load_sound(source)) {
+            std::exit(1);
+        }
     }
 
     // prewarm at least one, so we make sure the sound file exists and is
@@ -325,6 +389,11 @@ EXPORT ung_sound_source_id ung_sound_source_load(
         sounds_idle_lru_push_front(sound);
     }
 
+    if (ung::state->auto_reload) {
+        source->resource = ung_resource_create(source_reload_cb, source);
+        ung_resource_set_deps(source->resource, &source->path.data, 1, nullptr, 0);
+    }
+
     return { id };
 }
 
@@ -332,6 +401,10 @@ EXPORT void ung_sound_source_destroy(ung_sound_source_id src_id)
 {
     // This is super expensive
     auto source = get(state->sound_sources, src_id.id);
+
+    if (source->resource.id) {
+        ung_resource_destroy(source->resource);
+    }
 
     // Playing sounds are annoying, because we don't have a direct way of getting at them.
     // We can't simply wait until they stop playing and clean them up properly in begin_frame/
