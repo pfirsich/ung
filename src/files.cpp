@@ -74,7 +74,8 @@ void begin_frame()
             auto& watch = state->watches.data[w];
             for (u32 p = 0; p < watch.paths.size; ++p) {
                 const auto mtime = ung_file_get_mtime(watch.paths[p]);
-                if (mtime > watch.last_mtime[p]) {
+                // File might also have been replaced with an older file, so we use !=
+                if (mtime != watch.last_mtime[p]) {
                     watch.cb(watch.ctx, watch.paths[p]);
                     watch.last_mtime[p] = mtime;
                 }
@@ -301,7 +302,7 @@ EXPORT uint64_t ung_file_get_mtime(const char* path)
 {
     assert(path);
 
-    struct stat st { };
+    struct stat st {};
     if (stat(path, &st) != 0) {
         return 0;
     }
