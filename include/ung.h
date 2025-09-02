@@ -328,6 +328,33 @@ bool ung_texture_reload(
  * use at the same time. Using the material for multiple objects and changing parameters between
  * draws will not behave as you might expect as the actual draw call might happen another time. The
  * uniform buffer with the constant material data will be at binding 8, the dynamic data at 9.
+ *
+ * The following bindings are provided by ung by default:
+
+layout (binding = 0, std140) uniform UngConstant {
+    vec4 screen_dimensions; // xy: size, zw: reciprocal size
+};
+
+layout (binding = 1, std140) uniform UngFrame {
+    vec4 time; // x: seconds since game started, y: frame counter
+};
+
+layout (binding = 2, std140) uniform UngCamera {
+    mat4 view;
+    mat4 view_inv;
+    mat4 projection;
+    mat4 projection_inv;
+    mat4 view_projection;
+    mat4 view_projection_inv;
+};
+
+layout (binding = 3, std140) uniform UngTransform {
+    mat4 model;
+    mat4 model_inv;
+    mat4 model_view;
+    mat4 model_view_projection;
+};
+
  */
 typedef struct {
     mugfx_material_create_params mugfx;
