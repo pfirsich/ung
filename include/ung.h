@@ -389,6 +389,16 @@ void ung_material_update(ung_material_id material);
 char* ung_read_whole_file(const char* path, size_t* size);
 void ung_free_file_data(char* data, size_t size);
 
+typedef struct {
+    ung_string section;
+    ung_string key;
+    ung_string value;
+} ung_kv_pair;
+
+size_t ung_parse_kv_file(const char* data, size_t size, ung_kv_pair* pairs, size_t max_num_pairs);
+
+bool ung_parse_float(ung_string str, float* ptr, size_t num);
+
 // Returns platform file modification time, units are platform-dependent (both rate and epoch).
 // You should only compare values with values returned from the same function earlier (i.e. check if
 // a file is newer/same/older, nothing else).

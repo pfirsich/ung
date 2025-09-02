@@ -1,5 +1,7 @@
+#include <charconv>
 #include <cstdio>
 #include <cstdlib>
+#include <string_view>
 
 #include "state.hpp"
 #include "types.hpp"
@@ -84,6 +86,98 @@ void begin_frame()
     }
 
     state->next_file_watch_check = ung_get_time() + 0.5f;
+}
+
+static std::string_view trim(std::string_view str)
+{
+    constexpr std::string_view ws = " \t\n\r\f\v";
+
+    const auto start = str.find_first_not_of(ws);
+    if (start == std::string_view::npos) { // the view is entirely whitespace
+        return {};
+    }
+    str.remove_prefix(start);
+
+    const auto end = str.find_last_not_of(ws);
+    str.remove_suffix(str.size() - end - 1);
+
+    return str;
+}
+
+EXPORT size_t ung_parse_kv_file(
+    const char* pdata, size_t size, ung_kv_pair* pairs, size_t max_num_pairs)
+{
+    std::string_view section;
+    size_t p = 0;
+
+    std::string_view data(pdata, size);
+    while (data.size()) {
+        const auto nl = data.find_first_of("\n");
+        auto line = trim(data.substr(0, nl));
+
+        if (nl == std::string_view::npos) {
+            data = data.substr(data.size());
+        } else {
+            data = data.substr(nl + 1);
+        }
+
+        if (line.empty() || line[0] == '#') {
+            continue;
+        }
+
+        if (line[0] == '[') { // section
+            const auto end = line.find(']');
+            section = line.substr(1, end - 1);
+            continue;
+        }
+
+        const auto eq = line.find('=');
+        if (eq == std::string_view::npos) {
+            std::fprintf(stderr, "Missing '=' in '%.*s'", (int)line.size(), line.data());
+            std::exit(1);
+        }
+
+        const auto name = trim(line.substr(0, eq));
+        const auto value = trim(line.substr(eq + 1));
+        pairs[p++] = {
+            .section = { section.data(), section.size() },
+            .key = { name.data(), name.size() },
+            .value = { value.data(), value.size() },
+        };
+    }
+
+    return p;
+}
+
+static bool is_skip_char(char c)
+{
+    return c == ' ' || c == '\t' || c == ',';
+}
+
+EXPORT bool ung_parse_float(ung_string str, float* fptr, size_t num)
+{
+    size_t cursor = 0;
+    for (size_t n = 0; n < num; ++n) {
+        if (cursor >= str.length) {
+            return false;
+        }
+
+        const auto [ptr, ec]
+            = std::from_chars(str.data + cursor, str.data + str.length - cursor, fptr[n]);
+        if (ec != std::errc()) {
+            return false;
+        }
+
+        assert(ptr >= str.data);
+        const auto val_len = (size_t)(ptr - (str.data + cursor));
+        assert(val_len <= str.length);
+        cursor += val_len;
+
+        while (cursor < str.length && is_skip_char(str.data[cursor])) {
+            cursor++;
+        }
+    }
+    return true;
 }
 
 EXPORT ung_file_watch_id ung_file_watch_create(
