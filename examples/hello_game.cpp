@@ -187,9 +187,10 @@ int main(int, char**)
         .window_mode = { .width = 1600, .height = 900 },
         .auto_reload = true,
     });
-    Game game;
-    game.init();
-    ung_run_mainloop(&game, mainloop_wrap); // This is optional, but helps with emscripten
+    auto game = new Game;
+    game->init();
+    ung_run_mainloop(game, mainloop_wrap); // This is optional, but helps with emscripten
+    delete game;
     ung_shutdown();
     return 0;
 }
