@@ -26,7 +26,6 @@ struct State {
     ung_material_id current_material;
     u32 current_tex_width;
     u32 current_tex_height;
-    ung_transform_id identity_trafo;
 };
 
 State* state = nullptr;
@@ -68,8 +67,6 @@ void init(ung_init_params params)
         .index_buffer = state->index_buffer,
         .index_type = MUGFX_INDEX_TYPE_U16,
     });
-
-    state->identity_trafo = ung_transform_create();
 }
 
 void shutdown()
@@ -78,7 +75,6 @@ void shutdown()
         return;
     }
 
-    ung_transform_destroy(state->identity_trafo);
     // ung_geometry_destroy(state->geometry);
     mugfx_buffer_destroy(state->index_buffer);
     deallocate(state->indices, state->num_indices);
@@ -218,7 +214,7 @@ EXPORT void ung_sprite_flush()
         mugfx_buffer_update(state->index_buffer, 0,
             { .data = state->indices, .length = sizeof(u16) * state->index_offset });
         mugfx_geometry_set_index_range(geom->geometry, 0, state->index_offset);
-        ung_draw(state->current_material, state->geometry, state->identity_trafo);
+        ung_draw(state->current_material, state->geometry, { 0 });
         state->vertex_offset = 0;
         state->index_offset = 0;
     }
