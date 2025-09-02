@@ -132,6 +132,7 @@ struct State {
     mugfx_uniform_data_id constant_data;
     mugfx_uniform_data_id frame_data;
     mugfx_uniform_data_id camera_data;
+    ung_transform_id identity_trafo;
 
     // SDL
     SDL_Window* window;

@@ -217,6 +217,8 @@ EXPORT void ung_init(ung_init_params params)
     animation::init(params);
 
     sprite_renderer::init(params);
+
+    state->identity_trafo = ung_transform_create();
 }
 
 EXPORT void ung_shutdown()
@@ -224,6 +226,8 @@ EXPORT void ung_shutdown()
     if (!state) {
         return;
     }
+
+    ung_transform_destroy(state->identity_trafo);
 
     sprite_renderer::shutdown();
 
@@ -1662,12 +1666,12 @@ EXPORT void ung_begin_pass(mugfx_render_target_id target, ung_camera_id camera)
     }
 }
 
-EXPORT void ung_draw(ung_material_id material, ung_geometry_id geometry, ung_transform_id transform)
+static mugfx_uniform_data_id update_uniform_data(ung_transform_id transform)
 {
-    static UTransform u_trafo;
-    auto mat = get_material(material.id);
-    auto geom = get(state->geometries, geometry.id);
-
+    if (transform.id == 0) {
+        transform = state->identity_trafo;
+    }
+    UTransform u_trafo;
     u_trafo.model = transform::get_world_matrix(transform);
     u_trafo.model_inv = um_mat_invert(u_trafo.model);
     u_trafo.model_view = um_mat_mul(state->u_camera.view, u_trafo.model);
@@ -1675,11 +1679,25 @@ EXPORT void ung_draw(ung_material_id material, ung_geometry_id geometry, ung_tra
     const auto uniform_data = transform::get_uniform_data(transform);
     std::memcpy(mugfx_uniform_data_get_ptr(uniform_data), &u_trafo, sizeof(UTransform));
     mugfx_uniform_data_update(uniform_data);
+    return uniform_data;
+}
+
+EXPORT void ung_draw(ung_material_id material, ung_geometry_id geometry, ung_transform_id transform)
+{
+    ung_draw_instanced(material, geometry, transform, 0);
+}
+
+EXPORT void ung_draw_instanced(ung_material_id material, ung_geometry_id geometry,
+    ung_transform_id transform, size_t instance_count)
+{
+    auto mat = get_material(material.id);
+    auto geom = get(state->geometries, geometry.id);
 
     assert(mat->bindings[3].uniform_data.binding == 3);
-    mat->bindings[3].uniform_data.id = uniform_data;
+    mat->bindings[3].uniform_data.id = update_uniform_data(transform);
 
-    mugfx_draw(mat->material, geom->geometry, mat->bindings.data(), mat->bindings.size());
+    mugfx_draw_instanced(
+        mat->material, geom->geometry, mat->bindings.data(), mat->bindings.size(), instance_count);
 }
 
 EXPORT void ung_end_pass()

@@ -640,7 +640,11 @@ void ung_animation_sample(
 // use mugfx_clear, mugfx_set_viewport, mugfx_set_scissor
 void ung_begin_frame();
 void ung_begin_pass(mugfx_render_target_id target, ung_camera_id camera);
+// Transform may be 0 to use the identity transform
 void ung_draw(ung_material_id material, ung_geometry_id geometry, ung_transform_id transform);
+// Just uses mugfx_draw_instanced instead
+void ung_draw_instanced(ung_material_id material, ung_geometry_id geometry,
+    ung_transform_id transform, size_t instance_count);
 void ung_end_pass();
 void ung_end_frame();
 
