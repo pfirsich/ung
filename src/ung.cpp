@@ -1046,7 +1046,12 @@ EXPORT void ung_material_update(ung_material_id material)
 
 EXPORT char* ung_read_whole_file(const char* path, usize* size)
 {
-    return (char*)SDL_LoadFile(path, size);
+    auto data = (char*)SDL_LoadFile(path, size);
+    if (!data) {
+        std::fprintf(stderr, "Could not read file %s: %s\n", path, SDL_GetError());
+        std::exit(1);
+    }
+    return data;
 }
 
 EXPORT void ung_free_file_data(char* data, usize)
