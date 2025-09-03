@@ -5,11 +5,34 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <vector>
 
 #include <cgltf.h>
 
 #define EXPORT extern "C"
+
+template <typename T>
+static T* allocate(size_t n = 1)
+{
+    auto alloc = ung_get_allocator();
+    auto p = (T*)alloc->allocate(sizeof(T) * n, alloc->ctx);
+    for (size_t i = 0; i < n; ++i) {
+        new (p + i) T {};
+    }
+    return p;
+}
+
+template <typename T>
+static void deallocate(T* ptr, size_t n = 1)
+{
+    auto alloc = ung_get_allocator();
+    if (!ptr) {
+        return;
+    }
+    for (size_t i = 0; i < n; ++i) {
+        (ptr + i)->~T();
+    }
+    alloc->deallocate(ptr, sizeof(T) * n, alloc->ctx);
+}
 
 static size_t get_num_components(cgltf_type type)
 {
@@ -350,10 +373,10 @@ EXPORT ung_animation_id get_anim_from_cgltf(const cgltf_animation* anim, const c
         }
     }
 
-    std::vector<ung_animation_channel> channels;
-    channels.reserve(num_channels);
-    std::vector<float> values(total_values_floats);
-    float* values_ptr = values.data();
+    auto channels = allocate<ung_animation_channel>(num_channels);
+    size_t channel_idx = 0;
+    auto values = allocate<float>(total_values_floats);
+    float* values_ptr = values;
     float duration = 0.0f;
 
     for (cgltf_size i = 0; i < anim->channels_count; ++i) {
@@ -412,13 +435,14 @@ EXPORT ung_animation_id get_anim_from_cgltf(const cgltf_animation* anim, const c
             continue;
         }
 
-        channels.push_back(channel);
+        channels[channel_idx++] = channel;
     }
-    assert(values_ptr == values.data() + total_values_floats);
+    assert(values_ptr == values + total_values_floats);
+    assert(channel_idx == num_channels);
 
     const auto anim_id = ung_animation_create({
-        .channels = channels.data(),
-        .num_channels = channels.size(),
+        .channels = channels,
+        .num_channels = num_channels,
         .duration_s = duration,
     });
 
