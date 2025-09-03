@@ -145,6 +145,21 @@ typedef struct {
 void ung_init(ung_init_params params);
 void ung_shutdown();
 
+#if defined(__GNUC__) || defined(__clang__)
+#define UNG_PRINTF(fmt_idx, first_arg_idx) __attribute__((format(printf, fmt_idx, first_arg_idx)))
+#define UNG_NORETURN_PRE
+#define UNG_NORETURN_POST __attribute__((noreturn))
+#else
+#define UNG_PRINTF(fmt_idx, first_arg_idx)
+#define UNG_NORETURN_PRE __declspec(noreturn)
+#define UNG_NORETURN_POST
+#endif
+
+// This will log the message to the console and break into the debugger in debug builds.
+// In non-debug builds this will show a message box.
+UNG_NORETURN_PRE void ung_panic(const char* message) UNG_NORETURN_POST;
+UNG_NORETURN_PRE void ung_panicf(const char* fmt, ...) UNG_PRINTF(1, 2) UNG_NORETURN_POST;
+
 ung_allocator* ung_get_allocator();
 void* ung_malloc(size_t size);
 void* ung_realloc(void* ptr, size_t new_size);
@@ -716,10 +731,23 @@ int64_t ung_random_int_s(int64_t min, int64_t max, uint64_t* state);
 float ung_random_float(float min, float max);
 float ung_random_float_s(float min, float max, uint64_t* state);
 
+/*
+ * Mainloop
+ */
+
 // You don't have to use ung_run, but it will handle the mainloop in emscripten for you.
 // Return true if you want the program to continue and false if you want to terminate.
 typedef bool (*ung_mainloop_func)(void* ctx, float dt);
 void ung_run_mainloop(void* ctx, ung_mainloop_func mainloop);
+
+#if __GNUC__
+// https://nullprogram.com/blog/2022/06/26/
+#define UNG_TRAP __builtin_trap();
+#elif _MSC_VER
+#define UNG_TRAP __debugbreak();
+#else
+#define UNG_TRAP *(volatile int*)0 = 0
+#endif
 
 #ifdef __cplusplus
 }

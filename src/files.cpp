@@ -133,8 +133,7 @@ EXPORT size_t ung_parse_kv_file(
 
         const auto eq = line.find('=');
         if (eq == std::string_view::npos) {
-            std::fprintf(stderr, "Missing '=' in '%.*s'", (int)line.size(), line.data());
-            std::exit(1);
+            ung_panicf("Missing '=' in '%.*s'", (int)line.size(), line.data());
         }
 
         const auto name = trim(line.substr(0, eq));

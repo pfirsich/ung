@@ -59,8 +59,7 @@ struct Game {
         cgltf_data* data = nullptr;
         const auto result = cgltf_parse_file(&options, gltf_path, &data);
         if (result != cgltf_result_success) {
-            std::fprintf(stderr, "Error loading glTF file: %d\n", result);
-            std::exit(1);
+            ung_panicf("Error loading glTF file: %d\n", result);
         }
         cgltf_load_buffers(&options, data, gltf_path);
 

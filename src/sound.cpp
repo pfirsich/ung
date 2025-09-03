@@ -170,9 +170,7 @@ void init(ung_init_params params)
 
     auto ma_res = ma_engine_init(nullptr, &state->sound_engine);
     if (ma_res != MA_SUCCESS) {
-        std::fprintf(
-            stderr, "Could not initialize audio engine: %s\n", ma_result_description(ma_res));
-        std::exit(1);
+        ung_panicf("Error initializing audio engine: %s", ma_result_description(ma_res));
     }
 
     state->sound_sources.init(params.max_num_sound_sources ? params.max_num_sound_sources : 64);
@@ -187,9 +185,7 @@ void init(ung_init_params params)
     for (u32 i = 0; i < state->sound_groups.size; ++i) {
         ma_res = ma_sound_group_init(&state->sound_engine, 0, nullptr, &state->sound_groups[i]);
         if (ma_res != MA_SUCCESS) {
-            std::fprintf(
-                stderr, "Could not initialize sound group: %s\n", ma_result_description(ma_res));
-            std::exit(1);
+            ung_panicf("Error initializing sound group: %s", ma_result_description(ma_res));
         }
     }
 }
@@ -307,7 +303,7 @@ static void set_source(Sound* sound, SoundSource* source)
     sound->source = source;
 
     if (!load_sound(sound)) {
-        std::exit(1);
+        ung_panicf("Error loading sound '%s'", source->path.data);
     }
 }
 
@@ -331,7 +327,6 @@ static bool reload_source(SoundSource* source, const char* path)
 
     // Reload
     if ((source->flags & MA_SOUND_FLAG_STREAM) == 0) {
-        std::printf("reload source\n");
         if (!load_sound(source)) {
             return false;
         }
@@ -339,7 +334,6 @@ static bool reload_source(SoundSource* source, const char* path)
 
     cur = source->source_idle_head;
     while (cur) {
-        std::printf("reload idle sound\n");
         if (!load_sound(cur)) {
             return false;
         }
@@ -371,7 +365,7 @@ EXPORT ung_sound_source_id ung_sound_source_load(
 
     if (!params.stream) {
         if (!load_sound(source)) {
-            std::exit(1);
+            ung_panicf("Error loading sound '%s'", path);
         }
     }
 
@@ -381,8 +375,7 @@ EXPORT ung_sound_source_id ung_sound_source_load(
     for (size_t i = 0; i < params.num_prewarm_sounds; ++i) {
         auto sound = get_idle_sound();
         if (!sound) {
-            std::fprintf(stderr, "No idle sounds to prewarm '%s'\n", path);
-            std::exit(1);
+            ung_panicf("No idle sounds to prewarm '%s'", path);
         }
         set_source(sound, source);
         source_idle_push(source, sound);

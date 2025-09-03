@@ -91,8 +91,7 @@ EXPORT void ung_init(ung_init_params params)
     }
 
     if (SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMECONTROLLER) < 0) {
-        std::fprintf(stderr, "Could not initialize SDL2\n");
-        std::exit(1);
+        ung_panicf("Could not initialize SDL2: %s", SDL_GetError());
     }
 
 #ifdef MUGFX_WEBGL
@@ -139,15 +138,13 @@ EXPORT void ung_init(ung_init_params params)
     state->window = SDL_CreateWindow(params.title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
         (int)params.window_mode.width, (int)params.window_mode.height, flags);
     if (!state->window) {
-        std::fprintf(stderr, "Could not create window\n");
-        std::exit(1);
+        ung_panicf("Error creating window: %s", SDL_GetError());
     }
 
     // Context
     state->context = SDL_GL_CreateContext(state->window);
     if (!state->context) {
-        std::fprintf(stderr, "Could not create context\n");
-        std::exit(1);
+        ung_panicf("Error creating GL context: %s", SDL_GetError());
     }
 
     // mugfx
@@ -254,6 +251,36 @@ EXPORT void ung_shutdown()
     files::shutdown();
 
     deallocate(state);
+}
+
+EXPORT void ung_panic(const char* message)
+{
+    std::fprintf(stderr, "%s\n", message);
+#ifndef NDEBUG
+    UNG_TRAP
+#endif
+    SDL_ShowSimpleMessageBox(
+        SDL_MESSAGEBOX_ERROR, "ung panic", message, state ? state->window : nullptr);
+    std::exit(1);
+}
+
+EXPORT void ung_panicf(const char* fmt, ...)
+{
+    char buf[512];
+
+    va_list ap;
+    va_start(ap, fmt);
+    const auto n = std::vsnprintf(buf, sizeof(buf), fmt, ap);
+    va_end(ap);
+
+    if (n < 0) {
+        ung_panic("ung_panicf: format error");
+    }
+
+    // Ensure null-terminator in case of truncation
+    buf[sizeof(buf) - 1] = '\0';
+
+    ung_panic(buf);
 }
 
 EXPORT SDL_Window* ung_get_window()
@@ -371,7 +398,7 @@ EXPORT ung_shader_id ung_shader_create(mugfx_shader_create_params params)
 {
     const auto sh = mugfx_shader_create(params);
     if (!sh.id) {
-        std::exit(1);
+        ung_panic("Failed to create shader");
     }
 
     const auto [id, shader] = state->shaders.insert();
@@ -506,7 +533,7 @@ EXPORT ung_shader_id ung_shader_load(mugfx_shader_stage stage, const char* path)
 {
     const auto sh = load_shader(stage, path);
     if (!sh.id) {
-        std::exit(1);
+        ung_panicf("Error loading shader '%s'", path);
     }
 
     const auto [id, shader] = state->shaders.insert();
@@ -541,7 +568,7 @@ EXPORT ung_texture_id ung_texture_create(mugfx_texture_create_params params)
 {
     const auto t = mugfx_texture_create(params);
     if (!t.id) {
-        std::exit(1);
+        ung_panic("Failed to create shader");
     }
 
     const auto [id, texture] = state->textures.insert();
@@ -587,8 +614,8 @@ static mugfx_texture_id load_texture(
     stbi_set_flip_vertically_on_load(flip_y);
     auto data = stbi_load(path, &width, &height, &comp, 0);
     if (!data) {
-        std::fprintf(stderr, "Could not load texture: %s\n", stbi_failure_reason());
-        std::exit(1);
+        std::fprintf(stderr, "Error loading texture '%s': %s\n", path, stbi_failure_reason());
+        return { 0 };
     }
     const auto texture = create_texture(data, width, height, comp, params);
     stbi_image_free(data);
@@ -621,7 +648,7 @@ EXPORT ung_texture_id ung_texture_load(
 {
     const auto t = load_texture(path, flip_y, params);
     if (!t.id) {
-        std::exit(1);
+        ung_panicf("Error loading texture '%s'", path);
     }
 
     const auto [id, texture] = state->textures.insert();
@@ -1048,8 +1075,7 @@ EXPORT char* ung_read_whole_file(const char* path, usize* size)
 {
     auto data = (char*)SDL_LoadFile(path, size);
     if (!data) {
-        std::fprintf(stderr, "Could not read file %s: %s\n", path, SDL_GetError());
-        std::exit(1);
+        ung_panicf("Error reading file '%s': %s", path, SDL_GetError());
     }
     return data;
 }
@@ -1344,7 +1370,7 @@ EXPORT ung_geometry_id ung_geometry_create(mugfx_geometry_create_params params)
 {
     const auto geom = mugfx_geometry_create(params);
     if (!geom.id) {
-        std::exit(1);
+        ung_panicf("Error creating geometry");
     }
 
     const auto [id, geometry] = state->geometries.insert();
@@ -1446,7 +1472,7 @@ EXPORT ung_geometry_id ung_geometry_create_from_data(ung_geometry_data gdata)
 {
     const auto geom = geometry_from_data(gdata);
     if (!geom.id) {
-        std::exit(1);
+        ung_panicf("Error creating geometry");
     }
 
     const auto [id, geometry] = state->geometries.insert();
@@ -1486,7 +1512,7 @@ EXPORT ung_geometry_id ung_geometry_load(const char* path)
 {
     const auto geom = load_geometry(path);
     if (!geom.id) {
-        std::exit(1);
+        ung_panicf("Error loading geometry '%s'", path);
     }
 
     const auto [id, geometry] = state->geometries.insert();
