@@ -667,6 +667,28 @@ EXPORT ung_texture_id ung_texture_load(
     return { id };
 }
 
+EXPORT ung_texture_id ung_texture_load_buffer(
+    const void* buffer, size_t size, bool flip_y, mugfx_texture_create_params params)
+{
+
+    int width, height, comp;
+    stbi_set_flip_vertically_on_load(flip_y);
+    auto data = stbi_load_from_memory((const uint8_t*)buffer, (int)size, &width, &height, &comp, 0);
+    if (!data) {
+        ung_panicf("Error loading texture: %s", stbi_failure_reason());
+    }
+    const auto tex = create_texture(data, width, height, comp, params);
+    stbi_image_free(data);
+
+    if (!tex.id) {
+        ung_panicf("Error loading texture");
+    }
+
+    const auto [id, texture] = state->textures.insert();
+    texture->texture = tex;
+    return { id };
+}
+
 EXPORT bool ung_texture_reload(
     ung_texture_id texture_id, const char* path, bool flip_y, mugfx_texture_create_params params)
 {
