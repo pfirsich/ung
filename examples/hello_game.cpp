@@ -4,6 +4,8 @@
 #include <um.h>
 #include <ung.h>
 
+#include "../pasta/pfx/pfx.hpp"
+
 struct Game {
     ung_camera_id camera;
     ung_material_id material;
@@ -24,6 +26,12 @@ struct Game {
     ung_sound_source_id shoot_sound;
     ung_sound_source_id explode_sound;
     bool mouse_captured = true;
+
+    pfx::Renderer pfx_renderer;
+    pfx::Effect pfx_smoke;
+    std::array<pfx::Particle, 4096> smoke_particles;
+    float smoke_spawn_accum = 0.0f;
+    bool update_particles = true;
 
     void init()
     {
@@ -89,6 +97,16 @@ struct Game {
 
         shoot_sound = ung_sound_source_load("examples/assets/shoot.wav", {});
         explode_sound = ung_sound_source_load("examples/assets/explode.wav", {});
+
+        pfx_renderer.init(smoke_particles.size());
+
+        const auto smoke
+            = ung_texture_load("examples/assets/smoke.png", true, { .generate_mipmaps = true });
+
+        pfx_smoke.buffer.particles = smoke_particles;
+        pfx_smoke.draw_data.init(smoke_particles.size(), "pasta/pfx/pfx.vert", "pasta/pfx/pfx.frag",
+            smoke, pfx::Sort::BackToFront);
+        pfx_smoke.load("examples/assets/smoke.pfx");
     }
 
     void update(float dt)
@@ -107,6 +125,10 @@ struct Game {
         }
         if (ung_key_pressed("k")) {
             ung_sound_play(explode_sound, {});
+        }
+
+        if (ung_key_pressed("p")) {
+            update_particles = !update_particles;
         }
 
         const auto box_q = um_quat_from_axis_angle({ 0.0f, 1.0f, 0.0f }, ung_get_time());
@@ -136,6 +158,14 @@ struct Game {
         const auto world_move = um_quat_mul_vec3(q, move);
         cam_pos = um_vec3_add(cam_pos, um_vec3_mul(world_move, move_speed * dt));
         ung_transform_set_position(cam_trafo, cam_pos.x, cam_pos.y, cam_pos.z);
+
+        if (update_particles) {
+            smoke_spawn_accum += 200.f * dt;
+            const auto spawn_n = (size_t)smoke_spawn_accum;
+            smoke_spawn_accum -= spawn_n;
+            pfx_smoke.spawn(spawn_n, { 0.f, 0.f, 0.f }, { 0.f, 1.f, 0.f });
+            pfx_smoke.update(dt);
+        }
     }
 
     void draw()
@@ -146,6 +176,7 @@ struct Game {
         mugfx_clear(MUGFX_CLEAR_COLOR_DEPTH, MUGFX_CLEAR_DEFAULT);
         ung_draw(material, level, level_trafo);
         ung_draw(material, geometry, trafo);
+        pfx_smoke.draw(pfx_renderer, camera);
         ung_end_pass();
 
         ung_begin_pass(MUGFX_RENDER_TARGET_BACKBUFFER, ui_camera);

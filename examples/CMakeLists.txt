@@ -1,4 +1,4 @@
-add_executable(hello_game hello_game.cpp)
+add_executable(hello_game hello_game.cpp ../pasta/pfx/pfx.cpp)
 target_link_libraries(hello_game PRIVATE ung)
 target_compile_definitions(hello_game PUBLIC SDL_MAIN_HANDLED) # don't override main()
 
