@@ -67,19 +67,6 @@ struct Geometry {
     GeometryReloadCtx* reload_ctx;
 };
 
-struct Transform {
-    um_mat local_matrix;
-    um_quat orientation;
-    um_vec3 position;
-    um_vec3 scale;
-    u64 parent;
-    u64 first_child;
-    u64 prev_sibling;
-    u64 next_sibling;
-    mugfx_uniform_data_id uniform_data;
-    bool local_matrix_dirty;
-};
-
 struct MaterialReloadCtx {
     ung_material_id material;
     Array<char> vert_path;
