@@ -250,10 +250,9 @@ um_quat um_quat_from_matrix(um_mat m)
 
 um_quat um_quat_from_axis_angle(um_vec3 axis, float angle)
 {
-    float half_angle = angle * 0.5f;
-    float s = sinf(half_angle);
-
+    const auto half_angle = angle * 0.5f;
     um_vec3 normalized_axis = um_vec3_normalized(axis);
+    const auto s = sinf(half_angle);
 
     return {
         normalized_axis.x * s,
@@ -333,8 +332,7 @@ um_vec3 um_quat_mul_vec3(um_quat q, um_vec3 v)
 um_mat um_mat_from_ptr(const float m[16])
 {
     um_mat mat;
-    // I hope this is fine?
-    std::memcpy(&mat, m, sizeof(float) * 16);
+    std::memcpy(&mat.cols[0].x, m, sizeof(float) * 16);
     return mat;
 }
 
