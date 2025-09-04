@@ -455,33 +455,33 @@ um_mat um_mat_translate(um_vec3 vec)
     return m;
 }
 
-um_mat um_mat_ortho(float left, float right, float bottom, float top, float near, float far)
+um_mat um_mat_ortho(float left, float right, float bottom, float top, float znear, float zfar)
 {
     um_mat m = um_mat_identity();
 
     float rl = 1.0f / (right - left);
     float tb = 1.0f / (top - bottom);
-    float fn = 1.0f / (far - near);
+    float fn = 1.0f / (zfar - znear);
 
     m.cols[0] = { 2.0f * rl, 0.0f, 0.0f, 0.0f };
     m.cols[1] = { 0.0f, 2.0f * tb, 0.0f, 0.0f };
     m.cols[2] = { 0.0f, 0.0f, -2.0f * fn, 0.0f };
-    m.cols[3] = { -(right + left) * rl, -(top + bottom) * tb, -(far + near) * fn, 1.0f };
+    m.cols[3] = { -(right + left) * rl, -(top + bottom) * tb, -(zfar + znear) * fn, 1.0f };
 
     return m;
 }
 
-um_mat um_mat_perspective(float fovy, float aspect, float near, float far)
+um_mat um_mat_perspective(float fovy, float aspect, float znear, float zfar)
 {
     um_mat m = {};
 
     float f = 1.0f / tanf(fovy * 0.5f);
-    float fn = 1.0f / (near - far);
+    float fn = 1.0f / (znear - zfar);
 
     m.cols[0] = { f / aspect, 0.0f, 0.0f, 0.0f };
     m.cols[1] = { 0.0f, f, 0.0f, 0.0f };
-    m.cols[2] = { 0.0f, 0.0f, (near + far) * fn, -1.0f };
-    m.cols[3] = { 0.0f, 0.0f, 2.0f * near * far * fn, 0.0f };
+    m.cols[2] = { 0.0f, 0.0f, (znear + zfar) * fn, -1.0f };
+    m.cols[3] = { 0.0f, 0.0f, 2.0f * znear * zfar * fn, 0.0f };
 
     return m;
 }
