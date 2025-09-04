@@ -131,7 +131,12 @@ EXPORT void ung_transform_destroy(ung_transform_id transform)
     state->transforms.remove(transform.id);
 }
 
-EXPORT void ung_transform_set_position(ung_transform_id transform, float x, float y, float z)
+EXPORT void ung_transform_set_position(ung_transform_id transform, const float xyz[3])
+{
+    ung_transform_set_position_v(transform, xyz[0], xyz[1], xyz[2]);
+}
+
+EXPORT void ung_transform_set_position_v(ung_transform_id transform, float x, float y, float z)
 {
     auto trafo = get_transform(transform.id);
     trafo->position = { x, y, z };
@@ -146,7 +151,12 @@ EXPORT void ung_transform_get_position(ung_transform_id transform, float positio
     position[2] = trafo->position.z;
 }
 
-EXPORT void ung_transform_set_orientation(
+EXPORT void ung_transform_set_orientation(ung_transform_id transform, const float wxyz[4])
+{
+    ung_transform_set_orientation_v(transform, wxyz[0], wxyz[1], wxyz[2], wxyz[3]);
+}
+
+EXPORT void ung_transform_set_orientation_v(
     ung_transform_id transform, float w, float x, float y, float z)
 {
 
@@ -164,7 +174,17 @@ EXPORT void ung_transform_get_orientation(ung_transform_id transform, float quat
     quat[3] = trafo->orientation.z;
 }
 
-EXPORT void ung_transform_set_scale(ung_transform_id transform, float x, float y, float z)
+EXPORT void ung_transform_set_scale(ung_transform_id transform, const float xyz[3])
+{
+    ung_transform_set_scale_v(transform, xyz[0], xyz[1], xyz[2]);
+}
+
+EXPORT void ung_transform_set_scale_u(ung_transform_id transform, float s)
+{
+    ung_transform_set_scale_v(transform, s, s, s);
+}
+
+EXPORT void ung_transform_set_scale_v(ung_transform_id transform, float x, float y, float z)
 {
     auto trafo = get_transform(transform.id);
     trafo->scale = { x, y, z };
@@ -186,7 +206,12 @@ static void look_at(Transform* trafo, um_vec3 at, um_vec3 up)
     trafo->local_matrix_dirty = true;
 }
 
-EXPORT void ung_transform_look_at(ung_transform_id transform, float x, float y, float z)
+EXPORT void ung_transform_look_at(ung_transform_id transform, const float xyz[3])
+{
+    ung_transform_look_at_v(transform, xyz[0], xyz[1], xyz[2]);
+}
+
+EXPORT void ung_transform_look_at_v(ung_transform_id transform, float x, float y, float z)
 {
     auto trafo = get_transform(transform.id);
     const um_vec3 at = { x, y, z };
@@ -198,6 +223,12 @@ EXPORT void ung_transform_look_at(ung_transform_id transform, float x, float y, 
 }
 
 EXPORT void ung_transform_look_at_up(
+    ung_transform_id transform, const float xyz[3], const float up_xyz[3])
+{
+    ung_transform_look_at_up_v(transform, xyz[0], xyz[1], xyz[2], up_xyz[0], up_xyz[1], up_xyz[2]);
+}
+
+EXPORT void ung_transform_look_at_up_v(
     ung_transform_id transform, float x, float y, float z, float up_x, float up_y, float up_z)
 {
     auto trafo = get_transform(transform.id);

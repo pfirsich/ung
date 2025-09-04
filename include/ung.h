@@ -292,16 +292,23 @@ ung_transform_id ung_transform_create();
 // This will reparent all children to the parent of the deleted transform
 void ung_transform_destroy(ung_transform_id transform);
 
-void ung_transform_set_position(ung_transform_id transform, float x, float y, float z);
+void ung_transform_set_position(ung_transform_id transform, const float xyz[3]);
+void ung_transform_set_position_v(ung_transform_id transform, float x, float y, float z);
 void ung_transform_get_position(ung_transform_id transform, float position[3]);
-void ung_transform_set_orientation(
-    ung_transform_id transform, float w, float x, float y, float z); // quaternion
+void ung_transform_set_orientation(ung_transform_id transform, const float wxyz[4]);
+void ung_transform_set_orientation_v(
+    ung_transform_id transform, float w, float x, float y, float z);
 void ung_transform_get_orientation(ung_transform_id transform, float quat[4]);
-void ung_transform_set_scale(ung_transform_id transform, float x, float y, float z);
+void ung_transform_set_scale(ung_transform_id transform, const float xyz[3]);
+void ung_transform_set_scale_u(ung_transform_id transform, float scale); // uniform
+void ung_transform_set_scale_v(ung_transform_id transform, float x, float y, float z);
 void ung_transform_get_scale(ung_transform_id transform, float scale[3]);
 
-void ung_transform_look_at(ung_transform_id transform, float x, float y, float z);
+void ung_transform_look_at(ung_transform_id transform, const float xyz[3]);
+void ung_transform_look_at_v(ung_transform_id transform, float x, float y, float z);
 void ung_transform_look_at_up(
+    ung_transform_id transform, const float xyz[3], const float up_xyz[3]);
+void ung_transform_look_at_up_v(
     ung_transform_id transform, float x, float y, float z, float up_x, float up_y, float up_z);
 
 // Returns matrix in parent coordinate system
