@@ -265,7 +265,8 @@ um_quat um_quat_from_axis_angle(um_vec3 axis, float angle)
 um_quat um_quat_slerp(um_quat a, um_quat b, float t)
 {
     // Calculate angle between quaternions
-    float cos_half_theta = a.w * b.w + a.x * b.x + a.y * b.y + a.z * b.z;
+    float cos_half_theta = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+    cos_half_theta = um_clamp(cos_half_theta, -1.0f, 1.0f);
 
     // If a and b are very close, linearly interpolate to avoid divide by zero
     if (fabsf(cos_half_theta) >= 0.999f) {
