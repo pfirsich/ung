@@ -84,7 +84,7 @@ bool um_vec3_eq(um_vec3 a, um_vec3 b)
 }
 
 // Vec4 implementations
-um_vec4 um_vec4_ptr(const float v[4])
+um_vec4 um_vec4_from_ptr(const float v[4])
 {
     return { v[0], v[1], v[2], v[3] };
 }
