@@ -301,15 +301,7 @@ static size_t read_quats(const cgltf_accessor* acc, float* dest)
 {
     assert(acc->component_type == cgltf_component_type_r_32f && acc->type == cgltf_type_vec4);
     assert(acc->buffer_view->stride == 0 && !acc->is_sparse);
-    const auto src = get_data(acc);
-    for (size_t i = 0; i < acc->count; ++i) {
-        float tmp[4];
-        std::memcpy(tmp, src + i * 4 * sizeof(float), 4 * sizeof(float));
-        *(dest++) = tmp[3];
-        *(dest++) = tmp[0];
-        *(dest++) = tmp[1];
-        *(dest++) = tmp[2];
-    }
+    std::memcpy(dest, get_data(acc), acc->count * 4 * sizeof(float));
     return acc->count * 4;
 }
 

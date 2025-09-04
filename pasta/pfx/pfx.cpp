@@ -231,7 +231,7 @@ void sort_particles(std::span<GpuParticleInstance> gpu_particles, ung_camera_id 
     ung_transform_get_position(trafo, &cam_pos.x);
 
     um_quat q;
-    ung_transform_get_orientation(trafo, &q.w);
+    ung_transform_get_orientation(trafo, &q.x);
     auto fwd = um_vec3_normalized(um_quat_mul_vec3(q, { 0.0f, 0.0f, -1.0f }));
 
     if (sort == Sort::FrontToBack) {

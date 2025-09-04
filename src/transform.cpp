@@ -151,27 +151,24 @@ EXPORT void ung_transform_get_position(ung_transform_id transform, float positio
     position[2] = trafo->position.z;
 }
 
-EXPORT void ung_transform_set_orientation(ung_transform_id transform, const float wxyz[4])
+EXPORT void ung_transform_set_orientation(ung_transform_id transform, const float xyzw[4])
 {
-    ung_transform_set_orientation_v(transform, wxyz[0], wxyz[1], wxyz[2], wxyz[3]);
+    ung_transform_set_orientation_v(transform, xyzw[0], xyzw[1], xyzw[2], xyzw[3]);
 }
 
 EXPORT void ung_transform_set_orientation_v(
-    ung_transform_id transform, float w, float x, float y, float z)
+    ung_transform_id transform, float x, float y, float z, float w)
 {
 
     auto trafo = get_transform(transform.id);
-    trafo->orientation = { w, x, y, z };
+    trafo->orientation = { x, y, z, w };
     trafo->local_matrix_dirty = true;
 }
 
-EXPORT void ung_transform_get_orientation(ung_transform_id transform, float quat[4])
+EXPORT void ung_transform_get_orientation(ung_transform_id transform, float quat_xyzw[4])
 {
     const auto trafo = get_transform(transform.id);
-    quat[0] = trafo->orientation.w;
-    quat[1] = trafo->orientation.x;
-    quat[2] = trafo->orientation.y;
-    quat[3] = trafo->orientation.z;
+    um_quat_to_ptr(trafo->orientation, quat_xyzw);
 }
 
 EXPORT void ung_transform_set_scale(ung_transform_id transform, const float xyz[3])

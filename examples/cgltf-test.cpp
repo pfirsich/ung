@@ -108,7 +108,7 @@ struct Game {
         const auto pitch_q = um_quat_from_axis_angle({ 1.0f, 0.0f, 0.0f }, cam_pitch);
         const auto cam_q = um_quat_mul(yaw_q, pitch_q);
         const auto cam_trafo = ung_camera_get_transform(camera);
-        ung_transform_set_orientation(cam_trafo, cam_q.w, cam_q.x, cam_q.y, cam_q.z);
+        ung_transform_set_orientation(cam_trafo, &cam_q.x);
 
         const auto move_speed = 20.0f;
         const auto move_x = ung_key_down("d") - ung_key_down("a");
@@ -116,7 +116,7 @@ struct Game {
         const auto move = um_vec3_normalized({ (float)move_x, 0.0f, -(float)move_z });
         const auto world_move = um_quat_mul_vec3(cam_q, move);
         cam_pos = um_vec3_add(cam_pos, um_vec3_mul(world_move, move_speed * dt));
-        ung_transform_set_position(cam_trafo, cam_pos.x, cam_pos.y, cam_pos.z);
+        ung_transform_set_position(cam_trafo, &cam_pos.x);
     }
 
     void draw()

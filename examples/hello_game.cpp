@@ -46,10 +46,9 @@ struct Game {
         // geometry = ung_geometry_box(1.0f, 1.0f, 1.0f);
 
         trafo = ung_transform_create();
-        ung_transform_set_position(trafo, 0.0f, 0.0f, 0.0f);
 
         level_trafo = ung_transform_create();
-        ung_transform_set_scale(level_trafo, 0.1f, 0.1f, 0.1f);
+        ung_transform_set_scale_u(level_trafo, 0.1f);
         level = ung_geometry_load("examples/assets/level.obj");
 
         uint32_t win_w, win_h;
@@ -132,7 +131,7 @@ struct Game {
         }
 
         const auto box_q = um_quat_from_axis_angle({ 0.0f, 1.0f, 0.0f }, ung_get_time());
-        ung_transform_set_orientation(trafo, box_q.w, box_q.x, box_q.y, box_q.z);
+        ung_transform_set_orientation(trafo, &box_q.x);
 
         const auto cam_trafo = ung_camera_get_transform(camera);
 
@@ -146,7 +145,7 @@ struct Game {
             const auto yaw_q = um_quat_from_axis_angle({ 0.0f, 1.0f, 0.0f }, cam_yaw);
             const auto pitch_q = um_quat_from_axis_angle({ 1.0f, 0.0f, 0.0f }, cam_pitch);
             const auto cam_q = um_quat_mul(yaw_q, pitch_q);
-            ung_transform_set_orientation(cam_trafo, cam_q.w, cam_q.x, cam_q.y, cam_q.z);
+            ung_transform_set_orientation(cam_trafo, &cam_q.x);
         }
 
         const auto move_speed = 10.0f;
@@ -154,10 +153,10 @@ struct Game {
         const auto move_z = ung_key_down("w") - ung_key_down("s");
         const auto move = um_vec3_normalized({ (float)move_x, 0.0f, -(float)move_z });
         um_quat q;
-        ung_transform_get_orientation(cam_trafo, &q.w);
+        ung_transform_get_orientation(cam_trafo, &q.x);
         const auto world_move = um_quat_mul_vec3(q, move);
         cam_pos = um_vec3_add(cam_pos, um_vec3_mul(world_move, move_speed * dt));
-        ung_transform_set_position(cam_trafo, cam_pos.x, cam_pos.y, cam_pos.z);
+        ung_transform_set_position(cam_trafo, &cam_pos.x);
 
         if (update_particles) {
             smoke_spawn_accum += 200.f * dt;

@@ -295,10 +295,10 @@ void ung_transform_destroy(ung_transform_id transform);
 void ung_transform_set_position(ung_transform_id transform, const float xyz[3]);
 void ung_transform_set_position_v(ung_transform_id transform, float x, float y, float z);
 void ung_transform_get_position(ung_transform_id transform, float position[3]);
-void ung_transform_set_orientation(ung_transform_id transform, const float wxyz[4]);
+void ung_transform_set_orientation(ung_transform_id transform, const float xyzw[4]);
 void ung_transform_set_orientation_v(
-    ung_transform_id transform, float w, float x, float y, float z);
-void ung_transform_get_orientation(ung_transform_id transform, float quat[4]);
+    ung_transform_id transform, float x, float y, float z, float w);
+void ung_transform_get_orientation(ung_transform_id transform, float quat_xyzw[4]);
 void ung_transform_set_scale(ung_transform_id transform, const float xyz[3]);
 void ung_transform_set_scale_u(ung_transform_id transform, float scale); // uniform
 void ung_transform_set_scale_v(ung_transform_id transform, float x, float y, float z);
@@ -578,7 +578,7 @@ typedef struct {
 
 typedef struct {
     float translation[3];
-    float rotation[4]; // quat: wxyz
+    float rotation[4]; // quat: xyzw
     float scale[3];
 } ung_joint_transform;
 

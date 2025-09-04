@@ -149,24 +149,24 @@ bool um_vec4_eq(um_vec4 a, um_vec4 b)
 }
 
 // Quaternion implementations
-um_quat um_quat_from_ptr(const float v[4])
+um_quat um_quat_from_ptr(const float xyzw[4])
 {
-    return { v[0], v[1], v[2], v[3] };
+    return { xyzw[0], xyzw[1], xyzw[2], xyzw[3] };
 }
 
-void um_quat_to_ptr(um_quat q, float p[4])
+void um_quat_to_ptr(um_quat q, float xyzw[4])
 {
-    std::memcpy(p, &q.w, sizeof(float) * 4);
+    std::memcpy(xyzw, &q.x, sizeof(float) * 4);
 }
 
 um_quat um_quat_identity()
 {
-    return { 1.0f, 0.0f, 0.0f, 0.0f };
+    return { 0.0f, 0.0f, 0.0f, 1.0f };
 }
 
 float um_quat_len(um_quat q)
 {
-    return sqrtf(q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z);
+    return sqrtf(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
 }
 
 um_quat um_quat_normalized(um_quat q)
@@ -176,22 +176,22 @@ um_quat um_quat_normalized(um_quat q)
         return um_quat_identity();
     }
     float inv_len = 1.0f / len;
-    return { q.w * inv_len, q.x * inv_len, q.y * inv_len, q.z * inv_len };
+    return { q.x * inv_len, q.y * inv_len, q.z * inv_len, q.w * inv_len };
 }
 
 um_quat um_quat_conjugate(um_quat q)
 {
-    // The conjugate of a quaternion is (w, -x, -y, -z)
-    return { q.w, -q.x, -q.y, -q.z };
+    // The conjugate of a quaternion is (-x, -y, -z, w)
+    return { -q.x, -q.y, -q.z, q.w };
 }
 
 um_quat um_quat_mul(um_quat a, um_quat b)
 {
     um_quat result;
-    result.w = a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z;
     result.x = a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y;
     result.y = a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x;
     result.z = a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w;
+    result.w = a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z;
     return result;
 }
 
@@ -216,28 +216,28 @@ um_quat um_quat_from_matrix(um_mat m)
 
     if (trace > 0) {
         float s = 0.5f / sqrtf(trace + 1.0f);
-        q.w = 0.25f / s;
         q.x = (m21 - m12) * s;
         q.y = (m02 - m20) * s;
         q.z = (m10 - m01) * s;
+        q.w = 0.25f / s;
     } else if (m00 > m11 && m00 > m22) {
         float s = 2.0f * sqrtf(1.0f + m00 - m11 - m22);
-        q.w = (m21 - m12) / s;
         q.x = 0.25f * s;
         q.y = (m01 + m10) / s;
         q.z = (m02 + m20) / s;
+        q.w = (m21 - m12) / s;
     } else if (m11 > m22) {
         float s = 2.0f * sqrtf(1.0f + m11 - m00 - m22);
-        q.w = (m02 - m20) / s;
         q.x = (m01 + m10) / s;
         q.y = 0.25f * s;
         q.z = (m12 + m21) / s;
+        q.w = (m02 - m20) / s;
     } else {
         float s = 2.0f * sqrtf(1.0f + m22 - m00 - m11);
-        q.w = (m10 - m01) / s;
         q.x = (m02 + m20) / s;
         q.y = (m12 + m21) / s;
         q.z = 0.25f * s;
+        q.w = (m10 - m01) / s;
     }
 
     return um_quat_normalized(q);
@@ -250,8 +250,12 @@ um_quat um_quat_from_axis_angle(um_vec3 axis, float angle)
 
     um_vec3 normalized_axis = um_vec3_normalized(axis);
 
-    return { cosf(half_angle), normalized_axis.x * s, normalized_axis.y * s,
-        normalized_axis.z * s };
+    return {
+        normalized_axis.x * s,
+        normalized_axis.y * s,
+        normalized_axis.z * s,
+        cosf(half_angle),
+    };
 }
 
 um_quat um_quat_slerp(um_quat a, um_quat b, float t)
@@ -261,17 +265,20 @@ um_quat um_quat_slerp(um_quat a, um_quat b, float t)
 
     // If a and b are very close, linearly interpolate to avoid divide by zero
     if (fabsf(cos_half_theta) >= 0.999f) {
-        um_quat result = { a.w + (b.w - a.w) * t, a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t,
-            a.z + (b.z - a.z) * t };
-        return um_quat_normalized(result);
+        return um_quat_normalized({
+            a.x + (b.x - a.x) * t,
+            a.y + (b.y - a.y) * t,
+            a.z + (b.z - a.z) * t,
+            a.w + (b.w - a.w) * t,
+        });
     }
 
     // Ensure we take the shortest path
     if (cos_half_theta < 0.0f) {
-        b.w = -b.w;
         b.x = -b.x;
         b.y = -b.y;
         b.z = -b.z;
+        b.w = -b.w;
         cos_half_theta = -cos_half_theta;
     }
 
@@ -281,18 +288,23 @@ um_quat um_quat_slerp(um_quat a, um_quat b, float t)
     // If theta = 180 degrees, rotation not well-defined
     // We could rotate around any axis perpendicular to a or b
     if (fabsf(sin_half_theta) < 0.001f) {
-        um_quat result = { a.w * 0.5f + b.w * 0.5f, a.x * 0.5f + b.x * 0.5f,
-            a.y * 0.5f + b.y * 0.5f, a.z * 0.5f + b.z * 0.5f };
-        return um_quat_normalized(result);
+        return um_quat_normalized({
+            a.x * 0.5f + b.x * 0.5f,
+            a.y * 0.5f + b.y * 0.5f,
+            a.z * 0.5f + b.z * 0.5f,
+            a.w * 0.5f + b.w * 0.5f,
+        });
     }
 
     float ratio_a = sinf((1.0f - t) * half_theta) / sin_half_theta;
     float ratio_b = sinf(t * half_theta) / sin_half_theta;
 
-    um_quat result = { a.w * ratio_a + b.w * ratio_b, a.x * ratio_a + b.x * ratio_b,
-        a.y * ratio_a + b.y * ratio_b, a.z * ratio_a + b.z * ratio_b };
-
-    return result;
+    return um_quat_normalized({
+        a.x * ratio_a + b.x * ratio_b,
+        a.y * ratio_a + b.y * ratio_b,
+        a.z * ratio_a + b.z * ratio_b,
+        a.w * ratio_a + b.w * ratio_b,
+    });
 }
 
 um_vec3 um_quat_mul_vec3(um_quat q, um_vec3 v)
@@ -561,10 +573,7 @@ um_mat um_mat_invert(um_mat m)
 
 um_vec3 um_mat_mul_vec3(um_mat m, um_vec3 v, float w)
 {
-    // Convert vector to homogeneous coordinates (w=1)
     um_vec4 v4 = { v.x, v.y, v.z, w };
-
-    // Multiply matrix by vector
     um_vec4 result = um_mat_mul_vec4(m, v4);
 
     // Convert back to 3D coordinates (perspective divide)

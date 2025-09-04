@@ -50,7 +50,7 @@ um_vec4 um_vec4_lerp(um_vec4 a, um_vec4 b, float t);
 bool um_vec4_eq(um_vec4 a, um_vec4 b);
 
 typedef struct {
-    float w, x, y, z;
+    float x, y, z, w;
 } um_quat;
 
 typedef struct {
@@ -59,8 +59,8 @@ typedef struct {
 
 // Quaternion
 
-um_quat um_quat_from_ptr(const float q[4]);
-void um_quat_to_ptr(um_quat q, float p[4]);
+um_quat um_quat_from_ptr(const float xyzw[4]);
+void um_quat_to_ptr(um_quat q, float xyzw[4]);
 um_quat um_quat_identity();
 float um_quat_len(um_quat q);
 um_quat um_quat_normalized(um_quat q);

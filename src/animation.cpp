@@ -30,7 +30,7 @@ struct AnimationChannel {
     ung_animation_interp interp_type;
     size_t num_samples;
     float* times; // size = num_samples
-    float* values; // vec3: 3*num_samples, quat(wxyz): 4*num_samples
+    float* values; // vec3: 3*num_samples, quat(xyzw): 4*num_samples
 };
 
 struct Animation {
@@ -215,16 +215,16 @@ EXPORT const float* ung_skeleton_update_joint_matrices(ung_skeleton_id skel, uin
 
 static float qdot(const um_quat& a, const um_quat& b)
 {
-    return a.w * b.w + a.x * b.x + a.y * b.y + a.z * b.z;
+    return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 }
 
 static um_quat qmix(const um_quat& a, float wa, const um_quat& b, float wb)
 {
     return {
-        a.w * wa + b.w * wb,
         a.x * wa + b.x * wb,
         a.y * wa + b.y * wb,
         a.z * wa + b.z * wb,
+        a.w * wa + b.w * wb,
     };
 }
 
