@@ -147,6 +147,8 @@ EXPORT void ung_init(ung_init_params params)
         ung_panicf("Error creating GL context: %s", SDL_GetError());
     }
 
+    SDL_GL_SetSwapInterval(params.window_mode.vsync);
+
     // mugfx
     if (!params.mugfx.allocator) {
         params.mugfx.allocator = &mugfx_alloc;
