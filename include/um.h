@@ -24,6 +24,7 @@ float um_vec3_dist(um_vec3 a, um_vec3 b);
 um_vec3 um_vec3_add(um_vec3 a, um_vec3 b);
 um_vec3 um_vec3_sub(um_vec3 a, um_vec3 b);
 um_vec3 um_vec3_cross(um_vec3 a, um_vec3 b);
+um_vec3 um_vec3_madd(um_vec3 a, um_vec3 b, float s); // a + b * s
 
 um_vec3 um_vec3_lerp(um_vec3 a, um_vec3 b, float t);
 

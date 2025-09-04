@@ -71,6 +71,11 @@ um_vec3 um_vec3_cross(um_vec3 a, um_vec3 b)
     return { a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x };
 }
 
+um_vec3 um_vec3_madd(um_vec3 a, um_vec3 b, float s)
+{
+    return { a.x + b.x * s, a.y + b.y * s, a.z + b.z * s };
+}
+
 um_vec3 um_vec3_lerp(um_vec3 a, um_vec3 b, float t)
 {
     return { a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t };
