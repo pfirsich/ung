@@ -5,6 +5,11 @@
 
 #define PIf 3.14159265358979323846f
 
+float um_clamp(float v, float lo, float hi)
+{
+    return fminf(fmaxf(v, lo), hi);
+}
+
 um_vec3 um_vec3_from_ptr(const float v[3])
 {
     return { v[0], v[1], v[2] };

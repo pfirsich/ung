@@ -4,6 +4,8 @@
 extern "C" {
 #endif
 
+float um_clamp(float v, float lo, float hi);
+
 typedef struct {
     float x, y, z;
 } um_vec3;
