@@ -3,11 +3,19 @@
 #include <cstring>
 #include <math.h>
 
-#define PIf 3.14159265358979323846f
-
 float um_clamp(float v, float lo, float hi)
 {
     return fminf(fmaxf(v, lo), hi);
+}
+
+um_rad um_to_rad(um_deg deg)
+{
+    return { deg.v / 180.f * UM_PI };
+}
+
+um_deg um_to_deg(um_rad rad)
+{
+    return { rad.v / UM_PI * 180.f };
 }
 
 um_vec3 um_vec3_from_ptr(const float v[3])
@@ -253,9 +261,9 @@ um_quat um_quat_from_matrix(um_mat m)
     return um_quat_normalized(q);
 }
 
-um_quat um_quat_from_axis_angle(um_vec3 axis, float angle)
+um_quat um_quat_from_axis_angle(um_vec3 axis, um_rad angle)
 {
-    const auto half_angle = angle * 0.5f;
+    const auto half_angle = angle.v * 0.5f;
     um_vec3 normalized_axis = um_vec3_normalized(axis);
     const auto s = sinf(half_angle);
 
@@ -368,7 +376,7 @@ um_mat um_mat_scale(um_vec3 v)
     return m;
 }
 
-um_mat um_mat_rotate(um_vec3 axis, float angle)
+um_mat um_mat_rotate(um_vec3 axis, um_rad angle)
 {
     // Create rotation matrix from axis and angle
     um_quat q = um_quat_from_axis_angle(axis, angle);
@@ -475,11 +483,11 @@ um_mat um_mat_ortho(float left, float right, float bottom, float top, float znea
     return m;
 }
 
-um_mat um_mat_perspective(float fovy, float aspect, float znear, float zfar)
+um_mat um_mat_perspective(um_deg fovy, float aspect, float znear, float zfar)
 {
     um_mat m = {};
 
-    float f = 1.0f / tanf(fovy * 0.5f);
+    float f = 1.0f / tanf(um_to_rad(fovy).v * 0.5f);
     float fn = 1.0f / (znear - zfar);
 
     m.cols[0] = { f / aspect, 0.0f, 0.0f, 0.0f };

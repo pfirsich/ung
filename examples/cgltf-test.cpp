@@ -27,8 +27,8 @@ struct Game {
     ung_camera_id camera;
     ung_material_id material;
     ung_transform_id trafo;
-    float cam_yaw = 0.0f;
-    float cam_pitch = 0.0f;
+    um_rad cam_yaw = { 0.0f };
+    um_rad cam_pitch = { 0.0f };
     um_vec3 cam_pos = {};
     bool running = true;
 
@@ -102,8 +102,8 @@ struct Game {
         int mx, my, mdx, mdy;
         ung_mouse_get(&mx, &my, &mdx, &mdy);
         const auto sens = 1.0f;
-        cam_yaw -= mdx * dt * sens;
-        cam_pitch -= mdy * dt * sens;
+        cam_yaw.v -= mdx * dt * sens;
+        cam_pitch.v -= mdy * dt * sens;
         const auto yaw_q = um_quat_from_axis_angle({ 0.0f, 1.0f, 0.0f }, cam_yaw);
         const auto pitch_q = um_quat_from_axis_angle({ 1.0f, 0.0f, 0.0f }, cam_pitch);
         const auto cam_q = um_quat_mul(yaw_q, pitch_q);

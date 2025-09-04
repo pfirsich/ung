@@ -1650,9 +1650,9 @@ EXPORT void ung_camera_set_projection(ung_camera_id camera, const float matrix[1
 }
 
 EXPORT void ung_camera_set_perspective(
-    ung_camera_id camera, float fov, float aspect, float near, float far)
+    ung_camera_id camera, float fovy_deg, float aspect, float near, float far)
 {
-    const auto proj = um_mat_perspective(fov, aspect, near, far);
+    const auto proj = um_mat_perspective(um_deg { fovy_deg }, aspect, near, far);
     set_projection(get_camera(camera.id), proj);
 }
 

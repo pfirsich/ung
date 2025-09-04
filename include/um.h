@@ -4,7 +4,21 @@
 extern "C" {
 #endif
 
+#define UM_PI 3.141592653589793f
+#define UM_2PI 6.283185307179586f
+
 float um_clamp(float v, float lo, float hi);
+
+typedef struct {
+    float v;
+} um_rad;
+
+typedef struct {
+    float v;
+} um_deg;
+
+um_rad um_to_rad(um_deg deg);
+um_deg um_to_deg(um_rad rad);
 
 typedef struct {
     float x, y, z;
@@ -71,7 +85,7 @@ um_quat um_quat_conjugate(um_quat q);
 um_quat um_quat_mul(um_quat a, um_quat b);
 
 um_quat um_quat_from_matrix(um_mat m);
-um_quat um_quat_from_axis_angle(um_vec3 axis, float angle);
+um_quat um_quat_from_axis_angle(um_vec3 axis, um_rad angle);
 um_quat um_quat_slerp(um_quat a, um_quat b, float t);
 um_vec3 um_quat_mul_vec3(um_quat q, um_vec3 v);
 
@@ -81,10 +95,10 @@ um_mat um_mat_from_ptr(const float m[16]);
 void um_mat_to_ptr(um_mat m, float p[16]);
 um_mat um_mat_identity();
 um_mat um_mat_scale(um_vec3 v);
-um_mat um_mat_rotate(um_vec3 axis, float angle);
+um_mat um_mat_rotate(um_vec3 axis, um_rad angle);
 um_mat um_mat_translate(um_vec3 v);
 um_mat um_mat_ortho(float left, float right, float bottom, float top, float znear, float zfar);
-um_mat um_mat_perspective(float fovy, float aspect, float znear, float zfar);
+um_mat um_mat_perspective(um_deg fovy, float aspect, float znear, float zfar);
 um_mat um_mat_look_at(um_vec3 eye, um_vec3 target, um_vec3 up);
 um_mat um_mat_from_quat(um_quat q);
 void um_mat_decompose_trs(um_mat m, um_vec3* translation, um_quat* rotation, um_vec3* scale);
