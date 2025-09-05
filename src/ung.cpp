@@ -187,18 +187,21 @@ EXPORT void ung_init(ung_init_params params)
         .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_CONSTANT,
         .size = sizeof(UConstant),
         .cpu_buffer = &state->u_constant,
+        .debug_label = "UngConstant",
     });
 
     state->frame_data = mugfx_uniform_data_create({
         .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_FRAME,
         .size = sizeof(UFrame),
         .cpu_buffer = &state->u_frame,
+        .debug_label = "UngFrame",
     });
 
     state->camera_data = mugfx_uniform_data_create({
         .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_FRAME,
         .size = sizeof(UCamera),
         .cpu_buffer = &state->u_camera,
+        .debug_label = "UngCamera",
     });
 
     state->auto_reload = params.auto_reload;
@@ -497,6 +500,7 @@ mugfx_shader_id load_shader(mugfx_shader_stage stage, const char* path)
     mugfx_shader_create_params params;
     params.stage = stage;
     params.source = data;
+    params.debug_label = path;
     if (params.bindings[0].type == MUGFX_SHADER_BINDING_TYPE_NONE) {
         // TODO: Try to load from <path>.meta first
         // TODO: Check data is not SPIR-V
@@ -620,6 +624,7 @@ static mugfx_texture_id load_texture(
         std::fprintf(stderr, "Error loading texture '%s': %s\n", path, stbi_failure_reason());
         return { 0 };
     }
+    params.debug_label = path;
     const auto texture = create_texture(data, width, height, comp, params);
     stbi_image_free(data);
     return texture;
@@ -811,6 +816,7 @@ EXPORT ung_material_id ung_material_create(ung_material_create_params params)
         material->constant_data = mugfx_uniform_data_create({
             .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_CONSTANT,
             .size = params.constant_data_size,
+            .debug_label = "mat.constant",
         });
         if (params.constant_data) {
             std::memcpy(mugfx_uniform_data_get_ptr(material->constant_data), params.constant_data,
@@ -825,6 +831,7 @@ EXPORT ung_material_id ung_material_create(ung_material_create_params params)
         material->dynamic_data = mugfx_uniform_data_create({
             .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_FRAME,
             .size = params.dynamic_data_size,
+            .debug_label = "mat.dynamic",
         });
         material->bindings.append() = {
             .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
@@ -900,6 +907,7 @@ EXPORT bool ung_material_recreate(ung_material_id material_id, ung_material_crea
         mat->constant_data = mugfx_uniform_data_create({
             .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_CONSTANT,
             .size = params.constant_data_size,
+            .debug_label = "mat.constant",
         });
         if (params.constant_data) {
             std::memcpy(mugfx_uniform_data_get_ptr(mat->constant_data), params.constant_data,
@@ -920,6 +928,7 @@ EXPORT bool ung_material_recreate(ung_material_id material_id, ung_material_crea
         mat->dynamic_data = mugfx_uniform_data_create({
             .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_FRAME,
             .size = params.dynamic_data_size,
+            .debug_label = "mat.dynamic",
         });
         for (auto& b : mat->bindings) {
             if (b.type == MUGFX_BINDING_TYPE_UNIFORM_DATA && b.uniform_data.binding == 9) {
@@ -1213,11 +1222,13 @@ EXPORT ung_geometry_id ung_geometry_box(float w, float h, float d)
     const auto vertex_buffer = mugfx_buffer_create({
         .target = MUGFX_BUFFER_TARGET_ARRAY,
         .data = { vertices.data(), vertices.size() * sizeof(Vertex) },
+        .debug_label = "box.vbuf",
     });
 
     const auto index_buffer = mugfx_buffer_create({
         .target = MUGFX_BUFFER_TARGET_INDEX,
         .data = { indices.data(), indices.size() * sizeof(indices[0]) },
+        .debug_label = "box.ibuf",
     });
 
     const auto geometry = ung_geometry_create({
@@ -1234,6 +1245,7 @@ EXPORT ung_geometry_id ung_geometry_box(float w, float h, float d)
         },
         .index_buffer = index_buffer,
         .index_type = MUGFX_INDEX_TYPE_U8,
+        .debug_label = "box.geom",
     });
 
     return geometry;
@@ -1415,12 +1427,13 @@ EXPORT void ung_geometry_recreate(ung_geometry_id geometry_id, mugfx_geometry_cr
     geometry->geometry = geom;
 }
 
-static mugfx_geometry_id create_geometry(
-    Vertex* vertices, usize num_vertices, u32* indices, usize num_indices)
+static mugfx_geometry_id create_geometry(Vertex* vertices, usize num_vertices, u32* indices,
+    usize num_indices, const char* debug_label = nullptr)
 {
     mugfx_buffer_id vertex_buffer = mugfx_buffer_create({
         .target = MUGFX_BUFFER_TARGET_ARRAY,
         .data = { vertices, num_vertices * sizeof(Vertex) },
+        .debug_label = debug_label,
     });
 
     mugfx_buffer_id index_buffer = { 0 };
@@ -1428,6 +1441,7 @@ static mugfx_geometry_id create_geometry(
         index_buffer = mugfx_buffer_create({
             .target = MUGFX_BUFFER_TARGET_INDEX,
             .data = { indices, num_indices * sizeof(u32) },
+            .debug_label = debug_label,
         });
     }
 
@@ -1443,6 +1457,7 @@ static mugfx_geometry_id create_geometry(
                 },
             },
         },
+        .debug_label = debug_label,
     };
     if (index_buffer.id) {
         geometry_params.index_buffer = index_buffer;
@@ -1477,7 +1492,8 @@ static Vertex* build_vertex_buffer_data(ung_geometry_data gdata)
     return vertices;
 }
 
-static mugfx_geometry_id geometry_from_data(ung_geometry_data gdata)
+static mugfx_geometry_id geometry_from_data(
+    ung_geometry_data gdata, const char* debug_label = nullptr)
 {
     // We cannot build a proper indexed mesh trivially, because a face will reference different
     // position, texcoord and normal indices, so you would have to generate all used combinations
@@ -1485,8 +1501,8 @@ static mugfx_geometry_id geometry_from_data(ung_geometry_data gdata)
 
     auto vertices = build_vertex_buffer_data(gdata);
 
-    const auto geom
-        = create_geometry(vertices, gdata.num_vertices, gdata.indices, gdata.num_indices);
+    const auto geom = create_geometry(
+        vertices, gdata.num_vertices, gdata.indices, gdata.num_indices, debug_label);
 
     deallocate(vertices, gdata.num_vertices);
 
@@ -1508,7 +1524,7 @@ EXPORT ung_geometry_id ung_geometry_create_from_data(ung_geometry_data gdata)
 mugfx_geometry_id load_geometry(const char* path)
 {
     const auto gdata = ung_geometry_data_load(path);
-    const auto geom = geometry_from_data(gdata);
+    const auto geom = geometry_from_data(gdata, path);
     ung_geometry_data_destroy(gdata);
     return geom;
 }

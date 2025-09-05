@@ -62,6 +62,7 @@ EXPORT ung_transform_id ung_transform_create()
     trafo->uniform_data = mugfx_uniform_data_create({
         .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_FRAME,
         .size = sizeof(UTransform),
+        .debug_label = "UngTransform",
     });
     trafo->local_matrix_dirty = true;
     return { id };
