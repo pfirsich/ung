@@ -199,6 +199,7 @@ typedef struct {
 
 // set keys and capacity before init
 void ung_slotmap_init(ung_slotmap* s);
+// returns 0 on exhaustion
 uint64_t ung_slotmap_insert(ung_slotmap* s, uint32_t* idx);
 uint32_t ung_slotmap_get_index(uint64_t key);
 uint32_t ung_slotmap_get_generation(uint64_t key);
