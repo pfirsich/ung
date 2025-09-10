@@ -357,50 +357,27 @@ void um_mat_to_ptr(um_mat m, float p[16])
 
 um_mat um_mat_identity()
 {
-    um_mat m = {};
-
+    um_mat m;
     m.cols[0] = { 1.0f, 0.0f, 0.0f, 0.0f };
     m.cols[1] = { 0.0f, 1.0f, 0.0f, 0.0f };
     m.cols[2] = { 0.0f, 0.0f, 1.0f, 0.0f };
     m.cols[3] = { 0.0f, 0.0f, 0.0f, 1.0f };
-
     return m;
 }
 
 um_mat um_mat_scale(um_vec3 v)
 {
-    um_mat m = um_mat_identity();
+    um_mat m;
     m.cols[0] = { v.x, 0.0f, 0.0f, 0.0f };
     m.cols[1] = { 0.0f, v.y, 0.0f, 0.0f };
     m.cols[2] = { 0.0f, 0.0f, v.z, 0.0f };
+    m.cols[3] = { 0.0f, 0.0f, 0.0f, 1.0f };
     return m;
 }
 
 um_mat um_mat_rotate(um_vec3 axis, um_rad angle)
 {
-    // Create rotation matrix from axis and angle
-    um_quat q = um_quat_from_axis_angle(axis, angle);
-
-    float xx = q.x * q.x;
-    float xy = q.x * q.y;
-    float xz = q.x * q.z;
-    float xw = q.x * q.w;
-
-    float yy = q.y * q.y;
-    float yz = q.y * q.z;
-    float yw = q.y * q.w;
-
-    float zz = q.z * q.z;
-    float zw = q.z * q.w;
-
-    um_mat m;
-
-    m.cols[0] = { 1.0f - 2.0f * (yy + zz), 2.0f * (xy + zw), 2.0f * (xz - yw), 0.0f };
-    m.cols[1] = { 2.0f * (xy - zw), 1.0f - 2.0f * (xx + zz), 2.0f * (yz + xw), 0.0f };
-    m.cols[2] = { 2.0f * (xz + yw), 2.0f * (yz - xw), 1.0f - 2.0f * (xx + yy), 0.0f };
-    m.cols[3] = { 0.0f, 0.0f, 0.0f, 1.0f };
-
-    return m;
+    return um_mat_from_quat(um_quat_from_axis_angle(axis, angle));
 }
 
 um_mat um_mat_from_quat(um_quat q)
