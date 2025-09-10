@@ -444,6 +444,17 @@ um_mat um_mat_translate(um_vec3 vec)
     return m;
 }
 
+um_mat um_mat_transform(um_vec3 t, um_quat r, um_vec3 s)
+{
+    // returns T * R * S
+    auto m = um_mat_from_quat(r);
+    m.cols[0] = um_vec4_mul(m.cols[0], s.x);
+    m.cols[1] = um_vec4_mul(m.cols[1], s.y);
+    m.cols[2] = um_vec4_mul(m.cols[2], s.z);
+    m.cols[3] = { t.x, t.y, t.z, 1.0f };
+    return m;
+}
+
 um_mat um_mat_ortho(float left, float right, float bottom, float top, float znear, float zfar)
 {
     um_mat m = um_mat_identity();

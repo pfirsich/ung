@@ -105,6 +105,7 @@ um_mat um_mat_identity();
 um_mat um_mat_scale(um_vec3 v);
 um_mat um_mat_rotate(um_vec3 axis, um_rad angle);
 um_mat um_mat_translate(um_vec3 v);
+um_mat um_mat_transform(um_vec3 translation, um_quat rotation, um_vec3 scale);
 um_mat um_mat_ortho(float left, float right, float bottom, float top, float znear, float zfar);
 um_mat um_mat_perspective(um_deg fovy, float aspect, float znear, float zfar);
 um_mat um_mat_look_at(um_vec3 eye, um_vec3 target, um_vec3 up);
