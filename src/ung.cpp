@@ -205,6 +205,7 @@ EXPORT void ung_init(ung_init_params params)
     });
 
     state->auto_reload = params.auto_reload;
+    state->load_cache = params.load_cache;
 
     files::init(params);
 
@@ -717,13 +718,14 @@ TexDecode load_cached_texture(const char* cache_path)
 TexDecode decode_texture(const u8* data, usize size, bool flip_y)
 {
     char cache_path[128];
-    format_texture_cache_path(cache_path, ung_fnv1a(data, size), flip_y);
-    printf("cached: %s\n", cache_path);
+    if (state->load_cache) {
+        format_texture_cache_path(cache_path, ung_fnv1a(data, size), flip_y);
 
-    auto cached = load_cached_texture(cache_path);
+        auto cached = load_cached_texture(cache_path);
 
-    if (cached.free_size) {
-        return cached;
+        if (cached.free_size) {
+            return cached;
+        }
     }
 
     TexDecode ret;
@@ -731,7 +733,11 @@ TexDecode decode_texture(const u8* data, usize size, bool flip_y)
     ret.texture_data
         = stbi_load_from_memory(data, (int)size, &ret.width, &ret.height, &ret.components, 0);
     ret.free_data = ret.texture_data;
-    write_texture_cache_file(cache_path, ret);
+
+    if (state->load_cache) {
+        write_texture_cache_file(cache_path, ret);
+    }
+
     return ret;
 }
 

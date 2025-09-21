@@ -140,6 +140,7 @@ typedef struct {
     mugfx_init_params mugfx;
     bool debug; // do error checking and panic if something is wrong
     bool auto_reload;
+    bool load_cache;
 } ung_init_params;
 
 void ung_init(ung_init_params params);

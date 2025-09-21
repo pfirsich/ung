@@ -130,6 +130,7 @@ struct State {
     u32 win_height;
 
     bool auto_reload;
+    bool load_cache;
 };
 
 extern State* state;
