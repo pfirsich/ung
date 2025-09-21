@@ -1783,6 +1783,19 @@ EXPORT void ung_end_frame()
     SDL_GL_SwapWindow(state->window);
 }
 
+EXPORT uint64_t ung_fnv1a(const void* data, size_t size)
+{
+    static constexpr u64 fnv1a_offset = 0xcbf29ce484222325;
+    static constexpr u64 fnv1a_prime = 0x100000001b3;
+    u64 hash = fnv1a_offset;
+    auto bytes = (const u8*)data;
+    for (size_t i = 0; i < size; ++i) {
+        hash = hash ^ bytes[i];
+        hash = hash * fnv1a_prime;
+    }
+    return hash;
+}
+
 #ifdef __EMSCRIPTEN__
 
 #include <emscripten.h>

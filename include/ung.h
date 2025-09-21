@@ -742,6 +742,15 @@ float ung_random_float(float min, float max);
 float ung_random_float_s(float min, float max, uint64_t* state);
 
 /*
+ * Misc
+ */
+// FNV-1a is a non-cryptographic hash, that is very fast and can be used for
+// hash tables or checksums. It's trivial to create collisions deliberately,
+// but its diffusion is pretty good. So if forging data to make hashes collide
+// with negatives effects is an option, don't use it.
+uint64_t ung_fnv1a(const void* data, size_t size);
+
+/*
  * Mainloop
  */
 
