@@ -411,7 +411,7 @@ void ung_material_update(ung_material_id material);
 /*
  * Files
  */
-char* ung_read_whole_file(const char* path, size_t* size);
+char* ung_read_whole_file(const char* path, size_t* size, bool panic_on_error);
 void ung_free_file_data(char* data, size_t size);
 
 typedef struct {

@@ -492,7 +492,7 @@ static bool parse_shader_bindings(std::string_view src, mugfx_shader_create_para
 mugfx_shader_id load_shader(mugfx_shader_stage stage, const char* path)
 {
     usize size = 0;
-    const auto data = ung_read_whole_file(path, &size);
+    const auto data = ung_read_whole_file(path, &size, false);
     if (!data) {
         std::printf("Could not read '%s': %s\n", path, SDL_GetError());
         return { 0 };
@@ -1105,10 +1105,10 @@ EXPORT void ung_material_update(ung_material_id material)
     }
 }
 
-EXPORT char* ung_read_whole_file(const char* path, usize* size)
+EXPORT char* ung_read_whole_file(const char* path, usize* size, bool panic_on_error)
 {
     auto data = (char*)SDL_LoadFile(path, size);
-    if (!data) {
+    if (panic_on_error && !data) {
         ung_panicf("Error reading file '%s': %s", path, SDL_GetError());
     }
     return data;

@@ -487,7 +487,7 @@ void Effect::load(const char* path_)
 
     // Load file
     size_t size = 0;
-    auto data = ung_read_whole_file(path, &size);
+    auto data = ung_read_whole_file(path, &size, true);
 
     std::array<ung_kv_pair, 32> kvs;
     const auto num_kvs = ung_parse_kv_file(data, size, kvs.data(), kvs.size());
