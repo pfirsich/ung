@@ -614,19 +614,143 @@ static mugfx_texture_id create_texture(
     return mugfx_texture_create(params);
 }
 
+char* append(char* pathbuf, std::string_view str)
+{
+    memcpy(pathbuf, str.data(), str.size());
+    pathbuf[str.size()] = '\0';
+    return pathbuf + str.size();
+}
+
+char* fmt_hex(char* buf, const void* data, usize size)
+{
+    constexpr static char digits[16]
+        = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+    auto bytes = (const u8*)data;
+    for (size_t i = 0; i < size; ++i) {
+        *(buf++) = digits[0xF & (bytes[i]) >> 4];
+        *(buf++) = digits[0xF & bytes[i]];
+    }
+    return buf;
+}
+
+void format_texture_cache_path(char* pathbuf, u64 hash, bool flip_y)
+{
+    pathbuf = append(pathbuf, ".ungcache/");
+    pathbuf = fmt_hex(pathbuf, &hash, sizeof(hash));
+    if (flip_y) {
+        pathbuf = append(pathbuf, "-flip");
+    }
+    append(pathbuf, "-v1.tex");
+}
+
+struct TexDecode {
+    void* free_data = nullptr;
+    usize free_size = 0;
+    u8* texture_data = nullptr;
+    int width = 0;
+    int height = 0;
+    int components = 0;
+
+    TexDecode() = default;
+    TexDecode(TexDecode&) = delete;
+    TexDecode(TexDecode&& r)
+        : free_data(r.free_data)
+        , free_size(r.free_size)
+        , texture_data(r.texture_data)
+        , width(r.width)
+        , height(r.height)
+        , components(r.components)
+    {
+        r.free_data = nullptr;
+        r.texture_data = nullptr;
+    }
+
+    ~TexDecode()
+    {
+        if (free_data && texture_data) {
+            if (free_data == texture_data) {
+                stbi_image_free(free_data);
+            } else {
+                ung_free_file_data((char*)free_data, free_size);
+            }
+        }
+    }
+};
+
+struct CacheTexHeader {
+    u32 width, height, components;
+};
+
+void write_texture_cache_file(const char* path, const TexDecode& tex)
+{
+    auto file = fopen(path, "wb");
+    if (!file) {
+        std::fprintf(stderr, "Could not open texture cache file for writing: %s\n", path);
+        return;
+    }
+    CacheTexHeader hdr { (u32)tex.width, (u32)tex.height, (u32)tex.components };
+    fwrite(&hdr, sizeof(CacheTexHeader), 1, file);
+    fwrite(tex.texture_data, 1, hdr.width * hdr.height * hdr.components, file);
+    fclose(file);
+}
+
+TexDecode load_cached_texture(const char* cache_path)
+{
+    TexDecode ret = {};
+    ret.free_data = ung_read_whole_file(cache_path, &ret.free_size, false);
+    if (!ret.free_data) {
+        return ret;
+    }
+
+    ret.texture_data = (u8*)ret.free_data + sizeof(CacheTexHeader);
+
+    CacheTexHeader hdr;
+    memcpy(&hdr, ret.free_data, sizeof(CacheTexHeader));
+
+    ret.width = (int)hdr.width;
+    ret.height = (int)hdr.height;
+    ret.components = (int)hdr.components;
+
+    return ret;
+}
+
+TexDecode decode_texture(const u8* data, usize size, bool flip_y)
+{
+    char cache_path[128];
+    format_texture_cache_path(cache_path, ung_fnv1a(data, size), flip_y);
+    printf("cached: %s\n", cache_path);
+
+    auto cached = load_cached_texture(cache_path);
+
+    if (cached.free_size) {
+        return cached;
+    }
+
+    TexDecode ret;
+    stbi_set_flip_vertically_on_load(flip_y);
+    ret.texture_data
+        = stbi_load_from_memory(data, (int)size, &ret.width, &ret.height, &ret.components, 0);
+    ret.free_data = ret.texture_data;
+    write_texture_cache_file(cache_path, ret);
+    return ret;
+}
+
 static mugfx_texture_id load_texture(
     const char* path, bool flip_y, mugfx_texture_create_params& params)
 {
-    int width, height, comp;
-    stbi_set_flip_vertically_on_load(flip_y);
-    auto data = stbi_load(path, &width, &height, &comp, 0);
+    usize size = 0;
+    const auto data = ung_read_whole_file(path, &size, false);
     if (!data) {
-        std::fprintf(stderr, "Error loading texture '%s': %s\n", path, stbi_failure_reason());
+        return { 0 };
+    }
+    const auto decoded = decode_texture((const u8*)data, size, flip_y);
+    ung_free_file_data(data, size);
+    if (!decoded.texture_data) {
         return { 0 };
     }
     params.debug_label = path;
-    const auto texture = create_texture(data, width, height, comp, params);
-    stbi_image_free(data);
+    const auto texture = create_texture(
+        decoded.texture_data, decoded.width, decoded.height, decoded.components, params);
     return texture;
 }
 
@@ -679,14 +803,12 @@ EXPORT ung_texture_id ung_texture_load_buffer(
     const void* buffer, size_t size, bool flip_y, mugfx_texture_create_params params)
 {
 
-    int width, height, comp;
-    stbi_set_flip_vertically_on_load(flip_y);
-    auto data = stbi_load_from_memory((const uint8_t*)buffer, (int)size, &width, &height, &comp, 0);
-    if (!data) {
+    const auto decoded = decode_texture((const u8*)buffer, size, flip_y);
+    if (!decoded.texture_data) {
         ung_panicf("Error loading texture: %s", stbi_failure_reason());
     }
-    const auto tex = create_texture(data, width, height, comp, params);
-    stbi_image_free(data);
+    const auto tex = create_texture(
+        decoded.texture_data, decoded.width, decoded.height, decoded.components, params);
 
     if (!tex.id) {
         ung_panicf("Error loading texture");
