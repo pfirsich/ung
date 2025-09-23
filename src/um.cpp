@@ -2,6 +2,102 @@
 
 #include <cstring>
 #include <math.h>
+#include <stdlib.h>
+
+float um_exp(float x)
+{
+    return expf(x);
+}
+
+float um_pow(float x, float y)
+{
+    return powf(x, y);
+}
+
+float um_sin(float x)
+{
+    return sinf(x);
+}
+
+float um_cos(float x)
+{
+    return cosf(x);
+}
+
+float um_tan(float x)
+{
+    return tanf(x);
+}
+
+float um_asin(float x)
+{
+    return asinf(x);
+}
+
+float um_acos(float x)
+{
+    return acosf(x);
+}
+
+float um_atan(float x)
+{
+    return atanf(x);
+}
+
+float um_atan2(float y, float x)
+{
+    return atan2f(y, x);
+}
+
+float um_sqrt(float x)
+{
+    return sqrtf(x);
+}
+
+float um_absf(float x)
+{
+    return fabs(x);
+}
+
+int um_absi(int x)
+{
+    return abs(x);
+}
+
+float um_fmod(float x, float y)
+{
+    return fmodf(x, y);
+}
+
+float um_floor(float x)
+{
+    return floorf(x);
+}
+
+float um_ceil(float x)
+{
+    return ceilf(x);
+}
+
+float um_trunc(float x)
+{
+    return truncf(x);
+}
+
+float um_round(float x)
+{
+    return roundf(x);
+}
+
+float um_minf(float x, float y)
+{
+    return fminf(x, y);
+}
+
+float um_maxf(float x, float y)
+{
+    return fmaxf(x, y);
+}
 
 float um_clamp(float v, float lo, float hi)
 {

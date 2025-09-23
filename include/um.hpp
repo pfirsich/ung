@@ -9,6 +9,107 @@ using vec4 = ::um_vec4;
 using quat = ::um_quat;
 using mat = ::um_mat;
 
+[[nodiscard]] inline float exp(float x) noexcept
+{
+    return um_exp(x);
+}
+
+[[nodiscard]] inline float pow(float x, float y) noexcept
+{
+    return um_pow(x, y);
+}
+
+[[nodiscard]] inline float sin(float x) noexcept
+{
+    return um_sin(x);
+}
+
+[[nodiscard]] inline float cos(float x) noexcept
+{
+    return um_cos(x);
+}
+
+[[nodiscard]] inline float tan(float x) noexcept
+{
+    return um_tan(x);
+}
+
+[[nodiscard]] inline float asin(float x) noexcept
+{
+    return um_asin(x);
+}
+
+[[nodiscard]] inline float acos(float x) noexcept
+{
+    return um_acos(x);
+}
+
+[[nodiscard]] inline float atan(float x) noexcept
+{
+    return um_atan(x);
+}
+
+[[nodiscard]] inline float atan2(float y, float x) noexcept
+{
+    return um_atan2(y, x);
+}
+
+[[nodiscard]] inline float sqrt(float x) noexcept
+{
+    return um_sqrt(x);
+}
+
+[[nodiscard]] inline float abs(float x) noexcept
+{
+    return um_absf(x);
+}
+
+[[nodiscard]] inline int abs(int x) noexcept
+{
+    return um_absi(x);
+}
+
+[[nodiscard]] inline int fmod(float x, float y) noexcept
+{
+    return um_fmod(x, y);
+}
+
+[[nodiscard]] inline int floor(int x) noexcept
+{
+    return um_floor(x);
+}
+
+[[nodiscard]] inline int ceil(int x) noexcept
+{
+    return um_ceil(x);
+}
+
+[[nodiscard]] inline int trunc(int x) noexcept
+{
+    return um_trunc(x);
+}
+
+[[nodiscard]] inline int round(int x) noexcept
+{
+    return um_round(x);
+}
+
+[[nodiscard]] inline int minf(float x, float y) noexcept
+{
+    return um_minf(x, y);
+}
+
+[[nodiscard]] inline int maxf(float x, float y) noexcept
+{
+    return um_maxf(x, y);
+}
+
+template <typename T>
+[[nodiscard]] inline T max(const T& x, const T& y) noexcept
+{
+    return x < y ? x : y;
+}
+
 [[nodiscard]] inline float clamp(float v, float lo, float hi) noexcept
 {
     return um_clamp(v, lo, hi);
@@ -195,7 +296,8 @@ inline void to_ptr(um_mat m, float p[16])
     return um_mat_translate(t);
 }
 
-[[nodiscard]] inline mat ortho(float left, float right, float bottom, float top, float znear, float zfar) noexcept
+[[nodiscard]] inline mat ortho(
+    float left, float right, float bottom, float top, float znear, float zfar) noexcept
 {
     return um_mat_ortho(left, right, bottom, top, znear, zfar);
 }

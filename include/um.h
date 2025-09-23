@@ -7,6 +7,27 @@ extern "C" {
 #define UM_PI 3.141592653589793f
 #define UM_2PI 6.283185307179586f
 
+// math.h took > 70% of my compile time, so I put some common functions in here
+float um_exp(float x);
+float um_pow(float x, float y);
+float um_sin(float x);
+float um_cos(float x);
+float um_tan(float x);
+float um_asin(float x);
+float um_acos(float x);
+float um_atan(float x);
+float um_atan2(float y, float x);
+float um_sqrt(float x);
+float um_absf(float x);
+int um_absi(int x);
+float um_fmod(float x, float y);
+float um_floor(float x);
+float um_ceil(float x);
+float um_trunc(float x);
+float um_round(float x);
+float um_minf(float x, float y);
+float um_maxf(float x, float y);
+
 float um_clamp(float v, float lo, float hi);
 
 typedef struct {
