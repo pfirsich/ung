@@ -213,49 +213,62 @@ EXPORT const float* ung_skeleton_update_joint_matrices(ung_skeleton_id skel, uin
     return &s->joint_matrices[0].cols[0].x;
 }
 
-static float qdot(const um_quat& a, const um_quat& b)
+static void add_vec3(float out[3], const float in[3], float weight)
 {
-    return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+    for (size_t c = 0; c < 3; ++c) {
+        out[c] += in[c] * weight;
+    }
 }
 
-static um_quat qmix(const um_quat& a, float wa, const um_quat& b, float wb)
+static float qdot(const float qa[4], const float qb[4])
 {
-    return {
-        a.x * wa + b.x * wb,
-        a.y * wa + b.y * wb,
-        a.z * wa + b.z * wb,
-        a.w * wa + b.w * wb,
-    };
+    return qa[0] * qb[0] + qa[1] * qb[1] + qa[2] * qb[2] + qa[3] * qb[3];
 }
 
-EXPORT void ung_blend_poses(const ung_joint_transform* a, float a_weight,
-    const ung_joint_transform* b, float b_weight, const float* joint_mask, ung_joint_transform* out,
-    uint16_t num_joints)
+static void add_quat(float out[4], const float in[4], float weight)
 {
-    for (u16 i = 0; i < num_joints; ++i) {
-        const float mask = joint_mask ? joint_mask[i] : 1.0f;
-        const float wa = a_weight;
-        const float wb = b_weight * mask;
+    // q and -q represent the same rotation, so if I try to blend two quaternions
+    // which are close together, but differ in sign, I get really small (in terms of length)
+    // values and after normalization, nothing sensible is left.
+    // You might think this is rare, but it happens blending almost any two animations! To
+    // avoid this, I check if the quats point away from each other and if so, I flip one of
+    // them. I use `>=` so it doesn't flip the sign for the first animation being added (one
+    // quat is unit quat).
+    const float sgn = (qdot(out, in) >= 0.0f) ? 1.0f : -1.0f;
+    for (size_t c = 0; c < 4; ++c) {
+        out[c] += in[c] * weight * sgn;
+    }
+}
 
-        for (size_t k = 0; k < 3; ++k) {
-            out[i].translation[k] = a[i].translation[k] * wa + b[i].translation[k] * wb;
-            out[i].scale[k] = a[i].scale[k] * wa + b[i].scale[k] * wb;
+EXPORT void ung_blend_poses(const ung_joint_transform** poses, const float** weights,
+    size_t num_poses, ung_joint_transform* pose_out, uint16_t num_joints)
+{
+    for (u16 j = 0; j < num_joints; ++j) {
+        pose_out[j] = {};
+        for (usize p = 0; p < num_poses; ++p) {
+            add_vec3(pose_out[j].translation, poses[p][j].translation, weights[p][j]);
+            add_vec3(pose_out[j].scale, poses[p][j].scale, weights[p][j]);
+            add_quat(pose_out[j].rotation, poses[p][j].rotation, weights[p][j]);
         }
+    }
+}
 
-        const auto qa = um_quat_from_ptr(a[i].rotation);
-        const auto qb = um_quat_from_ptr(b[i].rotation);
+EXPORT void ung_lerp_poses(const ung_joint_transform* pose_a, const ung_joint_transform* pose_b,
+    float t, const float* per_joint_t, ung_joint_transform* pose_out, size_t num_joints)
+{
+    for (u16 j = 0; j < num_joints; ++j) {
+        const auto tj = t * (per_joint_t ? per_joint_t[j] : 1.0f);
+        const auto wb = fminf(fmaxf(tj, 0.f), 1.f);
+        const auto wa = 1.f - wb;
 
-        // q and -q represent the same rotation, so if I try to blend two quaternions
-        // which are close together, but differ in sign, I get really small (in terms of length)
-        // values and after normalization, nothing sensible is left.
-        // You might think this is rare, but it happens blending almost any two animations! To avoid
-        // this, I check if the quats point away from each other and if so, I flip one of them. I
-        // use `>=` so it doesn't flip the sign for the first animation being added (one quat is
-        // unit quat).
-        const float sgn = (qdot(qa, qb) >= 0.0f) ? 1.0f : -1.0f;
-        // TODO: Should I check for wa+wb == 0? (normalize will blow up)
-        const auto qsum = um_quat_normalized(qmix(qa, wa, qb, wb * sgn));
-        um_quat_to_ptr(qsum, out[i].rotation);
+        ung_joint_transform temp = {};
+        add_vec3(temp.translation, pose_a[j].translation, wa);
+        add_vec3(temp.translation, pose_b[j].translation, wb);
+        add_vec3(temp.scale, pose_a[j].scale, wa);
+        add_vec3(temp.scale, pose_b[j].scale, wb);
+        add_quat(temp.rotation, pose_a[j].rotation, wa);
+        add_quat(temp.rotation, pose_b[j].rotation, wb);
+        pose_out[j] = temp;
     }
 }
 

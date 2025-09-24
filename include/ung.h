@@ -609,14 +609,31 @@ ung_joint_transform* ung_skeleton_get_joint_transforms(ung_skeleton_id skel, uin
 // The joint matrices are updated when this function is called (so it is not cheap).
 const float* ung_skeleton_update_joint_matrices(ung_skeleton_id skel, uint16_t* num_joints);
 
-// The weights are not normalized!
-// for each joint i: `out[i] = a[i] * a_weight + b[i] * b_weight * joint_mask[i]`
-// you can use this to mask single joints from b (as a float for flexibility).
-// joint_mask may be NULL.
-// translation and scale are interpolated linearly, rotation is NLERPed.
-// results are undefined for: a_weight + b_weight * joint_mask[i] == 0
-void ung_blend_poses(const ung_joint_transform* a, float a_weight, const ung_joint_transform* b,
-    float b_weight, const float* joint_mask, ung_joint_transform* out, uint16_t num_joints);
+// This is a general purpose blend function, you most likely want to wrap this with something more
+// high level first.
+// `poses` should be an array of poses, with num_joints transforms each.
+// `weights` should be an array of per-joint weights, with num_joints weights each.
+// It does: for each joint i: `out[i][k] = sum_i poses[i][k] * weights[i][k]`
+// At the end of your blend(s), you must normalize the rotation yourself!
+// results are undefined for: sum_i weights[i][k] == 0.
+// You may not pass an input pose as the output pose.
+void ung_blend_poses(const ung_joint_transform** poses, const float** weights, size_t num_poses,
+    ung_joint_transform* pose_out, uint16_t num_joints);
+
+// You can composite layers with this (with an opacity).
+// per_joint_t may be null, the resulting weight per joint j is per_joint_t[j] * t.
+// pose_a or pose_b may be pose_out.
+// The resulting rotation is not normalized.
+// Or do order-independent mixing when you normalize your t with a running sum of the weights,
+// i.e. lerp(accum, a, ta/ta), then lerp(accum, b, tb/(ta+tb)), ...
+// This works because (induction):
+// lerp(p_n, p_m, t_m/(t_m+sum_n)) = p_n + (p_m - p_n) * t_m/(t_m+sum_n)
+// = p_n*(t_m+sum_n)/(t_m+sum_n) - p_n*t_m/(t_m+sum_n) + p_m*t_m/(t_m+sum_n)
+// = p_n*sum_n/(t_m+sum_n) + p_m*t_m/(t_m+sum_n)
+// which is exactly the weighted blend
+// (the old normalization is multiplied away and the new one is divided in)
+void ung_lerp_poses(const ung_joint_transform* pose_a, const ung_joint_transform* pose_b, float t,
+    const float* per_joint_t, ung_joint_transform* pose_out, size_t num_joints);
 
 typedef enum {
     UNG_JOINT_DOF_INVALID = 0,
