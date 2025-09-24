@@ -69,7 +69,7 @@ using mat = ::um_mat;
     return um_absi(x);
 }
 
-[[nodiscard]] inline int fmod(float x, float y) noexcept
+[[nodiscard]] inline float fmod(float x, float y) noexcept
 {
     return um_fmod(x, y);
 }
