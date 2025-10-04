@@ -67,7 +67,7 @@ typedef struct {
     size_t length;
 } ung_string;
 
-#define UNG_LITERAL(s) ((ung_string) { s, sizeof(s) - 1 })
+#define UNG_LITERAL(s) { (s), sizeof((s)) - 1 }
 
 ung_string ung_zstr(const char* str); // calls strlen for length
 
@@ -77,13 +77,13 @@ typedef struct {
     float w, h; // bottom-right
 } ung_texture_region;
 
-#define UNG_REGION_FULL ((ung_texture_region) { 0.0f, 0.0f, 1.0f, 1.0f })
+#define UNG_REGION_FULL { 0.0f, 0.0f, 1.0f, 1.0f }
 
 typedef struct {
     float r, g, b, a;
 } ung_color;
 
-#define UNG_COLOR_WHITE ((ung_color) { 1.0f, 1.0f, 1.0f, 1.0f })
+#define UNG_COLOR_WHITE { 1.0f, 1.0f, 1.0f, 1.0f }
 
 typedef void* (*ung_allocator_allocate)(size_t size, void* ctx);
 typedef void* (*ung_allocator_reallocate)(void* ptr, size_t old_size, size_t new_size, void* ctx);
