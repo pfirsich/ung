@@ -74,32 +74,32 @@ using mat = ::um_mat;
     return um_fmod(x, y);
 }
 
-[[nodiscard]] inline int floor(int x) noexcept
+[[nodiscard]] inline float floor(float x) noexcept
 {
     return um_floor(x);
 }
 
-[[nodiscard]] inline int ceil(int x) noexcept
+[[nodiscard]] inline float ceil(float x) noexcept
 {
     return um_ceil(x);
 }
 
-[[nodiscard]] inline int trunc(int x) noexcept
+[[nodiscard]] inline float trunc(float x) noexcept
 {
     return um_trunc(x);
 }
 
-[[nodiscard]] inline int round(int x) noexcept
+[[nodiscard]] inline float round(float x) noexcept
 {
     return um_round(x);
 }
 
-[[nodiscard]] inline int minf(float x, float y) noexcept
+[[nodiscard]] inline float minf(float x, float y) noexcept
 {
     return um_minf(x, y);
 }
 
-[[nodiscard]] inline int maxf(float x, float y) noexcept
+[[nodiscard]] inline float maxf(float x, float y) noexcept
 {
     return um_maxf(x, y);
 }
