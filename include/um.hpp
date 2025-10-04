@@ -105,9 +105,15 @@ using mat = ::um_mat;
 }
 
 template <typename T>
-[[nodiscard]] inline T max(const T& x, const T& y) noexcept
+[[nodiscard]] inline T min(const T& x, const T& y) noexcept
 {
     return x < y ? x : y;
+}
+
+template <typename T>
+[[nodiscard]] inline T max(const T& x, const T& y) noexcept
+{
+    return x > y ? x : y;
 }
 
 [[nodiscard]] inline float clamp(float v, float lo, float hi) noexcept
