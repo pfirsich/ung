@@ -26,8 +26,8 @@ add_subdirectory(deps/miniaudio)
 add_library(um src/um.cpp)
 target_include_directories(um PUBLIC include/)
 ung_set_wall(um)
-set_no_exceptions(um)
-set_no_rtti(um)
+ung_set_no_exceptions(um)
+ung_set_no_rtti(um)
 
 set(UNG_SOURCES
   src/ung.cpp
@@ -52,8 +52,8 @@ target_link_libraries(ung PRIVATE miniaudio)
 target_link_libraries(ung PUBLIC utxt)
 target_link_libraries(ung PUBLIC mugfx)
 ung_set_wall(ung)
-set_no_exceptions(ung)
-set_no_rtti(ung)
+ung_set_no_exceptions(ung)
+ung_set_no_rtti(ung)
 
 if(NOT EMSCRIPTEN)
   include(${CMAKE_CURRENT_LIST_DIR}/cmake/CPM.cmake)
