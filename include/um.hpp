@@ -131,6 +131,19 @@ template <typename T>
     return um_to_deg(rad);
 }
 
+class angle {
+    // Underlying value is deg, because I want this type to round-trip degrees properly.
+    // I specify most angles as degrees and when I print them, I want to see the same number.
+    float deg_;
+
+public:
+    angle(const um::deg& d) : deg_(d.v) { }
+    angle(const um::rad& r) : deg_(to_deg(r).v) { }
+
+    float deg() const { return deg_; }
+    float rad() const { return to_rad({ deg_ }).v; }
+};
+
 // vec3
 
 [[nodiscard]] inline vec3 make_vec3(const float xyz[3]) noexcept
