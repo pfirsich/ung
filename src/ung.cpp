@@ -147,6 +147,8 @@ EXPORT void ung_init(ung_init_params params)
         ung_panicf("Error creating GL context: %s", SDL_GetError());
     }
 
+    printf("SDL Video Driver: %s\n", SDL_GetCurrentVideoDriver());
+
     SDL_GL_SetSwapInterval(params.window_mode.vsync);
 
     // mugfx
