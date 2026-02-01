@@ -30,6 +30,21 @@ For for some systems my peronal way forward is having them be external to the en
 
 If not 80% of games need it, would increase compile time or binary size noticably for projects that don't use it and it can be implemented using the existing public API, I will try to put it into pasta/ instead.
 
+# Building
+
+SDL2 will pick available video drivers depending on which dependencies it finds during configuration.
+So if you want a window (to see your game for example), you need to install dependencies based on which video drivers (in the SDL sense) you want to support.
+
+On Debian for Wayland you need to install the following packages:
+```
+libwayland-dev
+libxkbcommon-dev
+libgl1-mesa-dev
+libxext-dev
+```
+
+For X11 you probably need to install `libx11-dev libxext-dev`. Make sure you inspect your SDL configure output and check for not found dependencies.
+
 
 # Libraries
 * [SDL2](https://www.libsdl.org/)
