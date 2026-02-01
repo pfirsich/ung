@@ -90,6 +90,22 @@ EXPORT void ung_init(ung_init_params params)
         params.window_mode.fullscreen_mode = UNG_FULLSCREEN_MODE_WINDOWED;
     }
 
+#ifdef __linux__
+    // TODO: Revisit when "headless" support is added
+    bool has_video_driver = false;
+    for (int i = 0; i < SDL_GetNumVideoDrivers(); ++i) {
+        const std::string_view driver = SDL_GetVideoDriver(i);
+        if (driver == "x11" || driver == "wayland") {
+            has_video_driver = true;
+            break;
+        }
+    }
+
+    if (!has_video_driver) {
+        ung_panicf("No video driver found. Please install the appropriate dependencies and recompile.");
+    }
+#endif
+
     if (SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMECONTROLLER) < 0) {
         ung_panicf("Could not initialize SDL2: %s", SDL_GetError());
     }
