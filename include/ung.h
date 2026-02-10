@@ -499,6 +499,8 @@ void ung_geometry_data_destroy(ung_geometry_data gdata);
 
 ung_geometry_id ung_geometry_create(mugfx_geometry_create_params params);
 void ung_geometry_recreate(ung_geometry_id geom, mugfx_geometry_create_params params);
+void ung_geometry_set_vertex_range(ung_geometry_id geom, size_t offset, size_t count);
+void ung_geometry_set_index_range(ung_geometry_id geom, size_t offset, size_t count);
 ung_geometry_id ung_geometry_create_from_data(ung_geometry_data gdata);
 // creates geometry data, creates draw geometry, destroys geometry data
 ung_geometry_id ung_geometry_load(const char* path);
