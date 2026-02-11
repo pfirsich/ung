@@ -51,10 +51,10 @@ struct Game {
         ung_transform_set_scale_u(level_trafo, 0.1f);
         level = ung_geometry_load("examples/assets/level.obj");
 
-        uint32_t win_w, win_h;
-        ung_get_window_size(&win_w, &win_h);
+        uint32_t fb_w, fb_h;
+        ung_get_framebuffer_size(&fb_w, &fb_h);
         camera = ung_camera_create();
-        ung_camera_set_perspective(camera, 45.0f, static_cast<float>(win_w) / win_h, 0.1f, 100.0f);
+        ung_camera_set_perspective(camera, 45.0f, static_cast<float>(fb_w) / fb_h, 0.1f, 100.0f);
 
         ung_mouse_set_relative(mouse_captured);
 

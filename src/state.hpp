@@ -128,6 +128,8 @@ struct State {
     void* event_callback_ctx;
     u32 win_width;
     u32 win_height;
+    u32 fb_width;
+    u32 fb_height;
 
     bool auto_reload;
     bool load_cache;

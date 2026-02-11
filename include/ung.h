@@ -104,7 +104,9 @@ typedef enum {
 } ung_fullscreen_mode;
 
 typedef struct {
-    uint32_t width; // if 0, will default to monitor resolution
+    // width, height are in logical units (points)
+    // if 0, will default to display resolution
+    uint32_t width;
     uint32_t height;
     ung_fullscreen_mode fullscreen_mode;
     uint8_t msaa_samples;
@@ -174,7 +176,14 @@ utxt_alloc ung_get_utxt_alloc();
 struct SDL_Window;
 SDL_Window* ung_get_window();
 void* ung_get_gl_context();
+
+// window size is in logical units (points)
+// use this for ui/layouting, mouse coordinates
 void ung_get_window_size(uint32_t* width, uint32_t* height);
+// with scaling/highdpi framebuffer size might be larger than window size
+// use this for scissor, creating render buffers, projection matrices, etc.
+// framebuffer size is in pixels
+void ung_get_framebuffer_size(uint32_t* width, uint32_t* height);
 
 /*
  * Platform
@@ -244,6 +253,7 @@ bool ung_mouse_down_s(const char* button);
 uint8_t ung_mouse_pressed_s(const char* button);
 uint8_t ung_mouse_released_s(const char* button);
 void ung_mouse_set_relative(bool relative);
+// x, y, dx, dy are in logical screen coordinates (points)
 void ung_mouse_get(int* x, int* y, int* dx, int* dy);
 void ung_mouse_get_scroll_x(int* left, int* right);
 void ung_mouse_get_scroll_y(int* pos, int* neg); // pos = away from the user

@@ -60,6 +60,30 @@ namespace sprite_renderer {
 
 State* state = nullptr;
 
+static void update_window_metrics(bool update_constant_uniform_data)
+{
+    int w = 0;
+    int h = 0;
+    SDL_GetWindowSize(state->window, &w, &h);
+    state->win_width = (u32)w;
+    state->win_height = (u32)h;
+
+    SDL_GL_GetDrawableSize(state->window, &w, &h);
+    state->fb_width = (u32)w;
+    state->fb_height = (u32)h;
+
+    state->u_constant.screen_dimensions = um_vec4 {
+        (float)state->win_width,
+        (float)state->win_height,
+        state->win_width ? 1.0f / (float)state->win_width : 0.0f,
+        state->win_height ? 1.0f / (float)state->win_height : 0.0f,
+    };
+
+    if (update_constant_uniform_data && state->constant_data.id) {
+        mugfx_uniform_data_update(state->constant_data);
+    }
+}
+
 void assign(Array<char>& arr, const char* str)
 {
     if (arr.data == str) {
@@ -102,8 +126,13 @@ EXPORT void ung_init(ung_init_params params)
     }
 
     if (!has_video_driver) {
-        ung_panicf("No video driver found. Please install the appropriate dependencies and recompile.");
+        ung_panicf(
+            "No video driver found. Please install the appropriate dependencies and recompile.");
     }
+#endif
+
+#ifdef _WIN32
+    SDL_SetHint(SDL_HINT_WINDOWS_DPI_SCALING, "1");
 #endif
 
     if (SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMECONTROLLER) < 0) {
@@ -141,7 +170,7 @@ EXPORT void ung_init(ung_init_params params)
 #endif
 
     // Window
-    u32 flags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN;
+    u32 flags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI;
     if (params.window_mode.fullscreen_mode == UNG_FULLSCREEN_MODE_DESKTOP_FULLSCREEN
         || params.window_mode.fullscreen_mode == UNG_FULLSCREEN_MODE_FULLSCREEN) {
         flags |= SDL_WINDOW_FULLSCREEN;
@@ -149,8 +178,6 @@ EXPORT void ung_init(ung_init_params params)
     if (params.window_mode.fullscreen_mode == UNG_FULLSCREEN_MODE_DESKTOP_FULLSCREEN) {
         flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
     }
-    state->win_width = params.window_mode.width;
-    state->win_height = params.window_mode.height;
     state->window = SDL_CreateWindow(params.title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
         (int)params.window_mode.width, (int)params.window_mode.height, flags);
     if (!state->window) {
@@ -166,6 +193,8 @@ EXPORT void ung_init(ung_init_params params)
     printf("SDL Video Driver: %s\n", SDL_GetCurrentVideoDriver());
 
     SDL_GL_SetSwapInterval(params.window_mode.vsync);
+
+    update_window_metrics(false);
 
     // mugfx
     if (!params.mugfx.allocator) {
@@ -193,13 +222,6 @@ EXPORT void ung_init(ung_init_params params)
     state->geometries.init(params.max_num_geometries);
     state->materials.init(params.max_num_materials ? params.max_num_materials : 1024);
     state->cameras.init(params.max_num_cameras ? params.max_num_cameras : 8);
-
-    state->u_constant.screen_dimensions = um_vec4 {
-        static_cast<float>(params.window_mode.width),
-        static_cast<float>(params.window_mode.height),
-        1.0f / static_cast<float>(params.window_mode.width),
-        1.0f / static_cast<float>(params.window_mode.height),
-    };
 
     state->constant_data = mugfx_uniform_data_create({
         .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_CONSTANT,
@@ -389,6 +411,12 @@ EXPORT void ung_get_window_size(u32* width, u32* height)
     *height = state->win_height;
 }
 
+EXPORT void ung_get_framebuffer_size(u32* width, u32* height)
+{
+    *width = state->fb_width;
+    *height = state->fb_height;
+}
+
 EXPORT float ung_get_time()
 {
     static const auto start = SDL_GetPerformanceCounter();
@@ -406,7 +434,20 @@ EXPORT bool ung_poll_events()
 {
     input::reset();
     SDL_Event event;
+    const auto window_id = SDL_GetWindowID(state->window);
     while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_WINDOWEVENT && event.window.windowID == window_id) {
+            switch (event.window.event) {
+            case SDL_WINDOWEVENT_RESIZED:
+            case SDL_WINDOWEVENT_SIZE_CHANGED:
+            case SDL_WINDOWEVENT_DISPLAY_CHANGED:
+                update_window_metrics(true);
+                break;
+            default:
+                break;
+            }
+        }
+
         input::process_event(&event);
         if (state->event_callback) {
             state->event_callback(state->event_callback_ctx, &event);
@@ -1892,7 +1933,7 @@ EXPORT void ung_begin_pass(mugfx_render_target_id target, ung_camera_id camera)
     mugfx_uniform_data_update(state->camera_data);
 
     if (!target.id) {
-        mugfx_set_viewport(0, 0, state->win_width, state->win_height);
+        mugfx_set_viewport(0, 0, state->fb_width, state->fb_height);
     }
 }
 
