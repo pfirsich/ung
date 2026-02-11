@@ -269,6 +269,9 @@ static void depend(ung_resource_id dependent_id, Resource* dependent, ung_resour
 {
     dependent->res_deps.push(dependency_id);
     auto dependency = get(state->resources, dependency_id.id);
+    if (!dependency->dependent_resources.capacity) {
+        dependency->dependent_resources.init(1);
+    }
     dependency->dependent_resources.push(dependent_id);
 }
 
@@ -295,7 +298,9 @@ EXPORT void ung_resource_set_deps(ung_resource_id resource_id, const char* const
     undepend(resource_id, res);
 
     if (num_res_deps) {
-        res->res_deps.init((u32)num_res_deps);
+        if (!res->res_deps.capacity) {
+            res->res_deps.init((u32)num_res_deps);
+        }
         for (u32 r = 0; r < num_res_deps; ++r) {
             depend(resource_id, res, res_deps[r]);
         }
