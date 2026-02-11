@@ -214,18 +214,35 @@ bool ung_slotmap_remove(ung_slotmap* s, uint64_t key);
  * Input
  */
 // The input state will be updated by ung_poll_events!
-#define UNG_MOUSE_BUTTON_LEFT 1
-#define UNG_MOUSE_BUTTON_MIDDLE 2
-#define UNG_MOUSE_BUTTON_RIGHT 3
-#define UNG_MOUSE_BUTTON_SIDE_1 4
-#define UNG_MOUSE_BUTTON_SIDE_2 5
+typedef uint16_t ung_key; // SDL_Scancode
+typedef uint8_t ung_mouse_button;
+typedef uint8_t ung_gamepad_axis;
+typedef uint8_t ung_gamepad_button;
 
-bool ung_key_down(const char* key);
-uint8_t ung_key_pressed(const char* key);
-uint8_t ung_key_released(const char* key);
-bool ung_mouse_down(int button);
-uint8_t ung_mouse_pressed(int button);
-uint8_t ung_mouse_released(int button);
+// see SDL2 docs (SDL_GetScancodeFromName)
+ung_key ung_key_from_name(const char* key);
+// left, middle, right, side1, side2
+ung_mouse_button ung_mouse_button_from_name(const char* button);
+// leftx, lefty, rightx, righty, lefttrigger, righttrigger
+ung_gamepad_axis ung_gamepad_axis_from_name(const char* axis);
+// confirm, cancel, primary, secondary, tertiary, quaternary
+// a, b, x, y, back, guide, start, leftstick, rightstick, leftshoulder, rightshoulder, dpadup,
+// dpaddown, dpadleft, dpadright
+ung_gamepad_button ung_gamepad_button_from_name(const char* button);
+
+bool ung_key_down(ung_key key);
+uint8_t ung_key_pressed(ung_key key);
+uint8_t ung_key_released(ung_key key);
+bool ung_key_down_s(const char* key);
+uint8_t ung_key_pressed_s(const char* key);
+uint8_t ung_key_released_s(const char* key);
+
+bool ung_mouse_down(ung_mouse_button button);
+uint8_t ung_mouse_pressed(ung_mouse_button button);
+uint8_t ung_mouse_released(ung_mouse_button button);
+bool ung_mouse_down_s(const char* button);
+uint8_t ung_mouse_pressed_s(const char* button);
+uint8_t ung_mouse_released_s(const char* button);
 void ung_mouse_set_relative(bool relative);
 void ung_mouse_get(int* x, int* y, int* dx, int* dy);
 void ung_mouse_get_scroll_x(int* left, int* right);
@@ -269,11 +286,15 @@ int32_t ung_gamepad_instance_id(ung_gamepad_id gamepad);
 bool ung_gamepad_is_connected(ung_gamepad_id gamepad);
 const ung_gamepad_info* ung_gamepad_get_info(ung_gamepad_id gamepad);
 
-float ung_gamepad_axis(ung_gamepad_id gamepad, uint8_t axis); // SDL_GameControllerAxis
+float ung_gamepad_axis_get(ung_gamepad_id gamepad, ung_gamepad_axis axis);
+float ung_gamepad_axis_get_s(ung_gamepad_id gamepad, const char* axis);
 // button may either be SDL_GameControllerButton or one of ung_gamepad_action.
-bool ung_gamepad_button_down(ung_gamepad_id gamepad, uint8_t button); // SDL_GameControllerButton
-uint32_t ung_gamepad_button_pressed(ung_gamepad_id gamepad, uint8_t button);
-uint32_t ung_gamepad_button_released(ung_gamepad_id gamepad, uint8_t button);
+bool ung_gamepad_button_down(ung_gamepad_id gamepad, ung_gamepad_button button);
+uint32_t ung_gamepad_button_pressed(ung_gamepad_id gamepad, ung_gamepad_button button);
+uint32_t ung_gamepad_button_released(ung_gamepad_id gamepad, ung_gamepad_button button);
+bool ung_gamepad_button_down_s(ung_gamepad_id gamepad, const char* button);
+uint32_t ung_gamepad_button_pressed_s(ung_gamepad_id gamepad, const char* button);
+uint32_t ung_gamepad_button_released_s(ung_gamepad_id gamepad, const char* button);
 
 int ung_gamepad_get_player_index(ung_gamepad_id gamepad); // negative = unset
 void ung_gamepad_set_player_index(ung_gamepad_id gamepad, int player_index);
@@ -285,7 +306,8 @@ void ung_gamepad_rumble_triggers(
 void ung_gamepad_set_led(ung_gamepad_id gamepad, uint8_t red, uint8_t green, uint8_t blue);
 
 // default: 0.1f, 0.9f
-void ung_gamepad_axis_deadzone(ung_gamepad_id gamepad, uint8_t axis, float inner, float outer);
+void ung_gamepad_axis_deadzone(
+    ung_gamepad_id gamepad, ung_gamepad_axis axis, float inner, float outer);
 
 /*
  * Transforms

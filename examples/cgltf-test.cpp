@@ -94,7 +94,7 @@ struct Game {
 
     void update(float dt)
     {
-        if (ung_key_pressed("escape")) {
+        if (ung_key_pressed_s("escape")) {
             running = false;
         }
 
@@ -111,8 +111,8 @@ struct Game {
         ung_transform_set_orientation(cam_trafo, &cam_q.x);
 
         const auto move_speed = 20.0f;
-        const auto move_x = ung_key_down("d") - ung_key_down("a");
-        const auto move_z = ung_key_down("w") - ung_key_down("s");
+        const auto move_x = ung_key_down_s("d") - ung_key_down_s("a");
+        const auto move_z = ung_key_down_s("w") - ung_key_down_s("s");
         const auto move = um_vec3_normalized({ (float)move_x, 0.0f, -(float)move_z });
         const auto world_move = um_quat_mul_vec3(cam_q, move);
         cam_pos = um_vec3_add(cam_pos, um_vec3_mul(world_move, move_speed * dt));

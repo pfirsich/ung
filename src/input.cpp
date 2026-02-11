@@ -1,4 +1,5 @@
 #include <array>
+#include <string_view>
 #include <tuple>
 
 #include <SDL.h>
@@ -244,22 +245,116 @@ void process_event(SDL_Event* event)
     }
 }
 
-EXPORT bool ung_key_down(const char* key)
+EXPORT ung_key ung_key_from_name(const char* key)
 {
-    const auto scancode = SDL_GetScancodeFromName(key);
-    return state->key_down.at(scancode);
+    return (ung_key)SDL_GetScancodeFromName(key);
 }
 
-EXPORT u8 ung_key_pressed(const char* key)
+EXPORT ung_mouse_button ung_mouse_button_from_name(const char* button)
 {
-    const auto scancode = SDL_GetScancodeFromName(key);
-    return state->key_pressed.at(scancode);
+    static constexpr std::array<std::string_view, 5> names
+        = { "left", "middle", "right", "side1", "side2" };
+    const std::string_view button_sv = button;
+    for (size_t i = 0; i < names.size(); ++i) {
+        if (button_sv == names[i]) {
+            return (ung_mouse_button)i + 1;
+        }
+    }
+    ung_panicf("Invalid mouse button name: %s", button);
 }
 
-EXPORT u8 ung_key_released(const char* key)
+EXPORT ung_gamepad_axis ung_gamepad_axis_from_name(const char* axis)
 {
-    const auto scancode = SDL_GetScancodeFromName(key);
-    return state->key_released.at(scancode);
+    static constexpr std::array<std::string_view, 6> names
+        = { "leftx", "lefty", "rightx", "righty", "lefttrigger", "righttrigger" };
+    const std::string_view axis_sv = axis;
+    for (size_t i = 0; i < names.size(); ++i) {
+        if (axis_sv == names[i]) {
+            return (ung_gamepad_axis)i;
+        }
+    }
+    ung_panicf("Invalid gamepad axis name: %s", axis);
+}
+
+EXPORT ung_gamepad_button ung_gamepad_button_from_name(const char* button)
+{
+    static constexpr std::array<std::string_view, 6> actions
+        = { "confirm", "cancel", "primary", "secondary", "tertiary", "quaternary" };
+    static constexpr std::array<std::string_view, 15> buttons
+        = { "a", "b", "x", "y", "back", "guide", "start", "leftstick", "rightstick", "leftshoulder",
+              "rightshoulder", "dpadup", "dpaddown", "dpadleft", "dpadright" };
+    const std::string_view button_sv = button;
+    for (size_t i = 0; i < actions.size(); ++i) {
+        if (button_sv == actions[i]) {
+            return UNG_GAMEPAD_ACTION_CONFIRM + (ung_gamepad_button)i;
+        }
+    }
+    for (size_t i = 0; i < buttons.size(); ++i) {
+        if (button_sv == buttons[i]) {
+            return (ung_gamepad_button)i;
+        }
+    }
+    ung_panicf("Invalid gamepad button name: %s", button);
+}
+
+EXPORT bool ung_key_down(ung_key key)
+{
+    return state->key_down.at(key);
+}
+
+EXPORT u8 ung_key_pressed(ung_key key)
+{
+    return state->key_pressed.at(key);
+}
+
+EXPORT u8 ung_key_released(ung_key key)
+{
+    return state->key_released.at(key);
+}
+
+EXPORT bool ung_key_down_s(const char* key)
+{
+    return ung_key_down(ung_key_from_name(key));
+}
+
+EXPORT u8 ung_key_pressed_s(const char* key)
+{
+    return ung_key_pressed(ung_key_from_name(key));
+}
+
+EXPORT u8 ung_key_released_s(const char* key)
+{
+    return ung_key_released(ung_key_from_name(key));
+}
+
+EXPORT bool ung_mouse_down(ung_mouse_button button)
+{
+    return state->mouse_button_down.at(button);
+}
+
+EXPORT u8 ung_mouse_pressed(ung_mouse_button button)
+{
+    return state->mouse_button_pressed.at(button);
+}
+
+EXPORT u8 ung_mouse_released(ung_mouse_button button)
+{
+    return state->mouse_button_released.at(button);
+}
+
+EXPORT bool ung_mouse_down_s(const char* button)
+{
+    return ung_mouse_down(ung_mouse_button_from_name(button));
+}
+
+EXPORT u8 ung_mouse_pressed_s(const char* button)
+{
+    return ung_mouse_pressed(ung_mouse_button_from_name(button));
+}
+
+EXPORT u8 ung_mouse_released_s(const char* button)
+{
+    return ung_mouse_released(ung_mouse_button_from_name(button));
 }
 
 EXPORT void ung_mouse_set_relative(bool relative)
@@ -273,6 +368,18 @@ EXPORT void ung_mouse_get(int* x, int* y, int* dx, int* dy)
     *y = state->mouse_y;
     *dx = state->mouse_dx;
     *dy = state->mouse_dy;
+}
+
+EXPORT void ung_mouse_get_scroll_x(int* left, int* right)
+{
+    *left = state->mouse_scroll_left;
+    *right = state->mouse_scroll_right;
+}
+
+EXPORT void ung_mouse_get_scroll_y(int* pos, int* neg)
+{
+    *pos = state->mouse_scroll_y_pos;
+    *neg = state->mouse_scroll_y_neg;
 }
 
 EXPORT size_t ung_get_gamepads(ung_gamepad_id* gamepads, size_t max_num_gamepads)
@@ -346,7 +453,7 @@ static float axis_to_float(int16_t v)
     return v > 0 ? (float)v / 32767.0f : (float)v / 32768.0f;
 }
 
-EXPORT float ung_gamepad_axis(ung_gamepad_id gamepad, uint8_t axis)
+EXPORT float ung_gamepad_axis_get(ung_gamepad_id gamepad, ung_gamepad_axis axis)
 {
     const auto gp = get_gamepad(gamepad.id);
     const auto v
@@ -361,7 +468,12 @@ EXPORT float ung_gamepad_axis(ung_gamepad_id gamepad, uint8_t axis)
     return v;
 }
 
-static SDL_GameControllerButton map_button(uint8_t type, uint8_t button)
+EXPORT float ung_gamepad_axis_get_s(ung_gamepad_id gamepad, const char* axis)
+{
+    return ung_gamepad_axis_get(gamepad, ung_gamepad_axis_from_name(axis));
+}
+
+static SDL_GameControllerButton map_button(uint8_t type, ung_gamepad_button button)
 {
     if (button >= UNG_GAMEPAD_ACTION_CONFIRM) {
         assert(button <= UNG_GAMEPAD_ACTION_QUATERNARY);
@@ -394,22 +506,37 @@ static SDL_GameControllerButton map_button(uint8_t type, uint8_t button)
     return (SDL_GameControllerButton)button;
 }
 
-EXPORT bool ung_gamepad_button_down(ung_gamepad_id gamepad, uint8_t button)
+EXPORT bool ung_gamepad_button_down(ung_gamepad_id gamepad, ung_gamepad_button button)
 {
     const auto gp = get_gamepad(gamepad.id);
     return SDL_GameControllerGetButton(gp->controller, map_button(gp->type, button)) > 0;
 }
 
-EXPORT uint32_t ung_gamepad_button_pressed(ung_gamepad_id gamepad, uint8_t button)
+EXPORT uint32_t ung_gamepad_button_pressed(ung_gamepad_id gamepad, ung_gamepad_button button)
 {
     const auto gp = get_gamepad(gamepad.id);
     return gp->button_pressed.at((size_t)map_button(gp->type, button));
 }
 
-EXPORT uint32_t ung_gamepad_button_released(ung_gamepad_id gamepad, uint8_t button)
+EXPORT uint32_t ung_gamepad_button_released(ung_gamepad_id gamepad, ung_gamepad_button button)
 {
     const auto gp = get_gamepad(gamepad.id);
     return gp->button_released.at((size_t)map_button(gp->type, button));
+}
+
+EXPORT bool ung_gamepad_button_down_s(ung_gamepad_id gamepad, const char* button)
+{
+    return ung_gamepad_button_down(gamepad, ung_gamepad_button_from_name(button));
+}
+
+EXPORT uint32_t ung_gamepad_button_pressed_s(ung_gamepad_id gamepad, const char* button)
+{
+    return ung_gamepad_button_pressed(gamepad, ung_gamepad_button_from_name(button));
+}
+
+EXPORT uint32_t ung_gamepad_button_released_s(ung_gamepad_id gamepad, const char* button)
+{
+    return ung_gamepad_button_released(gamepad, ung_gamepad_button_from_name(button));
 }
 
 EXPORT int ung_gamepad_get_player_index(ung_gamepad_id gamepad)
@@ -445,9 +572,10 @@ EXPORT void ung_gamepad_set_led(ung_gamepad_id gamepad, uint8_t red, uint8_t gre
 }
 
 EXPORT void ung_gamepad_axis_deadzone(
-    ung_gamepad_id gamepad, uint8_t axis, float inner, float outer)
+    ung_gamepad_id gamepad, ung_gamepad_axis axis, float inner, float outer)
 {
     const auto gp = get_gamepad(gamepad.id);
+    (void)axis;
     gp->deadzone_inner = inner;
     gp->deadzone_outer = outer;
 }

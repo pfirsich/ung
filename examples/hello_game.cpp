@@ -110,23 +110,23 @@ struct Game {
 
     void update(float dt)
     {
-        if (ung_key_pressed("escape")) {
+        if (ung_key_pressed_s("escape")) {
             running = false;
         }
 
-        if (ung_key_pressed("c")) {
+        if (ung_key_pressed_s("c")) {
             mouse_captured = !mouse_captured;
             ung_mouse_set_relative(mouse_captured);
         }
 
-        if (ung_key_pressed("j")) {
+        if (ung_key_pressed_s("j")) {
             ung_sound_play(shoot_sound, {});
         }
-        if (ung_key_pressed("k")) {
+        if (ung_key_pressed_s("k")) {
             ung_sound_play(explode_sound, {});
         }
 
-        if (ung_key_pressed("p")) {
+        if (ung_key_pressed_s("p")) {
             update_particles = !update_particles;
         }
 
@@ -149,8 +149,8 @@ struct Game {
         }
 
         const auto move_speed = 10.0f;
-        const auto move_x = ung_key_down("d") - ung_key_down("a");
-        const auto move_z = ung_key_down("w") - ung_key_down("s");
+        const auto move_x = ung_key_down_s("d") - ung_key_down_s("a");
+        const auto move_z = ung_key_down_s("w") - ung_key_down_s("s");
         const auto move = um_vec3_normalized({ (float)move_x, 0.0f, -(float)move_z });
         um_quat q;
         ung_transform_get_orientation(cam_trafo, &q.x);
