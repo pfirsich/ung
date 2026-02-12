@@ -1614,13 +1614,15 @@ EXPORT void ung_geometry_recreate(ung_geometry_id geometry_id, mugfx_geometry_cr
     geometry->geometry = geom;
 }
 
-EXPORT void ung_geometry_set_vertex_range(ung_geometry_id geometry_id, uint32_t offset, uint32_t count)
+EXPORT void ung_geometry_set_vertex_range(
+    ung_geometry_id geometry_id, uint32_t offset, uint32_t count)
 {
     const auto geometry = get(state->geometries, geometry_id.id);
     mugfx_geometry_set_vertex_range(geometry->geometry, offset, count);
 }
 
-EXPORT void ung_geometry_set_index_range(ung_geometry_id geometry_id, uint32_t offset, uint32_t count)
+EXPORT void ung_geometry_set_index_range(
+    ung_geometry_id geometry_id, uint32_t offset, uint32_t count)
 {
     const auto geometry = get(state->geometries, geometry_id.id);
     mugfx_geometry_set_index_range(geometry->geometry, offset, count);
