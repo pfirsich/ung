@@ -254,9 +254,9 @@ uint8_t ung_mouse_pressed_s(const char* button);
 uint8_t ung_mouse_released_s(const char* button);
 void ung_mouse_set_relative(bool relative);
 // x, y, dx, dy are in logical screen coordinates (points)
-void ung_mouse_get(int* x, int* y, int* dx, int* dy);
-void ung_mouse_get_scroll_x(int* left, int* right);
-void ung_mouse_get_scroll_y(int* pos, int* neg); // pos = away from the user
+void ung_mouse_get(int32_t* x, int32_t* y, int32_t* dx, int32_t* dy);
+void ung_mouse_get_scroll_x(int32_t* left, int32_t* right);
+void ung_mouse_get_scroll_y(int32_t* pos, int32_t* neg); // pos = away from the user
 
 // Gamepads
 typedef enum {
@@ -279,7 +279,7 @@ typedef struct {
 
 // The returned gamepads are reused and matched by serial. I.e. it tries to represent
 // an individual physical gamepad.
-size_t ung_get_gamepads(ung_gamepad_id* gamepads, size_t max_num_gamepads);
+uint32_t ung_get_gamepads(ung_gamepad_id* gamepads, uint32_t max_num_gamepads);
 // This will return the most recently active, connected gamepad or 0 if no gamepad is connected
 // (anymore). Use this for single-player games and fall back to keyboard if it returns 0.
 ung_gamepad_id ung_gamepad_get_any();
@@ -306,8 +306,8 @@ bool ung_gamepad_button_down_s(ung_gamepad_id gamepad, const char* button);
 uint32_t ung_gamepad_button_pressed_s(ung_gamepad_id gamepad, const char* button);
 uint32_t ung_gamepad_button_released_s(ung_gamepad_id gamepad, const char* button);
 
-int ung_gamepad_get_player_index(ung_gamepad_id gamepad); // negative = unset
-void ung_gamepad_set_player_index(ung_gamepad_id gamepad, int player_index);
+int32_t ung_gamepad_get_player_index(ung_gamepad_id gamepad); // negative = unset
+void ung_gamepad_set_player_index(ung_gamepad_id gamepad, int32_t player_index);
 
 void ung_gamepad_rumble(
     ung_gamepad_id gamepad, uint16_t low_freq, uint16_t high_freq, uint32_t duration_ms);
@@ -453,7 +453,8 @@ typedef struct {
     ung_string value;
 } ung_kv_pair;
 
-size_t ung_parse_kv_file(const char* data, size_t size, ung_kv_pair* pairs, size_t max_num_pairs);
+uint32_t ung_parse_kv_file(
+    const char* data, size_t size, ung_kv_pair* pairs, size_t max_num_pairs);
 
 bool ung_parse_float(ung_string str, float* ptr, size_t num);
 
@@ -495,7 +496,7 @@ ung_resource_id ung_resource_create(ung_resource_reload_cb cb, void* ctx);
 
 // This function may be called inside the reload callback (e.g. if dependencies change).
 void ung_resource_set_deps(ung_resource_id resource, const char* const* files_deps,
-    size_t num_files_deps, const ung_resource_id* res_deps, size_t num_res_deps);
+    uint32_t num_files_deps, const ung_resource_id* res_deps, size_t num_res_deps);
 
 // Whenever the resource is reloaded, this version incremented.
 uint32_t ung_resource_get_version(ung_resource_id resource);
@@ -512,7 +513,7 @@ ung_resource_id ung_sound_get_resource(ung_sound_id sound);
  * Geometry
  */
 typedef struct {
-    size_t num_vertices;
+    uint32_t num_vertices;
     float* positions; // non-null, 3 values per vertex (xyz)
     float* normals; // null or 3 values per vertex (xyz)
     float* texcoords; // null or 2 values per vertex (uv)
@@ -520,7 +521,7 @@ typedef struct {
     uint16_t* joints; // null or 4 values per vertex
     float* weights; // null or 4 values per vertex
 
-    size_t num_indices; // always 3 vertices per face
+    uint32_t num_indices; // always 3 vertices per face
     uint32_t* indices;
 } ung_geometry_data;
 
@@ -531,8 +532,8 @@ void ung_geometry_data_destroy(ung_geometry_data gdata);
 
 ung_geometry_id ung_geometry_create(mugfx_geometry_create_params params);
 void ung_geometry_recreate(ung_geometry_id geom, mugfx_geometry_create_params params);
-void ung_geometry_set_vertex_range(ung_geometry_id geom, size_t offset, size_t count);
-void ung_geometry_set_index_range(ung_geometry_id geom, size_t offset, size_t count);
+void ung_geometry_set_vertex_range(ung_geometry_id geom, uint32_t offset, uint32_t count);
+void ung_geometry_set_index_range(ung_geometry_id geom, uint32_t offset, uint32_t count);
 ung_geometry_id ung_geometry_create_from_data(ung_geometry_data gdata);
 // creates geometry data, creates draw geometry, destroys geometry data
 ung_geometry_id ung_geometry_load(const char* path);
@@ -667,7 +668,7 @@ void ung_blend_poses(const ung_joint_transform** poses, const float** weights, s
 // which is exactly the weighted blend
 // (the old normalization is multiplied away and the new one is divided in)
 void ung_lerp_poses(const ung_joint_transform* pose_a, const ung_joint_transform* pose_b, float t,
-    const float* per_joint_t, ung_joint_transform* pose_out, size_t num_joints);
+    const float* per_joint_t, ung_joint_transform* pose_out, uint16_t num_joints);
 
 typedef enum {
     UNG_JOINT_DOF_INVALID = 0,
@@ -731,7 +732,7 @@ void ung_begin_pass(mugfx_render_target_id target, ung_camera_id camera);
 void ung_draw(ung_material_id material, ung_geometry_id geometry, ung_transform_id transform);
 // Just uses mugfx_draw_instanced instead
 void ung_draw_instanced(ung_material_id material, ung_geometry_id geometry,
-    ung_transform_id transform, size_t instance_count);
+    ung_transform_id transform, uint32_t instance_count);
 void ung_end_pass();
 void ung_end_frame();
 
@@ -740,7 +741,7 @@ void ung_end_frame();
  */
 typedef struct {
     uint8_t group;
-    size_t num_prewarm_sounds;
+    uint32_t num_prewarm_sounds;
     bool stream;
 } ung_sound_source_load_params;
 

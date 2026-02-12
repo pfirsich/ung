@@ -13,7 +13,6 @@ struct Vertex {
 };
 
 struct State {
-
     Vertex* vertices;
     size_t num_vertices;
     uint16_t* indices;
@@ -21,8 +20,8 @@ struct State {
     mugfx_buffer_id vertex_buffer;
     mugfx_buffer_id index_buffer;
     ung_geometry_id geometry;
-    size_t vertex_offset;
-    size_t index_offset;
+    u32 vertex_offset;
+    u32 index_offset;
     ung_material_id current_material;
     u32 current_tex_width;
     u32 current_tex_height;

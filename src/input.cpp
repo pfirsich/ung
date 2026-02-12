@@ -362,7 +362,7 @@ EXPORT void ung_mouse_set_relative(bool relative)
     SDL_SetRelativeMouseMode(relative ? SDL_TRUE : SDL_FALSE);
 }
 
-EXPORT void ung_mouse_get(int* x, int* y, int* dx, int* dy)
+EXPORT void ung_mouse_get(int32_t* x, int32_t* y, int32_t* dx, int32_t* dy)
 {
     *x = state->mouse_x;
     *y = state->mouse_y;
@@ -370,25 +370,25 @@ EXPORT void ung_mouse_get(int* x, int* y, int* dx, int* dy)
     *dy = state->mouse_dy;
 }
 
-EXPORT void ung_mouse_get_scroll_x(int* left, int* right)
+EXPORT void ung_mouse_get_scroll_x(int32_t* left, int32_t* right)
 {
     *left = state->mouse_scroll_left;
     *right = state->mouse_scroll_right;
 }
 
-EXPORT void ung_mouse_get_scroll_y(int* pos, int* neg)
+EXPORT void ung_mouse_get_scroll_y(int32_t* pos, int32_t* neg)
 {
     *pos = state->mouse_scroll_y_pos;
     *neg = state->mouse_scroll_y_neg;
 }
 
-EXPORT size_t ung_get_gamepads(ung_gamepad_id* gamepads, size_t max_num_gamepads)
+EXPORT uint32_t ung_get_gamepads(ung_gamepad_id* gamepads, uint32_t max_num_gamepads)
 {
-    size_t n = 0;
+    uint32_t n = 0;
     const auto& gps = state->gamepads;
     for (uint32_t i = 0; i < gps.sm.capacity; ++i) {
         const auto key = ung_slotmap_get_key(&gps.sm, i);
-        if (key) {
+        if (key && n < max_num_gamepads) {
             gamepads[n++] = { key };
         }
     }
@@ -539,13 +539,13 @@ EXPORT uint32_t ung_gamepad_button_released_s(ung_gamepad_id gamepad, const char
     return ung_gamepad_button_released(gamepad, ung_gamepad_button_from_name(button));
 }
 
-EXPORT int ung_gamepad_get_player_index(ung_gamepad_id gamepad)
+EXPORT int32_t ung_gamepad_get_player_index(ung_gamepad_id gamepad)
 {
     const auto gp = get_gamepad(gamepad.id);
     return SDL_GameControllerGetPlayerIndex(gp->controller);
 }
 
-EXPORT void ung_gamepad_set_player_index(ung_gamepad_id gamepad, int player_index)
+EXPORT void ung_gamepad_set_player_index(ung_gamepad_id gamepad, int32_t player_index)
 {
     const auto gp = get_gamepad(gamepad.id);
     SDL_GameControllerSetPlayerIndex(gp->controller, player_index);

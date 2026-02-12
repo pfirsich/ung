@@ -34,7 +34,7 @@ static void deallocate(T* ptr, size_t n = 1)
     alloc->deallocate(ptr, sizeof(T) * n, alloc->ctx);
 }
 
-static size_t get_num_components(cgltf_type type)
+static uint8_t get_num_components(cgltf_type type)
 {
     switch (type) {
     case cgltf_type_scalar:
@@ -117,7 +117,7 @@ static mugfx_draw_mode map_draw_mode(cgltf_primitive_type type)
     }
 }
 
-static size_t get_location(const cgltf_attribute* attr)
+static uint32_t get_location(const cgltf_attribute* attr)
 {
     // TWEAK, possibly use attr->index
     switch (attr->type) {
@@ -136,7 +136,7 @@ static size_t get_location(const cgltf_attribute* attr)
     case cgltf_attribute_type_weights:
         return 5;
     default:
-        return SIZE_MAX;
+        return UINT32_MAX;
     }
 }
 
@@ -162,7 +162,7 @@ EXPORT ung_geometry_id get_geom_from_cgltf(const cgltf_primitive* prim)
         assert(acc);
 
         const auto location = get_location(attr);
-        if (location == SIZE_MAX) {
+        if (location == UINT32_MAX) {
             continue; // skip unmapped
         }
 

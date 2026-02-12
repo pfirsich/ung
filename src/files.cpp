@@ -104,11 +104,11 @@ static std::string_view trim(std::string_view str)
     return str;
 }
 
-EXPORT size_t ung_parse_kv_file(
-    const char* pdata, size_t size, ung_kv_pair* pairs, size_t max_num_pairs)
+EXPORT uint32_t ung_parse_kv_file(
+    const char* pdata, size_t size, ung_kv_pair* pairs, usize max_num_pairs)
 {
     std::string_view section;
-    size_t p = 0;
+    uint32_t p = 0;
 
     std::string_view data(pdata, size);
     while (data.size()) {
@@ -153,10 +153,10 @@ static bool is_skip_char(char c)
     return c == ' ' || c == '\t' || c == ',';
 }
 
-EXPORT bool ung_parse_float(ung_string str, float* fptr, size_t num)
+EXPORT bool ung_parse_float(ung_string str, float* fptr, usize num)
 {
     size_t cursor = 0;
-    for (size_t n = 0; n < num; ++n) {
+    for (usize n = 0; n < num; ++n) {
         if (cursor >= str.length) {
             return false;
         }
@@ -180,7 +180,7 @@ EXPORT bool ung_parse_float(ung_string str, float* fptr, size_t num)
 }
 
 EXPORT ung_file_watch_id ung_file_watch_create(
-    const char* const* paths, size_t num_paths, ung_file_watch_cb cb, void* ctx)
+    const char* const* paths, usize num_paths, ung_file_watch_cb cb, void* ctx)
 {
     const auto [id, watch] = state->watches.insert();
 
@@ -276,7 +276,7 @@ static void depend(ung_resource_id dependent_id, Resource* dependent, ung_resour
 }
 
 EXPORT void ung_resource_set_deps(ung_resource_id resource_id, const char* const* files_deps,
-    size_t num_files_deps, const ung_resource_id* res_deps, size_t num_res_deps)
+    uint32_t num_files_deps, const ung_resource_id* res_deps, usize num_res_deps)
 {
     if (!ung::state->auto_reload) {
         return;

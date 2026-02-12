@@ -254,7 +254,7 @@ EXPORT void ung_blend_poses(const ung_joint_transform** poses, const float** wei
 }
 
 EXPORT void ung_lerp_poses(const ung_joint_transform* pose_a, const ung_joint_transform* pose_b,
-    float t, const float* per_joint_t, ung_joint_transform* pose_out, size_t num_joints)
+    float t, const float* per_joint_t, ung_joint_transform* pose_out, uint16_t num_joints)
 {
     for (u16 j = 0; j < num_joints; ++j) {
         const auto tj = t * (per_joint_t ? per_joint_t[j] : 1.0f);

@@ -1614,13 +1614,13 @@ EXPORT void ung_geometry_recreate(ung_geometry_id geometry_id, mugfx_geometry_cr
     geometry->geometry = geom;
 }
 
-EXPORT void ung_geometry_set_vertex_range(ung_geometry_id geometry_id, size_t offset, size_t count)
+EXPORT void ung_geometry_set_vertex_range(ung_geometry_id geometry_id, uint32_t offset, uint32_t count)
 {
     const auto geometry = get(state->geometries, geometry_id.id);
     mugfx_geometry_set_vertex_range(geometry->geometry, offset, count);
 }
 
-EXPORT void ung_geometry_set_index_range(ung_geometry_id geometry_id, size_t offset, size_t count)
+EXPORT void ung_geometry_set_index_range(ung_geometry_id geometry_id, uint32_t offset, uint32_t count)
 {
     const auto geometry = get(state->geometries, geometry_id.id);
     mugfx_geometry_set_index_range(geometry->geometry, offset, count);
@@ -1959,7 +1959,7 @@ EXPORT void ung_draw(ung_material_id material, ung_geometry_id geometry, ung_tra
 }
 
 EXPORT void ung_draw_instanced(ung_material_id material, ung_geometry_id geometry,
-    ung_transform_id transform, size_t instance_count)
+    ung_transform_id transform, uint32_t instance_count)
 {
     auto mat = get_material(material.id);
     auto geom = get(state->geometries, geometry.id);
