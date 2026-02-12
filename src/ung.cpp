@@ -297,6 +297,8 @@ EXPORT void ung_shutdown()
     files::shutdown();
 
     deallocate(state);
+
+    state = nullptr;
 }
 
 EXPORT void ung_panic(const char* message)
