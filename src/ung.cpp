@@ -668,8 +668,8 @@ static mugfx_texture_id create_texture(
     };
     assert(width > 0 && height > 0 && comp > 0);
     assert(comp <= 4);
-    params.width = (usize)width;
-    params.height = (usize)height;
+    params.width = (u32)width;
+    params.height = (u32)height;
     params.data = { data, (usize)(width * height * comp) };
     params.format = pixel_formats[comp];
     params.data_format = pixel_formats[comp];
