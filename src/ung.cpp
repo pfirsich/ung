@@ -979,8 +979,15 @@ static bool material_reload_cb(void* userdata)
 static void update_deps(Material* mat)
 {
     StaticVector<ung_resource_id, 32> deps = {};
-    deps.append() = ung_shader_get_resource(mat->reload_ctx->vert);
-    deps.append() = ung_shader_get_resource(mat->reload_ctx->frag);
+    // shaders from ung_shader_create don't have resources
+    const auto vert_res = ung_shader_get_resource(mat->reload_ctx->vert);
+    if (vert_res.id) {
+        deps.append() = vert_res;
+    }
+    const auto frag_res = ung_shader_get_resource(mat->reload_ctx->frag);
+    if (frag_res.id) {
+        deps.append() = frag_res;
+    }
     for (const auto tex : mat->reload_ctx->textures) {
         if (tex.id) {
             const auto res = ung_texture_get_resource(tex);
