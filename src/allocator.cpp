@@ -53,7 +53,7 @@ char* allocate_string(const char* str)
 {
     const auto len = std::strlen(str);
     auto ret = allocate<char>(len + 1);
-    strncpy(ret, str, len);
+    std::memcpy(ret, str, len + 1);
     return ret;
 }
 
