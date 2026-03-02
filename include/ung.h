@@ -372,6 +372,7 @@ bool ung_shader_reload(ung_shader_id shader, const char* path);
 
 ung_texture_id ung_texture_create(mugfx_texture_create_params params);
 void ung_texture_recreate(ung_texture_id texture, mugfx_texture_create_params params);
+void ung_texture_destroy(ung_texture_id texture);
 
 ung_texture_id ung_texture_load(const char* path, bool flip_y, mugfx_texture_create_params params);
 ung_texture_id ung_texture_load_buffer(

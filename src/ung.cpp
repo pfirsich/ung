@@ -902,6 +902,24 @@ EXPORT bool ung_texture_reload(
     return reload_texture(texture, path, flip_y, params);
 }
 
+EXPORT void ung_texture_destroy(ung_texture_id texture_id)
+{
+    auto texture = get(state->textures, texture_id.id);
+
+    mugfx_texture_destroy(texture->texture);
+
+    if (texture->resource.id) {
+        ung_resource_destroy(texture->resource);
+    }
+
+    if (texture->reload_ctx) {
+        texture->reload_ctx->path.free();
+        deallocate(texture->reload_ctx);
+    }
+
+    state->textures.remove(texture_id.id);
+}
+
 Material* get_material(u64 key)
 {
     return get(state->materials, key);
