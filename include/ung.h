@@ -453,8 +453,7 @@ typedef struct {
     ung_string value;
 } ung_kv_pair;
 
-uint32_t ung_parse_kv_file(
-    const char* data, size_t size, ung_kv_pair* pairs, size_t max_num_pairs);
+uint32_t ung_parse_kv_file(const char* data, size_t size, ung_kv_pair* pairs, size_t max_num_pairs);
 
 bool ung_parse_float(ung_string str, float* ptr, size_t num);
 
