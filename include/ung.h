@@ -128,7 +128,7 @@ typedef struct {
     uint32_t max_num_materials; // default: 1024
     uint32_t max_num_cameras; // default: 8
     uint32_t max_num_sprite_vertices; // default: 1024*16
-    uint32_t max_num_sprite_indices; // default: 1024*16
+    uint32_t max_num_sprite_indices; // default: max_num_sprite_vertices / 4
     uint32_t max_num_gamepads; // default: 8
     uint32_t max_num_sound_sources; // default: 64
     uint32_t max_num_sounds; // default: 64

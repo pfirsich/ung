@@ -44,7 +44,8 @@ void init(ung_init_params params)
         .data = { .data = nullptr, .length = sizeof(Vertex) * state->num_vertices },
     }),
 
-    state->num_indices = params.max_num_sprite_indices ? params.max_num_sprite_indices : 16 * 1024;
+    state->num_indices
+        = params.max_num_sprite_indices ? params.max_num_sprite_indices : state->num_vertices / 4;
     state->indices = allocate<u16>(state->num_indices);
     state->index_buffer = mugfx_buffer_create({
         .target = MUGFX_BUFFER_TARGET_INDEX,
