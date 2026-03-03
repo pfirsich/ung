@@ -623,18 +623,17 @@ mugfx_shader_id load_shader(mugfx_shader_stage stage, const char* path)
         std::printf("Could not read '%s': %s\n", path, SDL_GetError());
         return { 0 };
     }
-    mugfx_shader_create_params params;
-    params.stage = stage;
-    params.source = data;
-    params.debug_label = path;
-    if (params.bindings[0].type == MUGFX_SHADER_BINDING_TYPE_NONE) {
-        // TODO: Try to load from <path>.meta first
-        // TODO: Check data is not SPIR-V
-        if (!parse_shader_bindings(std::string_view(data, size), params)) {
-            std::printf("Could not parse shader bindings\n");
-            ung_free_file_data(data, size);
-            return { 0 };
-        }
+    mugfx_shader_create_params params = {
+        .stage = stage,
+        .source = data,
+        .debug_label = path,
+    };
+    // TODO: Try to load from <path>.meta first
+    // TODO: Check data is not SPIR-V
+    if (!parse_shader_bindings(std::string_view(data, size), params)) {
+        std::printf("Could not parse shader bindings\n");
+        ung_free_file_data(data, size);
+        return { 0 };
     }
     const auto shader = mugfx_shader_create(params);
     ung_free_file_data(data, size);
