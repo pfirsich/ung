@@ -15,132 +15,132 @@ EXPORT float um_exp(float x)
     return expf(x);
 }
 
-float um_pow(float x, float y)
+EXPORT float um_pow(float x, float y)
 {
     return powf(x, y);
 }
 
-float um_sin(float x)
+EXPORT float um_sin(float x)
 {
     return sinf(x);
 }
 
-float um_cos(float x)
+EXPORT float um_cos(float x)
 {
     return cosf(x);
 }
 
-float um_tan(float x)
+EXPORT float um_tan(float x)
 {
     return tanf(x);
 }
 
-float um_asin(float x)
+EXPORT float um_asin(float x)
 {
     return asinf(x);
 }
 
-float um_acos(float x)
+EXPORT float um_acos(float x)
 {
     return acosf(x);
 }
 
-float um_atan(float x)
+EXPORT float um_atan(float x)
 {
     return atanf(x);
 }
 
-float um_atan2(float y, float x)
+EXPORT float um_atan2(float y, float x)
 {
     return atan2f(y, x);
 }
 
-float um_sqrt(float x)
+EXPORT float um_sqrt(float x)
 {
     return sqrtf(x);
 }
 
-float um_absf(float x)
+EXPORT float um_absf(float x)
 {
     return fabs(x);
 }
 
-int um_absi(int x)
+EXPORT int um_absi(int x)
 {
     return abs(x);
 }
 
-float um_fmod(float x, float y)
+EXPORT float um_fmod(float x, float y)
 {
     return fmodf(x, y);
 }
 
-float um_floor(float x)
+EXPORT float um_floor(float x)
 {
     return floorf(x);
 }
 
-float um_ceil(float x)
+EXPORT float um_ceil(float x)
 {
     return ceilf(x);
 }
 
-float um_trunc(float x)
+EXPORT float um_trunc(float x)
 {
     return truncf(x);
 }
 
-float um_round(float x)
+EXPORT float um_round(float x)
 {
     return roundf(x);
 }
 
-float um_minf(float x, float y)
+EXPORT float um_minf(float x, float y)
 {
     return fminf(x, y);
 }
 
-float um_maxf(float x, float y)
+EXPORT float um_maxf(float x, float y)
 {
     return fmaxf(x, y);
 }
 
-float um_clamp(float v, float lo, float hi)
+EXPORT float um_clamp(float v, float lo, float hi)
 {
     return fminf(fmaxf(v, lo), hi);
 }
 
-um_rad um_to_rad(um_deg deg)
+EXPORT um_rad um_to_rad(um_deg deg)
 {
     return { deg.v / 180.f * UM_PI };
 }
 
-um_deg um_to_deg(um_rad rad)
+EXPORT um_deg um_to_deg(um_rad rad)
 {
     return { rad.v / UM_PI * 180.f };
 }
 
-um_vec3 um_vec3_from_ptr(const float v[3])
+EXPORT um_vec3 um_vec3_from_ptr(const float v[3])
 {
     return { v[0], v[1], v[2] };
 }
 
-void um_vec3_to_ptr(um_vec3 v, float p[3])
+EXPORT void um_vec3_to_ptr(um_vec3 v, float p[3])
 {
     std::memcpy(p, &v.x, sizeof(float) * 3);
 }
 
-float um_vec3_len(um_vec3 v)
+EXPORT float um_vec3_len(um_vec3 v)
 {
     return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
-float um_vec3_len_sq(um_vec3 v)
+EXPORT float um_vec3_len_sq(um_vec3 v)
 {
     return v.x * v.x + v.y * v.y + v.z * v.z;
 }
 
-um_vec3 um_vec3_normalized(um_vec3 v)
+EXPORT um_vec3 um_vec3_normalized(um_vec3 v)
 {
     float len = um_vec3_len(v);
     if (len < 0.0001f) {
@@ -150,48 +150,48 @@ um_vec3 um_vec3_normalized(um_vec3 v)
     return { v.x * inv_len, v.y * inv_len, v.z * inv_len };
 }
 
-um_vec3 um_vec3_mul(um_vec3 v, float s)
+EXPORT um_vec3 um_vec3_mul(um_vec3 v, float s)
 {
     return { v.x * s, v.y * s, v.z * s };
 }
 
-float um_vec3_dot(um_vec3 a, um_vec3 b)
+EXPORT float um_vec3_dot(um_vec3 a, um_vec3 b)
 {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-float um_vec3_dist(um_vec3 a, um_vec3 b)
+EXPORT float um_vec3_dist(um_vec3 a, um_vec3 b)
 {
     um_vec3 d = um_vec3_sub(a, b);
     return um_vec3_len(d);
 }
 
-um_vec3 um_vec3_add(um_vec3 a, um_vec3 b)
+EXPORT um_vec3 um_vec3_add(um_vec3 a, um_vec3 b)
 {
     return { a.x + b.x, a.y + b.y, a.z + b.z };
 }
 
-um_vec3 um_vec3_sub(um_vec3 a, um_vec3 b)
+EXPORT um_vec3 um_vec3_sub(um_vec3 a, um_vec3 b)
 {
     return { a.x - b.x, a.y - b.y, a.z - b.z };
 }
 
-um_vec3 um_vec3_cross(um_vec3 a, um_vec3 b)
+EXPORT um_vec3 um_vec3_cross(um_vec3 a, um_vec3 b)
 {
     return { a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x };
 }
 
-um_vec3 um_vec3_madd(um_vec3 a, um_vec3 b, float s)
+EXPORT um_vec3 um_vec3_madd(um_vec3 a, um_vec3 b, float s)
 {
     return { a.x + b.x * s, a.y + b.y * s, a.z + b.z * s };
 }
 
-um_vec3 um_vec3_lerp(um_vec3 a, um_vec3 b, float t)
+EXPORT um_vec3 um_vec3_lerp(um_vec3 a, um_vec3 b, float t)
 {
     return { a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t };
 }
 
-bool um_vec3_eq(um_vec3 a, um_vec3 b)
+EXPORT bool um_vec3_eq(um_vec3 a, um_vec3 b)
 {
     // Use small epsilon for floating point comparison
     const float EPSILON = 0.000001f;
@@ -199,27 +199,27 @@ bool um_vec3_eq(um_vec3 a, um_vec3 b)
 }
 
 // Vec4 implementations
-um_vec4 um_vec4_from_ptr(const float v[4])
+EXPORT um_vec4 um_vec4_from_ptr(const float v[4])
 {
     return { v[0], v[1], v[2], v[3] };
 }
 
-void um_vec4_to_ptr(um_vec4 v, float p[4])
+EXPORT void um_vec4_to_ptr(um_vec4 v, float p[4])
 {
     std::memcpy(p, &v.x, sizeof(float) * 4);
 }
 
-float um_vec4_len(um_vec4 v)
+EXPORT float um_vec4_len(um_vec4 v)
 {
     return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w);
 }
 
-float um_vec4_len_sq(um_vec4 v)
+EXPORT float um_vec4_len_sq(um_vec4 v)
 {
     return v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w;
 }
 
-um_vec4 um_vec4_normalized(um_vec4 v)
+EXPORT um_vec4 um_vec4_normalized(um_vec4 v)
 {
     float len = um_vec4_len(v);
     if (len < 0.0001f) {
@@ -229,39 +229,39 @@ um_vec4 um_vec4_normalized(um_vec4 v)
     return { v.x * inv_len, v.y * inv_len, v.z * inv_len, v.w * inv_len };
 }
 
-um_vec4 um_vec4_mul(um_vec4 v, float s)
+EXPORT um_vec4 um_vec4_mul(um_vec4 v, float s)
 {
     return { v.x * s, v.y * s, v.z * s, v.w * s };
 }
 
-float um_vec4_dot(um_vec4 a, um_vec4 b)
+EXPORT float um_vec4_dot(um_vec4 a, um_vec4 b)
 {
     return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 }
 
-float um_vec4_dist(um_vec4 a, um_vec4 b)
+EXPORT float um_vec4_dist(um_vec4 a, um_vec4 b)
 {
     um_vec4 d = um_vec4_sub(a, b);
     return um_vec4_len(d);
 }
 
-um_vec4 um_vec4_add(um_vec4 a, um_vec4 b)
+EXPORT um_vec4 um_vec4_add(um_vec4 a, um_vec4 b)
 {
     return { a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w };
 }
 
-um_vec4 um_vec4_sub(um_vec4 a, um_vec4 b)
+EXPORT um_vec4 um_vec4_sub(um_vec4 a, um_vec4 b)
 {
     return { a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w };
 }
 
-um_vec4 um_vec4_lerp(um_vec4 a, um_vec4 b, float t)
+EXPORT um_vec4 um_vec4_lerp(um_vec4 a, um_vec4 b, float t)
 {
     return { a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t,
         a.w + (b.w - a.w) * t };
 }
 
-bool um_vec4_eq(um_vec4 a, um_vec4 b)
+EXPORT bool um_vec4_eq(um_vec4 a, um_vec4 b)
 {
     const float EPSILON = 0.000001f;
     return fabsf(a.x - b.x) < EPSILON && fabsf(a.y - b.y) < EPSILON && fabsf(a.z - b.z) < EPSILON
@@ -269,27 +269,27 @@ bool um_vec4_eq(um_vec4 a, um_vec4 b)
 }
 
 // Quaternion implementations
-um_quat um_quat_from_ptr(const float xyzw[4])
+EXPORT um_quat um_quat_from_ptr(const float xyzw[4])
 {
     return { xyzw[0], xyzw[1], xyzw[2], xyzw[3] };
 }
 
-void um_quat_to_ptr(um_quat q, float xyzw[4])
+EXPORT void um_quat_to_ptr(um_quat q, float xyzw[4])
 {
     std::memcpy(xyzw, &q.x, sizeof(float) * 4);
 }
 
-um_quat um_quat_identity()
+EXPORT um_quat um_quat_identity()
 {
     return { 0.0f, 0.0f, 0.0f, 1.0f };
 }
 
-float um_quat_len(um_quat q)
+EXPORT float um_quat_len(um_quat q)
 {
     return sqrtf(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
 }
 
-um_quat um_quat_normalized(um_quat q)
+EXPORT um_quat um_quat_normalized(um_quat q)
 {
     float len = um_quat_len(q);
     if (len < 0.0001f) {
@@ -299,13 +299,13 @@ um_quat um_quat_normalized(um_quat q)
     return { q.x * inv_len, q.y * inv_len, q.z * inv_len, q.w * inv_len };
 }
 
-um_quat um_quat_conjugate(um_quat q)
+EXPORT um_quat um_quat_conjugate(um_quat q)
 {
     // The conjugate of a quaternion is (-x, -y, -z, w)
     return { -q.x, -q.y, -q.z, q.w };
 }
 
-um_quat um_quat_mul(um_quat a, um_quat b)
+EXPORT um_quat um_quat_mul(um_quat a, um_quat b)
 {
     um_quat result;
     result.x = a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y;
@@ -315,7 +315,7 @@ um_quat um_quat_mul(um_quat a, um_quat b)
     return result;
 }
 
-um_quat um_quat_from_matrix(um_mat m)
+EXPORT um_quat um_quat_from_matrix(um_mat m)
 {
     // Extract the rotation matrix (upper-left 3x3)
     float m00 = m.cols[0].x;
@@ -363,7 +363,7 @@ um_quat um_quat_from_matrix(um_mat m)
     return um_quat_normalized(q);
 }
 
-um_quat um_quat_from_axis_angle(um_vec3 axis, um_rad angle)
+EXPORT um_quat um_quat_from_axis_angle(um_vec3 axis, um_rad angle)
 {
     const auto half_angle = angle.v * 0.5f;
     um_vec3 normalized_axis = um_vec3_normalized(axis);
@@ -377,7 +377,7 @@ um_quat um_quat_from_axis_angle(um_vec3 axis, um_rad angle)
     };
 }
 
-um_quat um_quat_slerp(um_quat a, um_quat b, float t)
+EXPORT um_quat um_quat_slerp(um_quat a, um_quat b, float t)
 {
     // Calculate angle between quaternions
     float cos_half_theta = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
@@ -427,7 +427,7 @@ um_quat um_quat_slerp(um_quat a, um_quat b, float t)
     });
 }
 
-um_vec3 um_quat_mul_vec3(um_quat q, um_vec3 v)
+EXPORT um_vec3 um_quat_mul_vec3(um_quat q, um_vec3 v)
 {
     // Extract vector part of quaternion
     um_vec3 qv = { q.x, q.y, q.z };
@@ -445,19 +445,19 @@ um_vec3 um_quat_mul_vec3(um_quat q, um_vec3 v)
 }
 
 // Matrix implementations
-um_mat um_mat_from_ptr(const float m[16])
+EXPORT um_mat um_mat_from_ptr(const float m[16])
 {
     um_mat mat;
     std::memcpy(&mat.cols[0].x, m, sizeof(float) * 16);
     return mat;
 }
 
-void um_mat_to_ptr(um_mat m, float p[16])
+EXPORT void um_mat_to_ptr(um_mat m, float p[16])
 {
     std::memcpy(p, &m.cols[0].x, sizeof(float) * 16);
 }
 
-um_mat um_mat_identity()
+EXPORT um_mat um_mat_identity()
 {
     um_mat m;
     m.cols[0] = { 1.0f, 0.0f, 0.0f, 0.0f };
@@ -467,7 +467,7 @@ um_mat um_mat_identity()
     return m;
 }
 
-um_mat um_mat_scale(um_vec3 v)
+EXPORT um_mat um_mat_scale(um_vec3 v)
 {
     um_mat m;
     m.cols[0] = { v.x, 0.0f, 0.0f, 0.0f };
@@ -477,12 +477,12 @@ um_mat um_mat_scale(um_vec3 v)
     return m;
 }
 
-um_mat um_mat_rotate(um_vec3 axis, um_rad angle)
+EXPORT um_mat um_mat_rotate(um_vec3 axis, um_rad angle)
 {
     return um_mat_from_quat(um_quat_from_axis_angle(axis, angle));
 }
 
-um_mat um_mat_from_quat(um_quat q)
+EXPORT um_mat um_mat_from_quat(um_quat q)
 {
     // Convert quaternion directly to a rotation matrix
     float xx = q.x * q.x;
@@ -507,7 +507,7 @@ um_mat um_mat_from_quat(um_quat q)
     return m;
 }
 
-void um_mat_decompose_trs(um_mat m, um_vec3* translation, um_quat* rotation, um_vec3* scale)
+EXPORT void um_mat_decompose_trs(um_mat m, um_vec3* translation, um_quat* rotation, um_vec3* scale)
 {
     // translation
     *translation = { m.cols[3].x, m.cols[3].y, m.cols[3].z };
@@ -539,14 +539,14 @@ void um_mat_decompose_trs(um_mat m, um_vec3* translation, um_quat* rotation, um_
     *rotation = um_quat_from_matrix(r);
 }
 
-um_mat um_mat_translate(um_vec3 vec)
+EXPORT um_mat um_mat_translate(um_vec3 vec)
 {
     um_mat m = um_mat_identity();
     m.cols[3] = { vec.x, vec.y, vec.z, 1.0f };
     return m;
 }
 
-um_mat um_mat_transform(um_vec3 t, um_quat r, um_vec3 s)
+EXPORT um_mat um_mat_transform(um_vec3 t, um_quat r, um_vec3 s)
 {
     // returns T * R * S
     auto m = um_mat_from_quat(r);
@@ -557,7 +557,8 @@ um_mat um_mat_transform(um_vec3 t, um_quat r, um_vec3 s)
     return m;
 }
 
-um_mat um_mat_ortho(float left, float right, float bottom, float top, float znear, float zfar)
+EXPORT um_mat um_mat_ortho(
+    float left, float right, float bottom, float top, float znear, float zfar)
 {
     um_mat m = um_mat_identity();
 
@@ -573,7 +574,7 @@ um_mat um_mat_ortho(float left, float right, float bottom, float top, float znea
     return m;
 }
 
-um_mat um_mat_perspective(um_deg fovy, float aspect, float znear, float zfar)
+EXPORT um_mat um_mat_perspective(um_deg fovy, float aspect, float znear, float zfar)
 {
     um_mat m = {};
 
@@ -588,7 +589,7 @@ um_mat um_mat_perspective(um_deg fovy, float aspect, float znear, float zfar)
     return m;
 }
 
-um_mat um_mat_look_at(um_vec3 eye, um_vec3 target, um_vec3 up)
+EXPORT um_mat um_mat_look_at(um_vec3 eye, um_vec3 target, um_vec3 up)
 {
     um_mat m;
 
@@ -610,7 +611,7 @@ um_mat um_mat_look_at(um_vec3 eye, um_vec3 target, um_vec3 up)
     return m;
 }
 
-um_mat um_mat_transpose(um_mat m)
+EXPORT um_mat um_mat_transpose(um_mat m)
 {
     um_mat result;
 
@@ -622,7 +623,7 @@ um_mat um_mat_transpose(um_mat m)
     return result;
 }
 
-um_mat um_mat_invert(um_mat m)
+EXPORT um_mat um_mat_invert(um_mat m)
 {
     um_mat result;
 
@@ -678,7 +679,7 @@ um_mat um_mat_invert(um_mat m)
     return result;
 }
 
-um_vec3 um_mat_mul_vec3(um_mat m, um_vec3 v, float w)
+EXPORT um_vec3 um_mat_mul_vec3(um_mat m, um_vec3 v, float w)
 {
     um_vec4 v4 = { v.x, v.y, v.z, w };
     um_vec4 result = um_mat_mul_vec4(m, v4);
@@ -692,7 +693,7 @@ um_vec3 um_mat_mul_vec3(um_mat m, um_vec3 v, float w)
     return { result.x, result.y, result.z };
 }
 
-um_vec4 um_mat_mul_vec4(um_mat m, um_vec4 v)
+EXPORT um_vec4 um_mat_mul_vec4(um_mat m, um_vec4 v)
 {
     um_vec4 result;
 
@@ -704,7 +705,7 @@ um_vec4 um_mat_mul_vec4(um_mat m, um_vec4 v)
     return result;
 }
 
-um_mat um_mat_mul(um_mat a, um_mat b)
+EXPORT um_mat um_mat_mul(um_mat a, um_mat b)
 {
     um_mat result;
 
