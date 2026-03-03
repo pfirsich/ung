@@ -4,7 +4,13 @@
 #include <math.h>
 #include <stdlib.h>
 
-float um_exp(float x)
+#if defined(WIN32)
+#define EXPORT extern "C" __declspec(dllexport)
+#else
+#define EXPORT extern "C"
+#endif
+
+EXPORT float um_exp(float x)
 {
     return expf(x);
 }

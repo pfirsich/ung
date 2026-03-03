@@ -22,7 +22,11 @@ using usize = size_t;
 
 #include "allocator.hpp"
 
+#if defined(WIN32)
+#define EXPORT extern "C" __declspec(dllexport)
+#else
 #define EXPORT extern "C"
+#endif
 
 namespace ung {
 
