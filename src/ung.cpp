@@ -2314,20 +2314,52 @@ static mugfx_uniform_data_id update_uniform_data(ung_transform_id transform)
 
 EXPORT void ung_draw(ung_material_id material, ung_geometry_id geometry, ung_transform_id transform)
 {
-    ung_draw_instanced(material, geometry, transform, 0);
+    ung_draw_ex(material, geometry, transform, {});
+}
+
+EXPORT void ung_draw_ex(ung_material_id material, ung_geometry_id geometry,
+    ung_transform_id transform, ung_draw_ex_params params)
+{
+    auto mat = get_material(material.id);
+    auto geom = get(state->geometries, geometry.id);
+
+    StaticVector<mugfx_draw_binding, MUGFX_MAX_SHADER_BINDINGS> draw_bindings {};
+    std::memcpy(draw_bindings.data(), mat->bindings.data(),
+        sizeof(mugfx_draw_binding) * mat->bindings.size());
+    draw_bindings.size_ = mat->bindings.size();
+    assert(draw_bindings[3].uniform_data.binding == 3);
+    // TODO: maybe avoid upload if transform is overriden
+    draw_bindings[3].uniform_data.id = update_uniform_data(transform);
+
+    if (params.num_binding_overrides) {
+        assert(params.binding_overrides);
+        for (size_t i = 0; i < params.num_binding_overrides; ++i) {
+            const auto override = params.binding_overrides[i];
+            bool found = false;
+            for (size_t j = 0; j < draw_bindings.size(); ++j) {
+                if (is_same_binding(draw_bindings[j], override)) {
+                    draw_bindings[j] = override;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                UNG_OR_PANIC(draw_bindings.size() < MUGFX_MAX_SHADER_BINDINGS,
+                    "Too many draw bindings after overrides (%zu > %u)", draw_bindings.size() + 1,
+                    MUGFX_MAX_SHADER_BINDINGS);
+                draw_bindings.append() = override;
+            }
+        }
+    }
+
+    mugfx_draw_instanced(mat->material, geom->geometry, draw_bindings.data(), draw_bindings.size(),
+        params.instance_count);
 }
 
 EXPORT void ung_draw_instanced(ung_material_id material, ung_geometry_id geometry,
     ung_transform_id transform, uint32_t instance_count)
 {
-    auto mat = get_material(material.id);
-    auto geom = get(state->geometries, geometry.id);
-
-    assert(mat->bindings[3].uniform_data.binding == 3);
-    mat->bindings[3].uniform_data.id = update_uniform_data(transform);
-
-    mugfx_draw_instanced(
-        mat->material, geom->geometry, mat->bindings.data(), mat->bindings.size(), instance_count);
+    ung_draw_ex(material, geometry, transform, { .instance_count = instance_count });
 }
 
 EXPORT void ung_end_pass()
