@@ -26,6 +26,12 @@ using usize = size_t;
 
 namespace ung {
 
+// This doesn't belong here, but I don't want another header just for this
+#define UNG_OR_PANIC(cond, ...)                                                                    \
+    if (!(cond)) {                                                                                 \
+        ung_panicf(__VA_ARGS__);                                                                   \
+    }
+
 float clamp(float v, float min, float max);
 float saturate(float v);
 u16 f2u16norm(float v);

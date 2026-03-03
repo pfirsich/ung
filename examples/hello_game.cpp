@@ -19,10 +19,8 @@ struct Game {
     ung_transform_id level_trafo;
     ung_camera_id ui_camera;
     ung_material_id sprite_material;
-    ung_font font;
-    std::array<utxt_quad, 1024> quads;
-    utxt_layout* layout;
-    utxt_style style;
+    ung_font_id font;
+    ung_text_layout_id layout;
     ung_sound_source_id shoot_sound;
     ung_sound_source_id explode_sound;
     bool mouse_captured = true;
@@ -71,28 +69,22 @@ struct Game {
         const auto sprite_texture = ung_texture_load("examples/assets/checkerboard.png", false, {});
         ung_material_set_texture(sprite_material, 0, sprite_texture);
 
-        ung_font_load_ttf(&font,
-            {
-                .ttf_path = "examples/assets/NotoSans.ttf",
-                .load_params = { .size = 50, .atlas_size = 1024 },
-                .vert_path = "examples/assets/sprite.vert",
-                .frag_path = "examples/assets/text.frag",
-            });
-        utxt_draw_text(quads.data(), quads.size(), font.font,
-            UTXT_LITERAL("Hallo, Jana! Guck dir mal den Text an :)"), 20.0f, 40.0f);
+        font
+            = ung_font_load_ttf("examples/assets/NotoSans.ttf", { .size = 50, .atlas_size = 1024 });
 
-        layout = utxt_layout_create(ung_get_utxt_alloc(), 1024);
-        utxt_layout_reset(layout, 512.0f, UTXT_TEXT_ALIGN_LEFT);
-        style = { font.font, nullptr };
-        utxt_layout_add_text(layout, &style,
-            UTXT_LITERAL(
+        layout = ung_text_layout_create(1024, 64);
+        ung_text_layout_reset(layout, 512.0f, UTXT_TEXT_ALIGN_LEFT);
+        ung_text_layout_add_text(layout, font, 0,
+            UNG_LITERAL(
                 "Hey, guck dir mal diesen Text an, der mit aller Wahrscheinlichkeit mehrere Zeilen "
-                "füllen wird. Es geht gar nicht anders! Er ist so lang, dass vermutlich"));
-        utxt_layout_add_text(layout, &style,
-            UTXT_LITERAL(
+                "füllen wird. Es geht gar nicht anders! Er ist so lang, dass vermutlich"),
+            UNG_COLOR_WHITE);
+        ung_text_layout_add_text(layout, font, 0,
+            UNG_LITERAL(
                 " sogar mehr als zwei Zeilen nötig sein werden. Vielleicht sogar vier!\nDieser "
-                "Teil sollte in einer eigenen Zeile sein."));
-        utxt_layout_compute(layout);
+                "Teil sollte in einer eigenen Zeile sein."),
+            UNG_COLOR_WHITE);
+        ung_text_layout_compute(layout);
 
         shoot_sound = ung_sound_source_load("examples/assets/shoot.wav", {});
         explode_sound = ung_sound_source_load("examples/assets/explode.wav", {});
@@ -181,16 +173,9 @@ struct Game {
         ung_begin_pass(MUGFX_RENDER_TARGET_BACKBUFFER, ui_camera);
         ung_sprite_add(sprite_material, { .x = 20.0f, .y = 160.0f }, UNG_REGION_FULL,
             { 0.4f, 0.4f, 0.4f, 1.0f });
-        ung_font_draw_quads(&font, quads.data(), quads.size(), UNG_COLOR_WHITE);
-
-        ung_sprite_set_material(font.material);
-        size_t num_glyphs = 0;
-        const auto glyphs = utxt_layout_get_glyphs(layout, &num_glyphs);
-        utxt_quad q;
-        for (size_t i = 0; i < num_glyphs; ++i) {
-            utxt_layout_glyph_get_quad(&q, &glyphs[i], 20.0f, 200.0f);
-            ung_font_draw_quad(&q, UNG_COLOR_WHITE);
-        }
+        ung_font_draw(font, UNG_LITERAL("Hallo, Jana! Guck dir mal den Text an :)"), 20.0f, 40.0f,
+            UNG_COLOR_WHITE);
+        ung_text_layout_draw(layout, 20.0f, 200.0f);
 
         ung_sprite_flush();
         ung_end_pass();

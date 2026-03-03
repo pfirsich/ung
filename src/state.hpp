@@ -104,6 +104,20 @@ struct Camera {
     ung_transform_id transform;
 };
 
+struct Font {
+    utxt_font* font;
+    ung_texture_id texture;
+    ung_material_id material;
+};
+
+struct TextLayout {
+    utxt_layout* layout;
+    Array<ung_text_layout_run> runs;
+    size_t num_glyphs;
+    u32 num_runs;
+    bool dirty;
+};
+
 struct State {
     // Pools
     Pool<Texture> textures;
@@ -111,6 +125,8 @@ struct State {
     Pool<Geometry> geometries;
     Pool<Material> materials;
     Pool<Camera> cameras;
+    Pool<Font> fonts;
+    Pool<TextLayout> text_layouts;
 
     // Uniform Buffers
     UConstant u_constant;
@@ -120,6 +136,8 @@ struct State {
     mugfx_uniform_data_id frame_data;
     mugfx_uniform_data_id camera_data;
     ung_transform_id identity_trafo;
+    ung_shader_id text_vert_shader;
+    ung_shader_id text_frag_shader;
 
     // SDL
     SDL_Window* window;

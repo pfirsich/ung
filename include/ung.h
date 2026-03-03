@@ -136,6 +136,8 @@ typedef struct {
     uint32_t max_num_skeletons; // default: 64
     uint32_t max_num_animations; // default: 256
     uint32_t max_num_file_watches; // default: 128
+    uint32_t max_num_fonts; // default: 16
+    uint32_t max_num_text_layouts; // default: 16
     // default for max_num_resources: 0 if auto_reload is false, sum of textures, shaders,
     // geometries, materials otherwise.
     uint32_t max_num_resources;
@@ -167,8 +169,6 @@ ung_allocator* ung_get_allocator();
 void* ung_malloc(size_t size);
 void* ung_realloc(void* ptr, size_t new_size);
 void ung_free(void* ptr);
-void* ung_utxt_realloc(void* ptr, size_t old_size, size_t new_size, void*);
-utxt_alloc ung_get_utxt_alloc();
 
 /*
  * Window
@@ -569,24 +569,53 @@ void ung_sprite_flush();
  * Text
  */
 typedef struct {
-    utxt_font* font;
-    ung_texture_id texture;
-    ung_material_id material;
-} ung_font;
+    uint64_t id;
+} ung_font_id;
+
+ung_font_id ung_font_load_ttf(const char* ttf_path, utxt_load_ttf_params params);
+ung_font_id ung_font_load_ttf_buffer(const void* data, size_t size, utxt_load_ttf_params params);
+void ung_font_destroy(ung_font_id font);
+
+const utxt_font* ung_font_get_utxt(ung_font_id font);
+ung_texture_id ung_font_get_texture(ung_font_id font);
+const utxt_font_metrics* ung_font_get_metrics(ung_font_id font);
+
+float ung_font_get_text_width(ung_font_id font, ung_string string);
+
+// uses built-in text rendering material
+void ung_font_draw(ung_font_id font, ung_string text, float x, float y, ung_color color);
+// a text rendering material has:
+// - a UngCamera uniform block at binding 2,
+// - three vertes attributes (vec2 pos, vec2 texcoord, vec4 color) (location 0, 1, 2 respectively)
+// - a font atlas texture at uniform binding = 0
+// This will set the texture at binding=0 to the font atlas texture!
+void ung_font_draw_mat(
+    ung_font_id font, ung_material_id mat, ung_string text, float x, float y, ung_color color);
 
 typedef struct {
-    const char* ttf_path;
-    utxt_load_ttf_params load_params;
-    const char* vert_path;
-    const char* frag_path;
-    ung_material_create_params material_params;
-} ung_font_load_ttf_param;
+    uint64_t id;
+} ung_text_layout_id;
 
-void ung_font_load_ttf(ung_font* font, ung_font_load_ttf_param params);
+typedef struct {
+    uint32_t first_glyph; // index into ung_text_layout_get_glyphs() result
+    uint32_t glyph_count;
+    ung_font_id font;
+    ung_color color;
+    uintptr_t user_data;
+} ung_text_layout_run;
 
-void ung_font_draw_quad(const utxt_quad* quad, ung_color color);
-void ung_font_draw_quads(
-    const ung_font* font, const utxt_quad* quads, size_t num_quads, ung_color color);
+ung_text_layout_id ung_text_layout_create(uint32_t num_glyphs, uint32_t num_runs);
+void ung_text_layout_destroy(ung_text_layout_id layout);
+void ung_text_layout_reset(ung_text_layout_id layout, float wrap_width, utxt_text_align align);
+size_t ung_text_layout_add_text(ung_text_layout_id layout, ung_font_id font, uintptr_t user_data,
+    ung_string text, ung_color color);
+// Different from utxt, compute will be called automatically when you draw the layout and it has
+// been marked dirty (by resetting or adding).
+void ung_text_layout_compute(ung_text_layout_id layout);
+utxt_layout_glyph* ung_text_layout_get_glyphs(ung_text_layout_id layout, size_t* count);
+const ung_text_layout_run* ung_text_layout_get_runs(ung_text_layout_id layout, size_t* count);
+void ung_text_layout_draw(ung_text_layout_id layout, float x, float y);
+void ung_text_layout_draw_mat(ung_text_layout_id layout, ung_material_id mat, float x, float y);
 
 /*
  * Camera Management
