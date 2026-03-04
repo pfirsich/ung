@@ -8,19 +8,11 @@
 #include <um.h>
 #include <ung.h>
 
-#include "../pasta/cgltf/ung-cgltf.h"
-
 #include <cgltf.h>
 
 struct Primitive {
     ung_geometry_id geometry;
     ung_material_id material;
-};
-
-struct Mesh {
-    ung_skeleton_id skel;
-    std::unordered_map<std::string, ung_animation_id> animations;
-    std::vector<Primitive> primitives;
 };
 
 struct Game {
@@ -32,7 +24,9 @@ struct Game {
     um_vec3 cam_pos = {};
     bool running = true;
 
-    std::vector<Mesh> meshes;
+    std::vector<Primitive> primitives;
+    ung_skeleton_id skel;
+    ung_animation_id animation;
 
     void init()
     {
@@ -53,43 +47,20 @@ struct Game {
 
         trafo = ung_transform_create();
 
-        const auto gltf_path = "examples/assets/Quaternius_Universal_Animation_Library.glb";
-        // const auto gltf_path = "examples/assets/SimpleSkin.gltf";
-        const cgltf_options options = {};
-        cgltf_data* data = nullptr;
-        const auto result = cgltf_parse_file(&options, gltf_path, &data);
-        if (result != cgltf_result_success) {
-            ung_panicf("Error loading glTF file: %d\n", result);
-        }
-        cgltf_load_buffers(&options, data, gltf_path);
+        const char* anim = "Dance_Loop";
+        auto character = ung_model_load(ung_model_load_params {
+            .path = "examples/assets/Quaternius_Universal_Animation_Library.glb",
+            .animation_names = &anim,
+            .num_animation_names = 1,
+        });
 
-        for (const auto& g_node : std::span<cgltf_node>(data->nodes, data->nodes_count)) {
-            if (g_node.mesh) {
-                Mesh mesh;
-                for (const auto& g_prim : std::span<cgltf_primitive>(
-                         g_node.mesh->primitives, g_node.mesh->primitives_count)) {
-                    mesh.primitives.push_back({ get_geom_from_cgltf(&g_prim), material });
-                }
-                if (g_node.skin) {
-                    std::array<ung_skeleton_joint, 64> joints;
-                    const auto num_joints
-                        = get_joints_from_cgltf(g_node.skin, joints.data(), joints.size());
-                    mesh.skel = ung_skeleton_create({
-                        .num_joints = num_joints,
-                        .joints = joints.data(),
-                    });
-                    for (size_t a = 0; a < data->animations_count; ++a) {
-                        const auto& g_anim = data->animations[a];
-                        const std::string default_name = std::to_string(a);
-                        const auto name = g_anim.name ? g_anim.name : default_name.c_str();
-                        mesh.animations.emplace(name, get_anim_from_cgltf(&g_anim, g_node.skin));
-                    }
-                }
-                meshes.push_back(mesh);
-            }
+        for (uint32_t i = 0; i < character.num_primitives; ++i) {
+            primitives.push_back({ character.geometries[i], material });
         }
+        skel = character.skeleton;
+        animation = character.animations[0];
 
-        cgltf_free(data);
+        ung_model_load_result_free(&character);
     }
 
     void update(float dt)
@@ -127,22 +98,20 @@ struct Game {
 
         ung_begin_pass(MUGFX_RENDER_TARGET_BACKBUFFER, camera);
         mugfx_clear(MUGFX_CLEAR_COLOR_DEPTH, MUGFX_CLEAR_DEFAULT);
-        for (const auto& mesh : meshes) {
-            uint16_t num_joints = 0;
-            const auto joint_transforms = ung_skeleton_get_joint_transforms(mesh.skel, &num_joints);
-            const auto anim = mesh.animations.at("Dance_Loop");
-            // const auto anim = mesh.animations.at("0");
-            const auto ta = fmodf(t, ung_animation_get_duration(anim));
-            ung_animation_sample(anim, ta, joint_transforms, num_joints);
-            const auto joint_matrices = ung_skeleton_update_joint_matrices(mesh.skel, nullptr);
 
-            for (const auto& prim : mesh.primitives) {
-                std::memcpy(ung_material_get_dynamic_data(prim.material), joint_matrices,
-                    num_joints * 16 * sizeof(float));
-                ung_material_update(prim.material);
-                ung_draw(prim.material, prim.geometry, trafo);
-            }
+        uint16_t num_joints = 0;
+        const auto joint_transforms = ung_skeleton_get_joint_transforms(skel, &num_joints);
+        const auto ta = fmodf(t, ung_animation_get_duration(animation));
+        ung_animation_sample(animation, ta, joint_transforms, num_joints);
+        const auto joint_matrices = ung_skeleton_update_joint_matrices(skel, nullptr);
+
+        for (const auto& prim : primitives) {
+            std::memcpy(ung_material_get_dynamic_data(prim.material), joint_matrices,
+                num_joints * 16 * sizeof(float));
+            ung_material_update(prim.material);
+            ung_draw(prim.material, prim.geometry, trafo);
         }
+
         ung_end_pass();
         ung_end_frame();
     }

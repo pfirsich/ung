@@ -2,12 +2,8 @@ add_executable(hello_game hello_game.cpp ../pasta/pfx/pfx.cpp)
 target_link_libraries(hello_game PRIVATE ung)
 target_compile_definitions(hello_game PUBLIC SDL_MAIN_HANDLED) # don't override main()
 
-add_library(cgltf cgltf.c)
-target_include_directories(cgltf PUBLIC .)
-
-add_executable(cgltf-test cgltf-test.cpp ../pasta/cgltf/ung-cgltf.cpp)
+add_executable(cgltf-test cgltf-test.cpp)
 target_link_libraries(cgltf-test PRIVATE ung)
-target_link_libraries(cgltf-test PRIVATE cgltf)
 target_compile_definitions(cgltf-test PUBLIC SDL_MAIN_HANDLED) # don't override main()
 
 if(EMSCRIPTEN)

@@ -753,6 +753,114 @@ void ung_animation_sample(
     ung_animation_id anim, float t, ung_joint_transform* joints, uint16_t num_joints);
 
 /*
+ * Model Loading
+ */
+typedef enum {
+    UNG_MODEL_LOAD_DEFAULT = 0, // UNG_MODEL_LOAD_ALL
+    UNG_MODEL_LOAD_GEOMETRIES = 1u << 0,
+    UNG_MODEL_LOAD_GEOMETRY_DATA = 1u << 1,
+    UNG_MODEL_LOAD_MATERIALS = 1u << 2, // fills materials + material_indices
+    UNG_MODEL_LOAD_SKELETON = 1u << 3, // first skin only
+    UNG_MODEL_LOAD_ANIMATIONS = 1u << 4,
+    UNG_MODEL_LOAD_ALL = 0xffffu,
+} ung_model_load_flags;
+
+typedef enum {
+    UNG_MODEL_ALPHA_INVALID = 0,
+    UNG_MODEL_ALPHA_OPAQUE,
+    UNG_MODEL_ALPHA_MASK, // discard fragment below alpha_cutoff
+    UNG_MODEL_ALPHA_BLEND, // some sort of blending
+} ung_model_alpha_mode;
+
+// This represents some sort of subset across common file formats.
+typedef struct {
+    // 0 = missing / not loaded
+    ung_texture_id base_color_texture;
+    ung_texture_id normal_texture;
+    ung_texture_id emissive_texture;
+
+    float base_color_factor[4]; // default: (1.0, 1.0, 1.0, 1.0)
+    float normal_scale; // default: 1.0
+    float emissive_factor[3]; // default: 1.0
+
+    float alpha_cutoff; // default: 0.5 for MASK, ignored otherwise
+    ung_model_alpha_mode alpha_mode;
+    bool double_sided;
+} ung_model_material;
+
+typedef struct {
+    ung_texture_id metal_rough_texture; // glTF packed metallic-roughness texture
+    ung_texture_id occlusion_texture;
+
+    float metallic_factor; // default 1.0
+    float roughness_factor; // default 1.0
+    float occlusion_strength; // default 1.0
+} ung_gltf_material;
+
+typedef struct {
+    const char* path;
+    ung_model_load_flags flags;
+
+    // applied if UNG_MODEL_LOAD_MATERIALS is given
+    mugfx_texture_create_params texture_params;
+    bool texture_flip_y;
+
+    // If names are provided, result.animations has exactly this many entries in this order.
+    // Missing names will have animation id {0}.
+    const char* const* animation_names;
+    uint32_t num_animation_names;
+} ung_model_load_params;
+
+typedef struct {
+    ung_geometry_id* geometries; // non-null if UNG_MODEL_LOAD_GEOMETRIES was given
+    uint32_t* material_indices; // parallel to geometries, UINT32_MAX means no material
+    ung_geometry_data* geometry_data; // non-null if UNG_MODEL_LOAD_GEOMETRY_DATA was given
+    uint32_t num_primitives;
+
+    // only non-null if UNG_MODEL_LOAD_MATERIALS was given
+    ung_model_material* materials;
+    uint32_t num_materials;
+
+    // only non-null if file is glTF and if UNG_MODEL_LOAD_MATERIALS was given
+    ung_gltf_material* gltf_materials;
+
+    // {0} if UNG_MODEL_LOAD_SKELETON was not given
+    ung_skeleton_id skeleton;
+
+    // If names were provided num_animations == num_animation_names.
+    // If no filter was provided, animations are in file order, names may be filled.
+    ung_animation_id* animations;
+    uint32_t num_animations;
+} ung_model_load_result;
+
+// Loads model files into ung resources + temporary import arrays.
+ung_model_load_result ung_model_load(ung_model_load_params params);
+
+// Frees only memory owned by ung_model_load_result (arrays + copied names).
+// DOES NOT destroy any ung handles referenced inside (geometries/textures/skeleton/animations).
+// This does also not free ung_geometry_data!
+// Safe to call on zero-initialized result.
+void ung_model_load_result_free(ung_model_load_result* result);
+
+#ifdef UNG_CGLTF
+typedef struct cgltf_primitive cgltf_primitive;
+ung_geometry_id ung_geometry_from_cgltf(const cgltf_primitive* prim);
+ung_geometry_data ung_geometry_data_from_cgltf(const cgltf_primitive* prim);
+
+typedef struct cgltf_skin cgltf_skin;
+ung_skeleton_id ung_skeleton_from_cgltf(const cgltf_skin* skin);
+
+// Skin is used to map animation target nodes to joint indices. Animation channels that point at
+// nodes outside the skin are simply ignored.
+typedef struct cgltf_animation cgltf_animation;
+ung_animation_id ung_animation_from_cgltf(const cgltf_animation* anim, const cgltf_skin* skin);
+
+typedef struct cgltf_texture_view cgltf_texture_view;
+ung_texture_id ung_texture_from_cgltf(
+    const cgltf_texture_view* tex_view, bool flip_y, mugfx_texture_create_params params);
+#endif
+
+/*
  * Rendering
  */
 typedef struct {

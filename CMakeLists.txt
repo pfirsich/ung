@@ -18,6 +18,7 @@ endif()
 
 option(UNG_STB_IMAGE "Use stb_image" ON)
 option(UNG_FAST_OBJ "Use fast_obj" ON)
+option(UNG_CGLTF "Use cgltf" ON)
 
 add_subdirectory(mugfx)
 add_subdirectory(utxt)
@@ -36,12 +37,17 @@ set(UNG_SOURCES
   src/allocator.cpp
   src/files.cpp
   src/input.cpp
+  src/model.cpp
   src/random.cpp
   src/slotmap.cpp
   src/sound.cpp
   src/sprite_renderer.cpp
   src/transform.cpp
 )
+
+if(UNG_CGLTF)
+  list(APPEND UNG_SOURCES src/model-cgltf.cpp)
+endif()
 
 add_library(ung ${UNG_SOURCES})
 target_include_directories(ung PUBLIC include/)
@@ -61,6 +67,12 @@ if(UNG_FAST_OBJ)
   add_subdirectory(deps/fast_obj)
   target_link_libraries(ung PRIVATE fast_obj)
   target_compile_definitions(ung PRIVATE UNG_FAST_OBJ)
+endif()
+
+if(UNG_CGLTF)
+  add_subdirectory(deps/cgltf)
+  target_link_libraries(ung PUBLIC cgltf)
+  target_compile_definitions(ung PUBLIC UNG_CGLTF)
 endif()
 
 ung_set_wall(ung)
