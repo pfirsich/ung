@@ -2,9 +2,9 @@ add_executable(hello_game hello_game.cpp ../pasta/pfx/pfx.cpp)
 target_link_libraries(hello_game PRIVATE ung)
 target_compile_definitions(hello_game PUBLIC SDL_MAIN_HANDLED) # don't override main()
 
-add_executable(cgltf-test cgltf-test.cpp)
-target_link_libraries(cgltf-test PRIVATE ung)
-target_compile_definitions(cgltf-test PUBLIC SDL_MAIN_HANDLED) # don't override main()
+add_executable(gltf-test gltf-test.cpp)
+target_link_libraries(gltf-test PRIVATE ung)
+target_compile_definitions(gltf-test PUBLIC SDL_MAIN_HANDLED) # don't override main()
 
 if(EMSCRIPTEN)
   # Instead of INITIAL_HEAP, use ALLOW_MEMORY_GROWTH if appropriate, though it may cause stuttering
