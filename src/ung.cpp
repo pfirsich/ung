@@ -9,8 +9,15 @@
 #include <string_view>
 
 #include <SDL.h>
-#include <fast_obj.h>
+#include <utility>
+
+#ifdef UNG_STB_IMAGE
 #include <stb_image.h>
+#endif
+
+#ifdef UNG_FAST_OBJ
+#include <fast_obj.h>
+#endif
 
 #include "ung.h"
 
@@ -769,35 +776,50 @@ void format_texture_cache_path(char* pathbuf, u64 hash, bool flip_y)
 }
 
 struct TexDecode {
-    void* free_data = nullptr;
-    usize free_size = 0;
-    u8* texture_data = nullptr;
+    enum class Type {
+        Invalid,
+        Cached,
+#ifdef UNG_STB_IMAGE
+        Stbi,
+#endif
+    };
+
+    Type type = Type::Invalid;
+    void* data = nullptr;
+    size_t size = 0;
+    u8* decoded = nullptr;
     int width = 0;
     int height = 0;
     int components = 0;
+    const char* error = nullptr;
 
     TexDecode() = default;
     TexDecode(TexDecode&) = delete;
     TexDecode(TexDecode&& r)
-        : free_data(r.free_data)
-        , free_size(r.free_size)
-        , texture_data(r.texture_data)
-        , width(r.width)
-        , height(r.height)
-        , components(r.components)
+        : type(std::exchange(r.type, Type::Invalid))
+        , data(std::exchange(r.data, nullptr))
+        , size(std::exchange(r.size, 0))
+        , decoded(std::exchange(r.decoded, nullptr))
+        , width(std::exchange(r.width, 0))
+        , height(std::exchange(r.height, 0))
+        , components(std::exchange(r.components, 0))
+        , error(std::exchange(r.error, nullptr))
     {
-        r.free_data = nullptr;
-        r.texture_data = nullptr;
     }
 
     ~TexDecode()
     {
-        if (free_data && texture_data) {
-            if (free_data == texture_data) {
-                stbi_image_free(free_data);
-            } else {
-                ung_free_file_data((char*)free_data, free_size);
-            }
+        switch (type) {
+        case Type::Cached:
+            ung_free_file_data((char*)data, size);
+            break;
+#ifdef UNG_STB_IMAGE
+        case Type::Stbi:
+            stbi_image_free(data);
+            break;
+#endif
+        default:
+            break;
         }
     }
 };
@@ -815,22 +837,23 @@ void write_texture_cache_file(const char* path, const TexDecode& tex)
     }
     CacheTexHeader hdr { (u32)tex.width, (u32)tex.height, (u32)tex.components };
     fwrite(&hdr, sizeof(CacheTexHeader), 1, file);
-    fwrite(tex.texture_data, 1, hdr.width * hdr.height * hdr.components, file);
+    fwrite(tex.decoded, 1, hdr.width * hdr.height * hdr.components, file);
     fclose(file);
 }
 
 TexDecode load_cached_texture(const char* cache_path)
 {
-    TexDecode ret = {};
-    ret.free_data = ung_read_whole_file(cache_path, &ret.free_size, false);
-    if (!ret.free_data) {
+    TexDecode ret;
+    ret.type = TexDecode::Type::Cached;
+    ret.data = ung_read_whole_file(cache_path, &ret.size, false);
+    if (!ret.data) {
         return ret;
     }
 
-    ret.texture_data = (u8*)ret.free_data + sizeof(CacheTexHeader);
+    ret.decoded = (u8*)ret.data + sizeof(CacheTexHeader);
 
     CacheTexHeader hdr;
-    memcpy(&hdr, ret.free_data, sizeof(CacheTexHeader));
+    memcpy(&hdr, ret.data, sizeof(CacheTexHeader));
 
     ret.width = (int)hdr.width;
     ret.height = (int)hdr.height;
@@ -841,28 +864,38 @@ TexDecode load_cached_texture(const char* cache_path)
 
 TexDecode decode_texture(const u8* data, usize size, bool flip_y)
 {
+#ifdef UNG_STB_IMAGE
     char cache_path[128];
     if (state->load_cache) {
         format_texture_cache_path(cache_path, ung_fnv1a(data, size), flip_y);
 
         auto cached = load_cached_texture(cache_path);
 
-        if (cached.free_size) {
+        if (cached.data) {
             return cached;
         }
     }
 
     TexDecode ret;
+    ret.type = TexDecode::Type::Stbi;
     stbi_set_flip_vertically_on_load(flip_y);
-    ret.texture_data
-        = stbi_load_from_memory(data, (int)size, &ret.width, &ret.height, &ret.components, 0);
-    ret.free_data = ret.texture_data;
+    ret.data = stbi_load_from_memory(data, (int)size, &ret.width, &ret.height, &ret.components, 0);
+    ret.decoded = (u8*)ret.data;
+    if (!ret.decoded) {
+        ret.error = stbi_failure_reason();
+    }
 
-    if (state->load_cache) {
+    if (state->load_cache && ret.decoded) {
         write_texture_cache_file(cache_path, ret);
     }
 
     return ret;
+#else
+    (void)data;
+    (void)size;
+    (void)flip_y;
+    ung_panicf("Texture loading requires stb_image (UNG_STB_IMAGE=ON)");
+#endif
 }
 
 static mugfx_texture_id load_texture(
@@ -875,12 +908,12 @@ static mugfx_texture_id load_texture(
     }
     const auto decoded = decode_texture((const u8*)data, size, flip_y);
     ung_free_file_data(data, size);
-    if (!decoded.texture_data) {
+    if (!decoded.decoded) {
         return { 0 };
     }
     params.debug_label = path;
     const auto texture = create_texture(
-        decoded.texture_data, decoded.width, decoded.height, decoded.components, params);
+        decoded.decoded, decoded.width, decoded.height, decoded.components, params);
     return texture;
 }
 
@@ -934,11 +967,12 @@ EXPORT ung_texture_id ung_texture_load_buffer(
 {
 
     const auto decoded = decode_texture((const u8*)buffer, size, flip_y);
-    if (!decoded.texture_data) {
-        ung_panicf("Error loading texture: %s", stbi_failure_reason());
+    if (!decoded.decoded) {
+        assert(decoded.error);
+        ung_panicf("Error loading texture: %s", decoded.error);
     }
     const auto tex = create_texture(
-        decoded.texture_data, decoded.width, decoded.height, decoded.components, params);
+        decoded.decoded, decoded.width, decoded.height, decoded.components, params);
 
     if (!tex.id) {
         ung_panicf("Error loading texture");
@@ -1550,6 +1584,11 @@ u8 f2u8norm(float v)
 
 EXPORT ung_geometry_data ung_geometry_data_load(const char* path)
 {
+#ifndef UNG_FAST_OBJ
+    (void)path;
+    ung_panicf("Geometry loading requires fast_obj (UNG_FAST_OBJ=ON)");
+    return {};
+#else
     auto mesh = fast_obj_read(path);
     if (!mesh) {
         std::printf("Failed to load geometry '%s'\n", path);
@@ -1642,7 +1681,7 @@ EXPORT ung_geometry_data ung_geometry_data_load(const char* path)
         }
     }
 
-    // TODO: Generate normals if none a present!
+    // TODO: Generate normals if none are present!
 
     gdata.indices = allocate<uint32_t>(gdata.num_indices);
 
@@ -1668,6 +1707,7 @@ EXPORT ung_geometry_data ung_geometry_data_load(const char* path)
     fast_obj_destroy(mesh);
 
     return gdata;
+#endif
 }
 
 EXPORT void ung_geometry_data_destroy(ung_geometry_data gdata)
@@ -1787,8 +1827,8 @@ static mugfx_geometry_id geometry_from_data(
     ung_geometry_data gdata, const char* debug_label = nullptr)
 {
     // We cannot build a proper indexed mesh trivially, because a face will reference different
-    // position, texcoord and normal indices, so you would have to generate all used combinations
-    // and build new indices. It's too bothersome and will not be fast.
+    // position, texcoord and normal indices, so you would have to generate all used
+    // combinations and build new indices. It's too bothersome and will not be fast.
 
     auto vertices = build_vertex_buffer_data(gdata);
 

@@ -525,7 +525,8 @@ typedef struct {
     uint32_t* indices;
 } ung_geometry_data;
 
-ung_geometry_data ung_geometry_data_load(const char* path); // Wavefront OBJ
+// Wavefront OBJ (requires UNG_FAST_OBJ).
+ung_geometry_data ung_geometry_data_load(const char* path);
 ung_geometry_data ung_geometry_data_box(float w, float h, float d);
 ung_geometry_data ung_geometry_data_sphere(float radius);
 void ung_geometry_data_destroy(ung_geometry_data gdata);
