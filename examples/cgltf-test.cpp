@@ -48,7 +48,7 @@ struct Game {
         trafo = ung_transform_create();
 
         const char* anim = "Dance_Loop";
-        auto character = ung_model_load(ung_model_load_params {
+        const auto character = ung_model_load(ung_model_load_params {
             .path = "examples/assets/Quaternius_Universal_Animation_Library.glb",
             .animation_names = &anim,
             .num_animation_names = 1,

@@ -840,7 +840,7 @@ ung_model_load_result ung_model_load(ung_model_load_params params);
 // DOES NOT destroy any ung handles referenced inside (geometries/textures/skeleton/animations).
 // This does also not free ung_geometry_data!
 // Safe to call on zero-initialized result.
-void ung_model_load_result_free(ung_model_load_result* result);
+void ung_model_load_result_free(const ung_model_load_result* result);
 
 #ifdef UNG_CGLTF
 typedef struct cgltf_primitive cgltf_primitive;
