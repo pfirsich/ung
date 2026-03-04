@@ -10,7 +10,7 @@ ung_model_load_result model_load_gltf(ung_model_load_params params);
 EXPORT ung_model_load_result ung_model_load(ung_model_load_params params)
 {
     if (!params.flags) {
-        params.flags = UNG_MODEL_LOAD_ALL;
+        params.flags = UNG_MODEL_LOAD_GEOMETRIES;
     }
 
     const std::string_view path = params.path;

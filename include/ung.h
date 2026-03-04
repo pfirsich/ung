@@ -756,13 +756,16 @@ void ung_animation_sample(
  * Model Loading
  */
 typedef enum {
-    UNG_MODEL_LOAD_DEFAULT = 0, // UNG_MODEL_LOAD_ALL
+    // Default is not ALL, so additional stuff that gets added in the future does not
+    // get loaded without a change in flags.
+    // This would silently add more resources, which you would have to free.
+    // For the same reason I do not provide an ALL flag.
+    UNG_MODEL_LOAD_DEFAULT = 0, // UNG_MODEL_LOAD_GEOMETRIES
     UNG_MODEL_LOAD_GEOMETRIES = 1u << 0,
     UNG_MODEL_LOAD_GEOMETRY_DATA = 1u << 1,
     UNG_MODEL_LOAD_MATERIALS = 1u << 2, // fills materials + material_indices
     UNG_MODEL_LOAD_SKELETON = 1u << 3, // first skin only
     UNG_MODEL_LOAD_ANIMATIONS = 1u << 4,
-    UNG_MODEL_LOAD_ALL = 0xffffu,
 } ung_model_load_flags;
 
 typedef enum {
@@ -799,7 +802,7 @@ typedef struct {
 
 typedef struct {
     const char* path;
-    ung_model_load_flags flags;
+    int flags; // ung_model_load_flags
 
     // applied if UNG_MODEL_LOAD_MATERIALS is given
     mugfx_texture_create_params texture_params;

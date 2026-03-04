@@ -50,6 +50,8 @@ struct Game {
         const char* anim = "Dance_Loop";
         const auto character = ung_model_load(ung_model_load_params {
             .path = "examples/assets/Quaternius_Universal_Animation_Library.glb",
+            .flags
+            = UNG_MODEL_LOAD_GEOMETRIES | UNG_MODEL_LOAD_SKELETON | UNG_MODEL_LOAD_ANIMATIONS,
             .animation_names = &anim,
             .num_animation_names = 1,
         });
