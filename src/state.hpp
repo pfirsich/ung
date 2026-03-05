@@ -110,9 +110,17 @@ struct Font {
     ung_material_id material;
 };
 
+struct TextLayoutRun {
+    u32 first_glyph;
+    u32 glyph_count;
+    ung_font_id font;
+    ung_color color;
+    uintptr_t user_data;
+};
+
 struct TextLayout {
     utxt_layout* layout;
-    Array<ung_text_layout_run> runs;
+    Array<TextLayoutRun> runs;
     size_t num_glyphs;
     u32 num_runs;
     bool dirty;

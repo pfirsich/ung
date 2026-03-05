@@ -594,29 +594,39 @@ void ung_font_draw_mat(
     ung_font_id font, ung_material_id mat, ung_string text, float x, float y, ung_color color);
 
 typedef struct {
-    uint64_t id;
-} ung_text_layout_id;
-
-typedef struct {
-    uint32_t first_glyph; // index into ung_text_layout_get_glyphs() result
-    uint32_t glyph_count;
+    float x, y, w, h;
+    float u0, v0, u1, v1;
     ung_font_id font;
     ung_color color;
     uintptr_t user_data;
-} ung_text_layout_run;
+} ung_text_draw_item;
+
+// If mat is {0}, the default material is used
+void ung_text_draw_items(
+    const ung_text_draw_item* items, size_t num_items, ung_material_id mat, float x, float y);
+
+typedef struct {
+    uint64_t id;
+} ung_text_layout_id;
 
 ung_text_layout_id ung_text_layout_create(uint32_t num_glyphs, uint32_t num_runs);
 void ung_text_layout_destroy(ung_text_layout_id layout);
 void ung_text_layout_reset(ung_text_layout_id layout, float wrap_width, utxt_text_align align);
-size_t ung_text_layout_add_text(ung_text_layout_id layout, ung_font_id font, uintptr_t user_data,
+// Returns number of glyphs added.
+uint32_t ung_text_layout_add_text(ung_text_layout_id layout, ung_font_id font, uintptr_t user_data,
     ung_string text, ung_color color);
 // Different from utxt, compute will be called automatically when you draw the layout and it has
 // been marked dirty (by resetting or adding).
-void ung_text_layout_compute(ung_text_layout_id layout);
-utxt_layout_glyph* ung_text_layout_get_glyphs(ung_text_layout_id layout, size_t* count);
-const ung_text_layout_run* ung_text_layout_get_runs(ung_text_layout_id layout, size_t* count);
-void ung_text_layout_draw(ung_text_layout_id layout, float x, float y);
-void ung_text_layout_draw_mat(ung_text_layout_id layout, ung_material_id mat, float x, float y);
+uint32_t ung_text_layout_get_num_glyphs(ung_text_layout_id layout);
+// Returns number total of glyphs
+uint32_t ung_text_layout_compute(ung_text_layout_id layout);
+
+// glyph_count=0 => all glyphs
+// returns number of draw items, one per glyph
+size_t ung_text_layout_build_draw_items(ung_text_layout_id layout, uint32_t glyph_offset,
+    uint32_t num_glyphs, ung_text_draw_item* items, size_t max_items);
+// If mat is {0}, the default material is used
+void ung_text_layout_draw(ung_text_layout_id layout, ung_material_id mat, float x, float y);
 
 /*
  * Camera Management

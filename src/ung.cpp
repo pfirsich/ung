@@ -2124,7 +2124,7 @@ EXPORT void ung_text_layout_reset(
     layout->dirty = true;
 }
 
-EXPORT size_t ung_text_layout_add_text(ung_text_layout_id layout_id, ung_font_id font_id,
+EXPORT uint32_t ung_text_layout_add_text(ung_text_layout_id layout_id, ung_font_id font_id,
     uintptr_t user_data, ung_string text, ung_color color)
 {
     auto layout = get_text_layout(layout_id.id);
@@ -2144,7 +2144,7 @@ EXPORT size_t ung_text_layout_add_text(ung_text_layout_id layout_id, ung_font_id
 
     layout->num_glyphs += added_glyphs;
     layout->dirty = true;
-    return added_glyphs;
+    return (uint32_t)added_glyphs;
 }
 
 static void ensure_computed(TextLayout* layout)
@@ -2156,79 +2156,151 @@ static void ensure_computed(TextLayout* layout)
     layout->dirty = false;
 }
 
-EXPORT void ung_text_layout_compute(ung_text_layout_id layout_id)
+EXPORT uint32_t ung_text_layout_get_num_glyphs(ung_text_layout_id layout_id)
+{
+    auto layout = get_text_layout(layout_id.id);
+    return (uint32_t)layout->num_glyphs;
+}
+
+EXPORT uint32_t ung_text_layout_compute(ung_text_layout_id layout_id)
 {
     auto layout = get_text_layout(layout_id.id);
     ensure_computed(layout);
+    return (uint32_t)layout->num_glyphs;
 }
 
-EXPORT utxt_layout_glyph* ung_text_layout_get_glyphs(ung_text_layout_id layout_id, size_t* count)
+static size_t build_layout_draw_items(TextLayout* layout, uint32_t glyph_offset,
+    uint32_t num_glyphs, ung_text_draw_item* items, size_t max_items)
 {
-    auto layout = get_text_layout(layout_id.id);
-    return utxt_layout_get_glyphs(layout->layout, count);
+    const auto total_glyphs = (uint32_t)layout->num_glyphs;
+    if (glyph_offset >= total_glyphs) {
+        return 0;
+    }
+
+    if (num_glyphs == 0 || glyph_offset + num_glyphs > total_glyphs) {
+        num_glyphs = total_glyphs - glyph_offset;
+    }
+
+    const auto num_items = (size_t)num_glyphs > max_items ? max_items : (size_t)num_glyphs;
+    if (num_items == 0) {
+        return 0;
+    }
+
+    size_t num_glyphs_layout = 0;
+    const auto glyphs = utxt_layout_get_glyphs(layout->layout, &num_glyphs_layout);
+    assert(num_glyphs);
+    assert(layout->num_glyphs == num_glyphs_layout);
+
+    u32 run_idx = 0;
+    while (run_idx < layout->num_runs) {
+        const auto& run = layout->runs[run_idx];
+        if (glyph_offset < run.first_glyph + run.glyph_count) {
+            break;
+        }
+        ++run_idx;
+    }
+
+    for (size_t i = 0; i < num_items; ++i) {
+        const auto glyph_idx = glyph_offset + (uint32_t)i;
+
+        while (run_idx < layout->num_runs) {
+            const auto& run = layout->runs[run_idx];
+            if (run.first_glyph + run.glyph_count > glyph_idx) {
+                break;
+            }
+            ++run_idx;
+        }
+        assert(run_idx < layout->num_runs);
+        const auto& run = layout->runs[run_idx];
+        assert(glyph_idx >= run.first_glyph);
+
+        utxt_quad quad;
+        // TODO: use batchers here (I guess by run?)
+        utxt_layout_glyph_get_quads(&glyphs[glyph_idx], 1, &quad, 0.0f, 0.0f);
+        items[i] = {
+            .x = quad.x,
+            .y = quad.y,
+            .w = quad.w,
+            .h = quad.h,
+            .u0 = quad.u0,
+            .v0 = quad.v0,
+            .u1 = quad.u1,
+            .v1 = quad.v1,
+            .font = run.font,
+            .color = run.color,
+            .user_data = run.user_data,
+        };
+    }
+
+    return num_items;
 }
 
-EXPORT const ung_text_layout_run* ung_text_layout_get_runs(
-    ung_text_layout_id layout_id, size_t* count)
+EXPORT size_t ung_text_layout_build_draw_items(ung_text_layout_id layout_id, uint32_t glyph_offset,
+    uint32_t num_glyphs, ung_text_draw_item* items, size_t max_items)
 {
-    auto layout = get_text_layout(layout_id.id);
-    *count = layout->num_runs;
-    return layout->runs.data;
-}
-
-static void draw_layout(
-    ung_text_layout_id layout_id, float x, float y, ung_material_id mat_override)
-{
-    static std::array<utxt_quad, 512> quads;
-
     auto layout = get_text_layout(layout_id.id);
     ensure_computed(layout);
+    return build_layout_draw_items(layout, glyph_offset, num_glyphs, items, max_items);
+}
 
-    size_t num_glyphs = 0;
-    auto glyphs_data = utxt_layout_get_glyphs(layout->layout, &num_glyphs);
-    std::span<const utxt_layout_glyph> glyphs = { glyphs_data, num_glyphs };
+EXPORT void ung_text_draw_items(const ung_text_draw_item* items, size_t num_items,
+    ung_material_id mat_override, float x, float y)
+{
+    assert(items);
 
-    u64 mat_override_font = 0;
+    ung_material_id current_material = { 0 };
+    u64 mat_override_last_font = 0;
 
-    for (u32 i = 0; i < layout->num_runs; ++i) {
-        const auto& run = layout->runs[i];
-        if (!run.glyph_count) {
+    for (size_t i = 0; i < num_items; ++i) {
+        const auto& item = items[i];
+        if (!item.font.id) { // super secret way to skip glyphs
             continue;
         }
 
-        const auto font = get_font(run.font.id);
+        const auto font = get_font(item.font.id);
         auto mat = font->material;
+
         if (mat_override.id) {
             mat = mat_override;
-            // Let's just break the batch when fonts (textures) change
-            if (mat_override_font != run.font.id) {
-                ung_sprite_flush(); // changing material texture binding needs a batch break
+            if (mat_override_last_font != item.font.id) {
+                // Changing material texture modifies the material, but the sprite renderer
+                // will not flush by itself (it doesn't know that the material changed).
+                // We need to flush ourselves.
+                ung_sprite_flush();
                 ung_material_set_texture(mat, 0, font->texture);
-                mat_override_font = run.font.id;
+                mat_override_last_font = item.font.id;
             }
         }
 
-        assert((size_t)run.first_glyph + run.glyph_count <= glyphs.size());
-        auto run_glyphs = glyphs.subspan(run.first_glyph, run.glyph_count);
-
-        while (run_glyphs.size()) {
-            const auto n = run_glyphs.size() < quads.size() ? run_glyphs.size() : quads.size();
-            utxt_layout_glyph_get_quads(run_glyphs.data(), n, quads.data(), x, y);
-            draw_text_quads(mat, std::span { quads }.first(n), run.color);
-            run_glyphs = run_glyphs.subspan(n);
+        if (current_material.id != mat.id) {
+            ung_sprite_set_material(mat);
+            current_material = mat;
         }
+
+        ung_sprite_add_quad(item.x + x, item.y + y, item.w, item.h,
+            { item.u0, item.v0, item.u1 - item.u0, item.v1 - item.v0 }, item.color);
     }
 }
 
-EXPORT void ung_text_layout_draw(ung_text_layout_id layout_id, float x, float y)
-{
-    draw_layout(layout_id, x, y, {});
-}
-
-EXPORT void ung_text_layout_draw_mat(
+EXPORT void ung_text_layout_draw(
     ung_text_layout_id layout_id, ung_material_id mat, float x, float y)
 {
-    draw_layout(layout_id, x, y, mat);
+    static std::array<ung_text_draw_item, 512> draw_items;
+
+    auto layout = get_text_layout(layout_id.id);
+    ensure_computed(layout);
+
+    const auto total_glyphs = (u32)layout->num_glyphs;
+    u32 glyph_offset = 0;
+    while (glyph_offset < total_glyphs) {
+        const auto n = build_layout_draw_items(
+            layout, glyph_offset, 0, draw_items.data(), draw_items.size());
+        if (n == 0) { // should not happen, but we don't want to loop infinitely
+            break;
+        }
+        ung_text_draw_items(draw_items.data(), n, mat, x, y);
+        glyph_offset += (u32)n;
+    }
 }
 
 Camera* get_camera(u64 key)

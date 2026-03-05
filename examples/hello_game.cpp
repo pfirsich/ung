@@ -175,7 +175,7 @@ struct Game {
             { 0.4f, 0.4f, 0.4f, 1.0f });
         ung_font_draw(font, UNG_LITERAL("Hallo, Jana! Guck dir mal den Text an :)"), 20.0f, 40.0f,
             UNG_COLOR_WHITE);
-        ung_text_layout_draw(layout, 20.0f, 200.0f);
+        ung_text_layout_draw(layout, {}, 20.0f, 200.0f);
 
         ung_sprite_flush();
         ung_end_pass();
