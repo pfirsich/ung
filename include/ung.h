@@ -779,6 +779,15 @@ typedef enum {
 } ung_model_load_flags;
 
 typedef enum {
+    UNG_MODEL_MATERIAL_TEXTURE_NONE = 0,
+    UNG_MODEL_MATERIAL_TEXTURE_BASE_COLOR = 1u << 0,
+    UNG_MODEL_MATERIAL_TEXTURE_NORMAL = 1u << 1,
+    UNG_MODEL_MATERIAL_TEXTURE_EMISSIVE = 1u << 2,
+    UNG_MODEL_MATERIAL_TEXTURE_METAL_ROUGH = 1u << 3,
+    UNG_MODEL_MATERIAL_TEXTURE_OCCLUSION = 1u << 4,
+} ung_model_load_material_flags;
+
+typedef enum {
     UNG_MODEL_ALPHA_INVALID = 0,
     UNG_MODEL_ALPHA_OPAQUE,
     UNG_MODEL_ALPHA_MASK, // discard fragment below alpha_cutoff
@@ -812,10 +821,11 @@ typedef struct {
 
 typedef struct {
     const char* path;
-    int flags; // ung_model_load_flags
+    uint32_t flags; // ung_model_load_flags
 
     // applied if UNG_MODEL_LOAD_MATERIALS is given
     mugfx_texture_create_params texture_params;
+    uint32_t material_flags; // ung_model_load_material_flags
     bool texture_flip_y;
 
     // If names are provided, result.animations has exactly this many entries in this order.

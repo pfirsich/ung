@@ -639,6 +639,14 @@ ung_model_load_result model_load_gltf(ung_model_load_params params)
         }
     }
 
+    auto load_texture = [&](const cgltf_texture_view& tex, uint32_t flag) -> ung_texture_id {
+        if (params.material_flags & flag) {
+            return ung_texture_from_cgltf(&tex, params.texture_flip_y, params.texture_params);
+        } else {
+            return { 0 };
+        }
+    };
+
     if (params.flags & UNG_MODEL_LOAD_MATERIALS) {
         res.num_materials = (u32)data->materials_count;
         res.materials = allocate<ung_model_material>(data->materials_count);
@@ -648,12 +656,11 @@ ung_model_load_result model_load_gltf(ung_model_load_params params)
             const auto& m = data->materials[i];
             const auto& pbr = m.pbr_metallic_roughness;
             res.materials[i] = {
-                .base_color_texture = ung_texture_from_cgltf(
-                    &pbr.base_color_texture, params.texture_flip_y, params.texture_params),
-                .normal_texture = ung_texture_from_cgltf(
-                    &m.normal_texture, params.texture_flip_y, params.texture_params),
-                .emissive_texture = ung_texture_from_cgltf(
-                    &m.emissive_texture, params.texture_flip_y, params.texture_params),
+                .base_color_texture
+                = load_texture(pbr.base_color_texture, UNG_MODEL_MATERIAL_TEXTURE_BASE_COLOR),
+                .normal_texture = load_texture(m.normal_texture, UNG_MODEL_MATERIAL_TEXTURE_NORMAL),
+                .emissive_texture
+                = load_texture(m.emissive_texture, UNG_MODEL_MATERIAL_TEXTURE_EMISSIVE),
                 .normal_scale = 1.0f,
                 .alpha_cutoff = m.alpha_cutoff,
                 .alpha_mode = map_alpha_mode(m.alpha_mode),
@@ -663,10 +670,10 @@ ung_model_load_result model_load_gltf(ung_model_load_params params)
                 res.materials[i].base_color_factor, pbr.base_color_factor, sizeof(float) * 4);
             std::memcpy(res.materials[i].emissive_factor, m.emissive_factor, sizeof(float) * 3);
             res.gltf_materials[i] = {
-                .metal_rough_texture = ung_texture_from_cgltf(
-                    &pbr.metallic_roughness_texture, params.texture_flip_y, params.texture_params),
-                .occlusion_texture = ung_texture_from_cgltf(
-                    &m.occlusion_texture, params.texture_flip_y, params.texture_params),
+                .metal_rough_texture = load_texture(
+                    pbr.metallic_roughness_texture, UNG_MODEL_MATERIAL_TEXTURE_METAL_ROUGH),
+                .occlusion_texture
+                = load_texture(m.occlusion_texture, UNG_MODEL_MATERIAL_TEXTURE_OCCLUSION),
                 .metallic_factor = pbr.metallic_factor,
                 .roughness_factor = pbr.roughness_factor,
                 .occlusion_strength = 1.0f,
