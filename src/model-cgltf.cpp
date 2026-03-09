@@ -683,9 +683,11 @@ ung_model_load_result model_load_gltf(ung_model_load_params params)
 
     cgltf_skin* skin = nullptr;
     if (params.flags & (UNG_MODEL_LOAD_SKELETON | UNG_MODEL_LOAD_ANIMATIONS)) {
+        // We actually go through the nodes here, because we allow only one skeleton and we
+        // at least want to restrict it to one *used* skeleton.
         for (const auto& g_node : std::span<cgltf_node>(data->nodes, data->nodes_count)) {
             if (g_node.skin) {
-                if (skin) {
+                if (skin && skin != g_node.skin) {
                     ung_panicf("More than one skeleton in glTF file '%s'", params.path);
                 }
                 skin = g_node.skin;
