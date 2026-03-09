@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string_view>
+
 #include "types.hpp"
 #include "um.h"
 #include "ung.h"
@@ -126,6 +128,14 @@ struct TextLayout {
     bool dirty;
 };
 
+struct LoadProfilerZone {
+    std::string_view name;
+    u32 parent_idx;
+    float start_time;
+    float duration;
+    float child_duration;
+};
+
 struct State {
     // Pools
     Pool<Texture> textures;
@@ -159,6 +169,11 @@ struct State {
 
     bool auto_reload;
     bool load_cache;
+
+    // Load Profiling
+    Vector<LoadProfilerZone> prof_zones;
+    StrPool prof_strpool;
+    Vector<u32> prof_stack; // holds index to current parent
 };
 
 extern State* state;

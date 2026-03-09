@@ -588,16 +588,41 @@ static ung_model_alpha_mode map_alpha_mode(cgltf_alpha_mode mode)
     }
 }
 
+const char* get_texture_scope(uint32_t flag)
+{
+    switch (flag) {
+    case UNG_MODEL_MATERIAL_TEXTURE_BASE_COLOR:
+        return "base_color_texture";
+    case UNG_MODEL_MATERIAL_TEXTURE_NORMAL:
+        return "normal_texture";
+    case UNG_MODEL_MATERIAL_TEXTURE_EMISSIVE:
+        return "emissive_texture";
+    case UNG_MODEL_MATERIAL_TEXTURE_METAL_ROUGH:
+        return "metallic_roughness_texture";
+    case UNG_MODEL_MATERIAL_TEXTURE_OCCLUSION:
+        return "occlusion_texture";
+    default:
+        return "invalid";
+    }
+}
+
 ung_model_load_result model_load_gltf(ung_model_load_params params)
 {
+    LoadProfScope lpscope(params.path);
+
     const cgltf_options options = {};
     cgltf_data* data = nullptr;
     // TODO: use ung_read_whole_file
+    ung_load_profiler_push("cgltf_parse_file");
     const auto result = cgltf_parse_file(&options, params.path, &data);
+    ung_load_profiler_pop("cgltf_parse_file");
     if (result != cgltf_result_success) {
         ung_panicf("Error loading glTF file '%s': %d\n", params.path, result);
     }
+
+    ung_load_profiler_push("cgltf_load_buffers");
     const auto buf_result = cgltf_load_buffers(&options, data, params.path);
+    ung_load_profiler_pop("cgltf_load_buffers");
     if (buf_result != cgltf_result_success) {
         ung_panicf("Error loading buffers for glTF file '%s': %d\n", params.path, buf_result);
     }
@@ -625,12 +650,14 @@ ung_model_load_result model_load_gltf(ung_model_load_params params)
                 for (const auto& prim : std::span<cgltf_primitive>(
                          node.mesh->primitives, node.mesh->primitives_count)) {
                     if (params.flags & UNG_MODEL_LOAD_GEOMETRIES) {
+                        LoadProfScope s("geometry");
                         res.geometries[geom_idx] = ung_geometry_from_cgltf(&prim);
                         res.material_indices[geom_idx] = prim.material
                             ? (u32)(prim.material - data->materials)
                             : (u32)UINT32_MAX;
                     }
                     if (params.flags & UNG_MODEL_LOAD_GEOMETRY_DATA) {
+                        LoadProfScope s("geometry data");
                         res.geometry_data[geom_idx] = ung_geometry_data_from_cgltf(&prim);
                     }
                     geom_idx++;
@@ -641,6 +668,7 @@ ung_model_load_result model_load_gltf(ung_model_load_params params)
 
     auto load_texture = [&](const cgltf_texture_view& tex, uint32_t flag) -> ung_texture_id {
         if (params.material_flags & flag) {
+            LoadProfScope lpscope(get_texture_scope(flag));
             return ung_texture_from_cgltf(&tex, params.texture_flip_y, params.texture_params);
         } else {
             return { 0 };
@@ -648,6 +676,7 @@ ung_model_load_result model_load_gltf(ung_model_load_params params)
     };
 
     if (params.flags & UNG_MODEL_LOAD_MATERIALS) {
+        LoadProfScope s("materials");
         res.num_materials = (u32)data->materials_count;
         res.materials = allocate<ung_model_material>(data->materials_count);
         res.gltf_materials = allocate<ung_gltf_material>(data->materials_count);
@@ -700,6 +729,7 @@ ung_model_load_result model_load_gltf(ung_model_load_params params)
     }
 
     if (skin && (params.flags & UNG_MODEL_LOAD_ANIMATIONS)) {
+        LoadProfScope s("animations");
         if (params.animation_names) {
             res.num_animations = params.num_animation_names;
             res.animations = allocate<ung_animation_id>(res.num_animations);

@@ -37,6 +37,7 @@ set(UNG_SOURCES
   src/allocator.cpp
   src/files.cpp
   src/input.cpp
+  src/load-profiler.cpp
   src/model.cpp
   src/random.cpp
   src/slotmap.cpp
@@ -73,6 +74,11 @@ if(UNG_CGLTF)
   add_subdirectory(deps/cgltf)
   target_link_libraries(ung PUBLIC cgltf)
   target_compile_definitions(ung PUBLIC UNG_CGLTF)
+endif()
+
+option(UNG_LOAD_PROFILING "Profile asset loads" OFF)
+if (UNG_LOAD_PROFILING)
+  target_compile_definitions(ung PRIVATE UNG_LOAD_PROFILING)
 endif()
 
 ung_set_wall(ung)

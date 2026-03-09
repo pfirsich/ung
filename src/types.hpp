@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <string_view>
 
 using u8 = uint8_t;
 using u16 = uint16_t;
@@ -115,6 +116,11 @@ struct Vector {
         capacity = c;
         size = 0;
     }
+
+    T& first() { return data[0]; };
+    const T& first() const { return data[0]; };
+    T& last() { return data[size - 1]; };
+    const T& last() const { return data[size - 1]; };
 
     void push(T v)
     {
@@ -235,4 +241,20 @@ auto get(Pool<T>& pool, u64 key)
     return obj;
 }
 
+struct StrPool {
+    Vector<char*> pages;
+    size_t page_size;
+    size_t offset;
+
+    void init(u32 page_size = 1024);
+    std::string_view insert(std::string_view str);
+};
+
+struct LoadProfScope {
+    const char* name;
+    explicit LoadProfScope(const char* n) : name(n) { ung_load_profiler_push(n); }
+    ~LoadProfScope() { ung_load_profiler_pop(name); }
+    LoadProfScope(const LoadProfScope&) = delete;
+    LoadProfScope& operator=(const LoadProfScope&) = delete;
+};
 }

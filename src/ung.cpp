@@ -333,6 +333,10 @@ EXPORT void ung_init(ung_init_params params)
     sprite_renderer::init(params);
 
     state->identity_trafo = ung_transform_create();
+
+    state->prof_zones.init(512);
+    state->prof_stack.init(8);
+    state->prof_strpool.init(1024);
 }
 
 EXPORT void ung_shutdown()
@@ -586,6 +590,7 @@ static u32 parse_number(std::string_view str)
 
 static bool parse_shader_bindings(std::string_view src, mugfx_shader_create_params& params)
 {
+    LoadProfScope lpscope("parse shader bindings");
     // This is so primitive, but its enough for now and I will make it better as I go
     usize binding_idx = 0;
     while (src.size()) {
@@ -624,8 +629,11 @@ static bool parse_shader_bindings(std::string_view src, mugfx_shader_create_para
 
 mugfx_shader_id load_shader(mugfx_shader_stage stage, const char* path)
 {
+    LoadProfScope lpscope(path);
     usize size = 0;
+    ung_load_profiler_push("io");
     const auto data = ung_read_whole_file(path, &size, false);
+    ung_load_profiler_pop("io");
     if (!data) {
         std::printf("Could not read '%s': %s\n", path, SDL_GetError());
         return { 0 };
@@ -642,7 +650,9 @@ mugfx_shader_id load_shader(mugfx_shader_stage stage, const char* path)
         ung_free_file_data(data, size);
         return { 0 };
     }
+    ung_load_profiler_push("create");
     const auto shader = mugfx_shader_create(params);
+    ung_load_profiler_pop("create");
     ung_free_file_data(data, size);
     return shader;
 }
@@ -736,6 +746,7 @@ static mugfx_texture_id create_texture(
         MUGFX_PIXEL_FORMAT_RGB8,
         MUGFX_PIXEL_FORMAT_RGBA8,
     };
+    LoadProfScope lpscope("upload");
     assert(width > 0 && height > 0 && comp > 0);
     assert(comp <= 4);
     params.width = (u32)width;
@@ -845,7 +856,10 @@ TexDecode load_cached_texture(const char* cache_path)
 {
     TexDecode ret;
     ret.type = TexDecode::Type::Cached;
-    ret.data = ung_read_whole_file(cache_path, &ret.size, false);
+    {
+        LoadProfScope s("read cached");
+        ret.data = ung_read_whole_file(cache_path, &ret.size, false);
+    }
     if (!ret.data) {
         return ret;
     }
@@ -864,9 +878,11 @@ TexDecode load_cached_texture(const char* cache_path)
 
 TexDecode decode_texture(const u8* data, usize size, bool flip_y)
 {
+    LoadProfScope lpscope("decode");
 #ifdef UNG_STB_IMAGE
     char cache_path[128];
     if (state->load_cache) {
+        LoadProfScope s("load cache");
         format_texture_cache_path(cache_path, ung_fnv1a(data, size), flip_y);
 
         auto cached = load_cached_texture(cache_path);
@@ -879,13 +895,18 @@ TexDecode decode_texture(const u8* data, usize size, bool flip_y)
     TexDecode ret;
     ret.type = TexDecode::Type::Stbi;
     stbi_set_flip_vertically_on_load(flip_y);
-    ret.data = stbi_load_from_memory(data, (int)size, &ret.width, &ret.height, &ret.components, 0);
+    {
+        LoadProfScope s("stbi_load_from_memory");
+        ret.data
+            = stbi_load_from_memory(data, (int)size, &ret.width, &ret.height, &ret.components, 0);
+    }
     ret.decoded = (u8*)ret.data;
     if (!ret.decoded) {
         ret.error = stbi_failure_reason();
     }
 
     if (state->load_cache && ret.decoded) {
+        LoadProfScope s("write cache");
         write_texture_cache_file(cache_path, ret);
     }
 
@@ -901,19 +922,26 @@ TexDecode decode_texture(const u8* data, usize size, bool flip_y)
 static mugfx_texture_id load_texture(
     const char* path, bool flip_y, mugfx_texture_create_params& params)
 {
+    LoadProfScope lpscope(path);
     usize size = 0;
+
+    ung_load_profiler_push("io");
     const auto data = ung_read_whole_file(path, &size, false);
+    ung_load_profiler_pop("io");
     if (!data) {
         return { 0 };
     }
+
     const auto decoded = decode_texture((const u8*)data, size, flip_y);
     ung_free_file_data(data, size);
     if (!decoded.decoded) {
         return { 0 };
     }
+
     params.debug_label = path;
     const auto texture = create_texture(
         decoded.decoded, decoded.width, decoded.height, decoded.components, params);
+
     return texture;
 }
 
@@ -1174,6 +1202,7 @@ EXPORT ung_material_id ung_material_create(ung_material_create_params params)
 EXPORT ung_material_id ung_material_load(
     const char* vert_path, const char* frag_path, ung_material_create_params params)
 {
+    LoadProfScope s("material");
     assert(params.vert.id == 0);
     assert(params.frag.id == 0);
     params.vert = ung_shader_load(MUGFX_SHADER_STAGE_VERTEX, vert_path);
@@ -1582,7 +1611,7 @@ u8 f2u8norm(float v)
     return (u8)(255.0f * saturate(v));
 }
 
-EXPORT ung_geometry_data ung_geometry_data_load(const char* path)
+ung_geometry_data geometry_data_load(const char* path)
 {
 #ifndef UNG_FAST_OBJ
     (void)path;
@@ -1708,6 +1737,12 @@ EXPORT ung_geometry_data ung_geometry_data_load(const char* path)
 
     return gdata;
 #endif
+}
+
+EXPORT ung_geometry_data ung_geometry_data_load(const char* path)
+{
+    LoadProfScope s(path);
+    return geometry_data_load(path);
 }
 
 EXPORT void ung_geometry_data_destroy(ung_geometry_data gdata)
@@ -1854,8 +1889,13 @@ EXPORT ung_geometry_id ung_geometry_create_from_data(ung_geometry_data gdata)
 
 mugfx_geometry_id load_geometry(const char* path)
 {
+    LoadProfScope s(path);
+    ung_load_profiler_push("load");
     const auto gdata = ung_geometry_data_load(path);
+    ung_load_profiler_pop("load");
+    ung_load_profiler_push("upload");
     const auto geom = geometry_from_data(gdata, path);
+    ung_load_profiler_pop("upload");
     ung_geometry_data_destroy(gdata);
     return geom;
 }
@@ -1989,6 +2029,7 @@ static utxt_alloc get_utxt_alloc()
 
 EXPORT ung_font_id ung_font_load_ttf(const char* ttf_path, utxt_load_ttf_params params)
 {
+    LoadProfScope s(ttf_path);
     const auto font = utxt_font_load_ttf(get_utxt_alloc(), ttf_path, params);
     return create_font(font, ttf_path);
 }
@@ -1996,6 +2037,7 @@ EXPORT ung_font_id ung_font_load_ttf(const char* ttf_path, utxt_load_ttf_params 
 EXPORT ung_font_id ung_font_load_ttf_buffer(
     const void* data, size_t size, utxt_load_ttf_params params)
 {
+    LoadProfScope s("ttf buffer");
     const auto font
         = utxt_font_load_ttf_buffer(get_utxt_alloc(), (const uint8_t*)data, size, params);
     return create_font(font, "font_atlas_ttf_buffer");
@@ -2496,6 +2538,29 @@ EXPORT uint64_t ung_fnv1a(const void* data, size_t size)
         hash = hash * fnv1a_prime;
     }
     return hash;
+}
+
+void StrPool::init(u32 ps)
+{
+    offset = 0;
+    page_size = ps;
+    pages.push(allocate<char>(page_size));
+}
+
+std::string_view StrPool::insert(std::string_view str)
+{
+    assert(str.size() + 1 <= page_size);
+    if (offset + str.size() + 1 > page_size) {
+        // insert new page
+        pages.push(allocate<char>(page_size));
+        offset = 0;
+    }
+    auto dest = pages.last() + offset;
+    std::memcpy(dest, str.data(), str.size());
+    offset += str.size();
+    pages.last()[offset] = '\0';
+    offset++;
+    return { dest, str.size() };
 }
 
 #ifdef __EMSCRIPTEN__

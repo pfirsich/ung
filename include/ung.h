@@ -509,6 +509,10 @@ ung_resource_id ung_texture_get_resource(ung_texture_id texture);
 ung_resource_id ung_geometry_get_resource(ung_geometry_id geometry);
 ung_resource_id ung_sound_get_resource(ung_sound_id sound);
 
+void ung_load_profiler_push(const char* name);
+void ung_load_profiler_pop(const char* name); // name optional, asserts equality
+void ung_load_profiler_dump();
+
 /*
  * Geometry
  */

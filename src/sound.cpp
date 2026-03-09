@@ -353,6 +353,7 @@ static bool source_reload_cb(void* userdata)
 EXPORT ung_sound_source_id ung_sound_source_load(
     const char* path, ung_sound_source_load_params params)
 {
+    LoadProfScope s(path);
     const auto [id, source] = state->sound_sources.insert();
 
     assign(source->path, path);
