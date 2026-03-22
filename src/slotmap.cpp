@@ -41,7 +41,7 @@ EXPORT uint64_t ung_slotmap_insert(ung_slotmap* s, uint32_t* oidx)
 {
     assert(oidx);
     const auto idx = s->free_list_head;
-    assert(idx < s->capacity);
+    assert(idx <= s->capacity);
     if (idx >= s->capacity) {
         return 0;
     }
@@ -86,7 +86,7 @@ EXPORT bool ung_slotmap_remove(ung_slotmap* s, uint64_t key)
     }
     const auto idx = ung_slotmap_get_index(key);
     const auto gen = ung_slotmap_get_generation(key);
-    assert(s->free_list_head < s->capacity);
+    assert(s->free_list_head <= s->capacity); // capacity is allowed if slotmap is now empty
     s->keys[idx] = FreeMask | make_key(s->free_list_head, gen + 1);
     s->free_list_head = idx;
     return true;
