@@ -931,12 +931,13 @@ typedef struct {
 } ung_sound_play_params;
 
 ung_sound_id ung_sound_play(ung_sound_source_id src, ung_sound_play_params params);
-void ung_sound_update(ung_sound_id snd, float position[3], float velocity[3]);
+void ung_sound_update(ung_sound_id snd, const float position[3], const float velocity[3]);
 bool ung_sound_is_playing(ung_sound_id snd);
 void ung_sound_set_paused(ung_sound_id snd, bool paused);
 void ung_sound_stop(ung_sound_id snd); // this is the same as delete
 
-void ung_update_listener(float position[3], float orientation_quat[4], float velocity[3]);
+void ung_update_listener(
+    const float position[3], const float orientation_quat[4], const float velocity[3]);
 
 float ung_sound_get_volume();
 void ung_sound_set_volume(float vol);

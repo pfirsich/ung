@@ -525,7 +525,8 @@ EXPORT void ung_sound_stop(ung_sound_id snd_id)
     sound_set_idle(sound);
 }
 
-EXPORT void ung_update_listener(float position[3], float orientation_quat[4], float velocity[3])
+EXPORT void ung_update_listener(
+    const float position[3], const float orientation_quat[4], const float velocity[3])
 {
     ma_engine_listener_set_position(&state->sound_engine, 0, position[0], position[1], position[2]);
     const um_quat q = um_quat_from_ptr(orientation_quat);
