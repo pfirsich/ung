@@ -1,4 +1,4 @@
-#include "um.h"
+#include "um.hpp"
 
 #include <cstring>
 #include <math.h>
@@ -716,4 +716,67 @@ EXPORT um_mat um_mat_mul(um_mat a, um_mat b)
     }
 
     return result;
+}
+
+EXPORT um_sphere um_sphere_transform(um_mat mat, um_sphere sphere)
+{
+    const auto center = um::make_vec3(um::mul(mat, um::make_vec4(sphere.center, 1.0f)));
+
+    const um::vec3 scale = {
+        um::len(um::make_vec3(mat.cols[0])),
+        um::len(um::make_vec3(mat.cols[1])),
+        um::len(um::make_vec3(mat.cols[2])),
+    };
+    const auto max_scale = um::max(um::max(scale.x, scale.y), scale.z);
+
+    return { center, sphere.radius * max_scale };
+}
+
+static um_plane make_plane(um::vec4 eq)
+{
+    // We normalize the plane so the distance test is correct.
+    // Without normalization dot(n, p) + d is only proportional to distance.
+    const auto n = um::make_vec3(eq);
+    const auto inv_len = 1.0f / um::len(n);
+    return {
+        .normal = n * inv_len,
+        .distance = eq.w * inv_len,
+    };
+}
+
+EXPORT void um_get_frustum(um_mat view_projection, um_plane planes[6])
+{
+    const um::mat t = um::transpose(view_projection);
+    const auto& rows = t.cols;
+
+    // point p (world space) is in frustum if for c = vp * p (c is clip space)
+    // c.x/c.w in [-1, 1]
+    // c.x/c.w >= -1 <=> c.x >= -c.w <=> c.x + c.w >= 0
+    // but c.x is rows[0] * p
+    // so (rows[0] * p + rows[3] * p) >= 0
+    // <=> (rows[0] + rows[3]) * p >= 0
+    // this is a plane equation!
+    // if p is a point, p.w is 1.
+    // repeat for both signs (-1 and 1) and all components to get all equations
+    planes[0] = make_plane(rows[3] + rows[2]);
+    planes[1] = make_plane(rows[3] - rows[2]);
+    planes[2] = make_plane(rows[3] + rows[0]);
+    planes[3] = make_plane(rows[3] - rows[0]);
+    planes[4] = make_plane(rows[3] - rows[1]);
+    planes[5] = make_plane(rows[3] + rows[1]);
+}
+
+EXPORT float um_plane_point_distance(um_plane plane, um_vec3 point)
+{
+    return um::dot(plane.normal, point) + plane.distance;
+}
+
+EXPORT bool um_sphere_in_frustum(um_sphere sphere, const um_plane* planes, size_t num_planes)
+{
+    for (size_t i = 0; i < num_planes; ++i) {
+        if (um::dot(planes[i].normal, sphere.center) + planes[i].distance < -sphere.radius) {
+            return false;
+        }
+    }
+    return true;
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -143,6 +145,30 @@ um_vec4 um_mat_mul_vec4(um_mat m, um_vec4 v);
 
 // Other
 void um_mat_decompose_trs(um_mat m, um_vec3* translation, um_quat* rotation, um_vec3* scale);
+
+// Sphere
+
+typedef struct {
+    um_vec3 center;
+    float radius;
+} um_sphere;
+
+um_sphere um_sphere_transform(um_mat mat, um_sphere sphere);
+
+// Frustum
+
+typedef struct {
+    um_vec3 normal;
+    float distance;
+} um_plane;
+
+// this will fill near, far, left, right, top, bottom
+void um_get_frustum(um_mat view_projection, um_plane planes[6]);
+
+// signed distance
+float um_plane_point_distance(um_plane plane, um_vec3 point);
+
+bool um_sphere_in_frustum(um_sphere sphere, const um_plane* planes, size_t num_planes);
 
 #ifdef __cplusplus
 }
