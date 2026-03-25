@@ -151,6 +151,11 @@ public:
     return { xyz[0], xyz[1], xyz[2] };
 }
 
+[[nodiscard]] inline vec3 make_vec3(vec4 v) noexcept
+{
+    return { v.x, v.y, v.z };
+}
+
 [[nodiscard]] inline vec3 make_vec3(float v) noexcept
 {
     return { v, v, v };
@@ -219,6 +224,73 @@ inline void to_ptr(vec3 v, float xyz[3]) noexcept
 [[nodiscard]] inline bool eq(vec3 a, vec3 b) noexcept
 {
     return um_vec3_eq(a, b);
+}
+
+// vec4
+
+[[nodiscard]] inline vec4 make_vec4(const float xyzw[4]) noexcept
+{
+    return { xyzw[0], xyzw[1], xyzw[2], xyzw[3] };
+}
+
+[[nodiscard]] inline vec4 make_vec4(vec3 v, float w) noexcept
+{
+    return { v.x, v.y, v.z, w };
+}
+
+inline void to_ptr(vec4 v, float xyzw[3]) noexcept
+{
+    um_vec4_to_ptr(v, xyzw);
+}
+
+[[nodiscard]] inline float len(vec4 v) noexcept
+{
+    return um_vec4_len(v);
+}
+
+[[nodiscard]] inline float len_sq(vec4 v) noexcept
+{
+    return um_vec4_len_sq(v);
+}
+
+[[nodiscard]] inline vec4 normalized(vec4 v) noexcept
+{
+    return um_vec4_normalized(v);
+}
+
+[[nodiscard]] inline vec4 mul(vec4 v, float s) noexcept
+{
+    return um_vec4_mul(v, s);
+}
+
+[[nodiscard]] inline float dot(vec4 a, vec4 b) noexcept
+{
+    return um_vec4_dot(a, b);
+}
+
+[[nodiscard]] inline float dist(vec4 a, vec4 b) noexcept
+{
+    return um_vec4_dist(a, b);
+}
+
+[[nodiscard]] inline vec4 add(vec4 a, vec4 b) noexcept
+{
+    return um_vec4_add(a, b);
+}
+
+[[nodiscard]] inline vec4 sub(vec4 a, vec4 b) noexcept
+{
+    return um_vec4_sub(a, b);
+}
+
+[[nodiscard]] inline vec4 lerp(vec4 a, vec4 b, float t) noexcept
+{
+    return um_vec4_lerp(a, b, t);
+}
+
+[[nodiscard]] inline bool eq(vec4 a, vec4 b) noexcept
+{
+    return um_vec4_eq(a, b);
 }
 
 // quat
@@ -414,6 +486,60 @@ inline um_vec3& operator*=(um_vec3& a, float s) noexcept
 }
 
 inline um_vec3& operator/=(um_vec3& a, float s) noexcept
+{
+    a = a / s;
+    return a;
+}
+
+[[nodiscard]] inline constexpr um_vec4 operator+(const um_vec4& a, const um_vec4& b) noexcept
+{
+    return { a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w };
+}
+
+[[nodiscard]] inline constexpr um_vec4 operator-(const um_vec4& a, const um_vec4& b) noexcept
+{
+    return { a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w };
+}
+
+[[nodiscard]] inline constexpr um_vec4 operator-(const um_vec4& v) noexcept
+{
+    return { -v.x, -v.y, -v.z, -v.w };
+}
+
+[[nodiscard]] inline constexpr um_vec4 operator*(const um_vec4& v, float s) noexcept
+{
+    return { v.x * s, v.y * s, v.z * s, v.w * s };
+}
+
+[[nodiscard]] inline constexpr um_vec4 operator*(float s, const um_vec4& v) noexcept
+{
+    return v * s;
+}
+
+[[nodiscard]] inline constexpr um_vec4 operator/(um_vec4 v, float s) noexcept
+{
+    return { v.x / s, v.y / s, v.z / s, v.w / s };
+}
+
+inline um_vec4& operator+=(um_vec4& a, const um_vec4& b) noexcept
+{
+    a = a + b;
+    return a;
+}
+
+inline um_vec4& operator-=(um_vec4& a, const um_vec4& b) noexcept
+{
+    a = a - b;
+    return a;
+}
+
+inline um_vec4& operator*=(um_vec4& a, float s) noexcept
+{
+    a = a * s;
+    return a;
+}
+
+inline um_vec4& operator/=(um_vec4& a, float s) noexcept
 {
     a = a / s;
     return a;
