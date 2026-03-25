@@ -482,7 +482,7 @@ static Sound* get_sound(u64 id)
     return &state->sounds[idx];
 }
 
-EXPORT void ung_sound_update(ung_sound_id snd_id, float position[3], float velocity[3])
+EXPORT void ung_sound_update(ung_sound_id snd_id, const float position[3], const float velocity[3])
 {
     auto sound = get_sound(snd_id.id);
     if (!sound) {
