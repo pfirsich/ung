@@ -627,6 +627,7 @@ uint32_t ung_text_layout_add_text(ung_text_layout_id layout, ung_font_id font, u
 // Different from utxt, compute will be called automatically when you draw the layout and it has
 // been marked dirty (by resetting or adding).
 uint32_t ung_text_layout_get_num_glyphs(ung_text_layout_id layout);
+uint32_t ung_text_layout_get_num_lines(ung_text_layout_id layout);
 // Returns number total of glyphs
 uint32_t ung_text_layout_compute(ung_text_layout_id layout);
 

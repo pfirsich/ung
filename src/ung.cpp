@@ -2212,6 +2212,12 @@ EXPORT uint32_t ung_text_layout_get_num_glyphs(ung_text_layout_id layout_id)
     return (uint32_t)layout->num_glyphs;
 }
 
+EXPORT uint32_t ung_text_layout_get_num_lines(ung_text_layout_id layout_id)
+{
+    auto layout = get_text_layout(layout_id.id);
+    return (uint32_t)utxt_layout_get_num_lines(layout->layout);
+}
+
 EXPORT uint32_t ung_text_layout_compute(ung_text_layout_id layout_id)
 {
     auto layout = get_text_layout(layout_id.id);
