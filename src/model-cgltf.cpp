@@ -713,7 +713,6 @@ ung_model_load_result model_load_gltf(ung_model_load_params params)
     auto load_texture = [&](const char* gltf_path, const cgltf_texture_view& tex,
                             uint32_t flag) -> ung_texture_id {
         if (params.material_flags & flag) {
-            printf("flag set\n");
             LoadProfScope lpscope(get_texture_scope(flag));
             return ung_texture_from_cgltf(
                 gltf_path, &tex, params.texture_flip_y, params.texture_params);
