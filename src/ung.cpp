@@ -2558,6 +2558,7 @@ void StrPool::init(u32 ps)
 {
     offset = 0;
     page_size = ps;
+    pages.init(4);
     pages.push(allocate<char>(page_size));
 }
 
