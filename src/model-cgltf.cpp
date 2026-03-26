@@ -556,22 +556,66 @@ EXPORT ung_animation_id ung_animation_from_cgltf(
     return anim_id;
 }
 
-EXPORT ung_texture_id ung_texture_from_cgltf(
+template <size_t N>
+struct PathBuf {
+    char data[N] = {};
+    size_t len = 0;
+
+    void clear()
+    {
+        data[0] = 0;
+        len = 0;
+    }
+
+    void append(std::string_view seg)
+    {
+        assert(!seg.empty());
+        if (len > 0 && data[len - 1] != '/' && seg[0] != '/') {
+            assert(len + 1 < N);
+            data[len++] = '/';
+        }
+        assert(len + seg.size() + 1 <= N);
+        std::memcpy(data + len, seg.data(), seg.size());
+        len += seg.size();
+        data[len] = 0;
+    }
+};
+
+const char* get_path(std::string_view gltf_path, std::string_view path)
+{
+    static PathBuf<512> buf;
+    buf.clear();
+    const auto last_slash = gltf_path.find_last_of("/");
+    if (last_slash == std::string_view::npos) {
+        buf.append("./");
+    } else {
+        buf.append(gltf_path.substr(0, last_slash));
+    }
+    buf.append(path);
+    return buf.data;
+}
+
+EXPORT ung_texture_id ung_texture_from_cgltf(const char* gltf_path,
     const cgltf_texture_view* tex_view, bool flip_y, mugfx_texture_create_params params)
 {
     const auto texture = tex_view->texture;
     if (!texture) {
+        ung_panicf("No texture");
         return {};
     }
     const auto image = texture->image;
     if (!image) {
+        ung_panicf("No image");
         return {};
     }
     const auto bv = image->buffer_view;
-    if (!bv) {
-        return {};
+    if (bv) {
+        return ung_texture_load_buffer(cgltf_buffer_view_data(bv), bv->size, flip_y, params);
+    } else if (image->uri) {
+        return ung_texture_load(get_path(gltf_path, image->uri), flip_y, params);
+    } else {
+        ung_panicf("No image buffer view");
     }
-    return ung_texture_load_buffer(cgltf_buffer_view_data(bv), bv->size, flip_y, params);
 }
 
 static ung_model_alpha_mode map_alpha_mode(cgltf_alpha_mode mode)
@@ -666,10 +710,13 @@ ung_model_load_result model_load_gltf(ung_model_load_params params)
         }
     }
 
-    auto load_texture = [&](const cgltf_texture_view& tex, uint32_t flag) -> ung_texture_id {
+    auto load_texture = [&](const char* gltf_path, const cgltf_texture_view& tex,
+                            uint32_t flag) -> ung_texture_id {
         if (params.material_flags & flag) {
+            printf("flag set\n");
             LoadProfScope lpscope(get_texture_scope(flag));
-            return ung_texture_from_cgltf(&tex, params.texture_flip_y, params.texture_params);
+            return ung_texture_from_cgltf(
+                gltf_path, &tex, params.texture_flip_y, params.texture_params);
         } else {
             return { 0 };
         }
@@ -685,11 +732,12 @@ ung_model_load_result model_load_gltf(ung_model_load_params params)
             const auto& m = data->materials[i];
             const auto& pbr = m.pbr_metallic_roughness;
             res.materials[i] = {
-                .base_color_texture
-                = load_texture(pbr.base_color_texture, UNG_MODEL_MATERIAL_TEXTURE_BASE_COLOR),
-                .normal_texture = load_texture(m.normal_texture, UNG_MODEL_MATERIAL_TEXTURE_NORMAL),
-                .emissive_texture
-                = load_texture(m.emissive_texture, UNG_MODEL_MATERIAL_TEXTURE_EMISSIVE),
+                .base_color_texture = load_texture(
+                    params.path, pbr.base_color_texture, UNG_MODEL_MATERIAL_TEXTURE_BASE_COLOR),
+                .normal_texture
+                = load_texture(params.path, m.normal_texture, UNG_MODEL_MATERIAL_TEXTURE_NORMAL),
+                .emissive_texture = load_texture(
+                    params.path, m.emissive_texture, UNG_MODEL_MATERIAL_TEXTURE_EMISSIVE),
                 .normal_scale = 1.0f,
                 .alpha_cutoff = m.alpha_cutoff,
                 .alpha_mode = map_alpha_mode(m.alpha_mode),
@@ -699,10 +747,10 @@ ung_model_load_result model_load_gltf(ung_model_load_params params)
                 res.materials[i].base_color_factor, pbr.base_color_factor, sizeof(float) * 4);
             std::memcpy(res.materials[i].emissive_factor, m.emissive_factor, sizeof(float) * 3);
             res.gltf_materials[i] = {
-                .metal_rough_texture = load_texture(
-                    pbr.metallic_roughness_texture, UNG_MODEL_MATERIAL_TEXTURE_METAL_ROUGH),
-                .occlusion_texture
-                = load_texture(m.occlusion_texture, UNG_MODEL_MATERIAL_TEXTURE_OCCLUSION),
+                .metal_rough_texture = load_texture(params.path, pbr.metallic_roughness_texture,
+                    UNG_MODEL_MATERIAL_TEXTURE_METAL_ROUGH),
+                .occlusion_texture = load_texture(
+                    params.path, m.occlusion_texture, UNG_MODEL_MATERIAL_TEXTURE_OCCLUSION),
                 .metallic_factor = pbr.metallic_factor,
                 .roughness_factor = pbr.roughness_factor,
                 .occlusion_strength = 1.0f,

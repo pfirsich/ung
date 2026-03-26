@@ -888,8 +888,8 @@ typedef struct cgltf_animation cgltf_animation;
 ung_animation_id ung_animation_from_cgltf(const cgltf_animation* anim, const cgltf_skin* skin);
 
 typedef struct cgltf_texture_view cgltf_texture_view;
-ung_texture_id ung_texture_from_cgltf(
-    const cgltf_texture_view* tex_view, bool flip_y, mugfx_texture_create_params params);
+ung_texture_id ung_texture_from_cgltf(const char* gltf_path, const cgltf_texture_view* tex_view,
+    bool flip_y, mugfx_texture_create_params params);
 #endif
 
 /*
