@@ -1045,6 +1045,14 @@ EXPORT void ung_texture_destroy(ung_texture_id texture_id)
     state->textures.remove(texture_id.id);
 }
 
+EXPORT ung_dimensions ung_texture_get_size(ung_texture_id texture_id)
+{
+    auto texture = get(state->textures, texture_id.id);
+    u32 width = 0, height = 0;
+    mugfx_texture_get_size(texture->texture, &width, &height);
+    return { width, height };
+}
+
 Material* get_material(u64 key)
 {
     return get(state->materials, key);
