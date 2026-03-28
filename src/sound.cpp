@@ -1,4 +1,4 @@
-
+#include <cfloat>
 #include <cstdio>
 #include <cstdlib>
 
@@ -34,6 +34,8 @@ struct SoundSource {
     ung_resource_id resource;
     u32 flags;
     u8 group;
+    ung_sound_spatial_params spatial_params;
+    bool use_spatial_params;
 };
 
 struct Sound {
@@ -70,6 +72,8 @@ struct State {
     // a source yet (or anymore). This is a separate list, so we can always prioritize
     // sounds that don't have a source over those that do.
     Sound* free_sounds_head; // unused sounds (remove only)
+
+    ung_sound_spatial_params spatial_params;
 };
 
 State* state;
@@ -188,6 +192,15 @@ void init(ung_init_params params)
             ung_panicf("Error initializing sound group: %s", ma_result_description(ma_res));
         }
     }
+
+    state->spatial_params = {
+        .attenuation_model = UNG_SOUND_ATTENUATION_INVERSE,
+        .min_distance = 1,
+        .max_distance = FLT_MAX,
+        .rolloff = 1.0f,
+        .directional_attenuation_factor = 1.0f,
+        .doppler_factor = 1.0f,
+    };
 }
 
 static void sound_set_idle(Sound* sound)
@@ -232,6 +245,16 @@ void shutdown()
     state->sound_groups.free();
 
     ma_engine_uninit(&state->sound_engine);
+}
+
+EXPORT ung_sound_spatial_params ung_sound_get_default_spatial_params(void)
+{
+    return state->spatial_params;
+}
+
+EXPORT void ung_sound_set_default_spatial_params(ung_sound_spatial_params params)
+{
+    state->spatial_params = params;
 }
 
 static Sound* get_idle_sound()
@@ -383,6 +406,12 @@ EXPORT ung_sound_source_id ung_sound_source_load(
         sounds_idle_lru_push_front(sound);
     }
 
+    if (params.spatial_params) {
+        std::memcpy(
+            &source->spatial_params, params.spatial_params, sizeof(ung_sound_spatial_params));
+        source->use_spatial_params = true;
+    }
+
     if (ung::state->auto_reload) {
         source->resource = ung_resource_create(source_reload_cb, source);
         ung_resource_set_deps(source->resource, &source->path.data, 1, nullptr, 0);
@@ -429,6 +458,21 @@ EXPORT void ung_sound_source_destroy(ung_sound_source_id src_id)
     state->sound_sources.remove(src_id.id);
 }
 
+static ma_attenuation_model get_atten_model(ung_sound_attenuation_model model)
+{
+    switch (model) {
+    case UNG_SOUND_ATTENUATION_NONE:
+        return ma_attenuation_model_none;
+    case UNG_SOUND_ATTENUATION_LINEAR:
+        return ma_attenuation_model_linear;
+    case UNG_SOUND_ATTENUATION_INVERSE:
+        return ma_attenuation_model_inverse;
+    case UNG_SOUND_ATTENUATION_EXPONENTIAL:
+        return ma_attenuation_model_exponential;
+    }
+    return ma_attenuation_model_none;
+}
+
 EXPORT ung_sound_id ung_sound_play(ung_sound_source_id src_id, ung_sound_play_params params)
 {
     auto source = get(state->sound_sources, src_id.id);
@@ -461,6 +505,16 @@ EXPORT ung_sound_id ung_sound_play(ung_sound_source_id src_id, ung_sound_play_pa
     if (params.spatial) {
         ma_sound_set_position(
             &sound->sound, params.position[0], params.position[1], params.position[2]);
+        const ung_sound_spatial_params& spatial_params
+            = source->use_spatial_params ? source->spatial_params : state->spatial_params;
+        ma_sound_set_attenuation_model(
+            &sound->sound, get_atten_model(spatial_params.attenuation_model));
+        ma_sound_set_min_distance(&sound->sound, spatial_params.min_distance);
+        ma_sound_set_max_distance(&sound->sound, spatial_params.max_distance);
+        ma_sound_set_rolloff(&sound->sound, spatial_params.rolloff);
+        ma_sound_set_directional_attenuation_factor(
+            &sound->sound, spatial_params.directional_attenuation_factor);
+        ma_sound_set_doppler_factor(&sound->sound, spatial_params.doppler_factor);
     }
 
     ma_sound_start(&sound->sound);
@@ -530,7 +584,7 @@ EXPORT void ung_update_listener(
 {
     ma_engine_listener_set_position(&state->sound_engine, 0, position[0], position[1], position[2]);
     const um_quat q = um_quat_from_ptr(orientation_quat);
-    const auto fwd = um_quat_mul_vec3(q, { -1.0f, 0.0f, 0.0f });
+    const auto fwd = um_quat_mul_vec3(q, { 0.0f, 0.0f, -1.0f });
     ma_engine_listener_set_direction(&state->sound_engine, 0, fwd.x, fwd.y, fwd.z);
     ma_engine_listener_set_velocity(&state->sound_engine, 0, velocity[0], velocity[1], velocity[2]);
 }

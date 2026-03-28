@@ -918,10 +918,31 @@ void ung_end_frame();
 /*
  * Sound
  */
+typedef enum {
+    UNG_SOUND_ATTENUATION_NONE = 0,
+    UNG_SOUND_ATTENUATION_LINEAR,
+    UNG_SOUND_ATTENUATION_INVERSE,
+    UNG_SOUND_ATTENUATION_EXPONENTIAL,
+} ung_sound_attenuation_model;
+
+// The defaults mentioned here are the builtin defaults, not per-field defaults.
+typedef struct {
+    ung_sound_attenuation_model attenuation_model; // default: INVERSE
+    float min_distance; // maximum volume below this distance, default: 1
+    float max_distance; // minimum volume over this distance, default: FLT_MAX
+    float rolloff; // model dependent, strength of volume attenuation, default: 1
+    float directional_attenuation_factor; // 0 = disable directional attenuation, default 1
+    float doppler_factor; // 0 = disable doppler effect, default: 1
+} ung_sound_spatial_params;
+
+ung_sound_spatial_params ung_sound_get_default_spatial_params(void);
+void ung_sound_set_default_spatial_params(ung_sound_spatial_params params);
+
 typedef struct {
     uint8_t group;
     uint32_t num_prewarm_sounds;
     bool stream;
+    const ung_sound_spatial_params* spatial_params; // optional
 } ung_sound_source_load_params;
 
 ung_sound_source_id ung_sound_source_load(const char* path, ung_sound_source_load_params params);
@@ -931,7 +952,7 @@ typedef struct {
     float volume;
     float pitch;
     float position[3];
-    bool spatial;
+    bool spatial; // has to be set for spatialization, even if spatial_params is set on the source
     bool loop;
     bool fail_if_no_idle;
 } ung_sound_play_params;
