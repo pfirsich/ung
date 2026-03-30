@@ -462,6 +462,7 @@ typedef struct {
 uint32_t ung_parse_kv_file(const char* data, size_t size, ung_kv_pair* pairs, size_t max_num_pairs);
 
 bool ung_parse_float(ung_string str, float* ptr, size_t num);
+bool ung_parse_int(ung_string str, int64_t* ptr, size_t num);
 
 // Returns platform file modification time, units are platform-dependent (both rate and epoch).
 // You should only compare values with values returned from the same function earlier (i.e. check if

@@ -5,6 +5,7 @@
 
 #include "state.hpp"
 #include "types.hpp"
+#include "ung.h"
 
 namespace ung::files {
 struct Watch {
@@ -153,7 +154,8 @@ static bool is_skip_char(char c)
     return c == ' ' || c == '\t' || c == ',';
 }
 
-EXPORT bool ung_parse_float(ung_string str, float* fptr, usize num)
+template <typename T>
+bool parse(ung_string str, T* ptr, usize num)
 {
     size_t cursor = 0;
     for (usize n = 0; n < num; ++n) {
@@ -161,14 +163,14 @@ EXPORT bool ung_parse_float(ung_string str, float* fptr, usize num)
             return false;
         }
 
-        const auto [ptr, ec]
-            = std::from_chars(str.data + cursor, str.data + str.length - cursor, fptr[n]);
+        const auto [p, ec]
+            = std::from_chars(str.data + cursor, str.data + str.length - cursor, ptr[n]);
         if (ec != std::errc()) {
             return false;
         }
 
-        assert(ptr >= str.data);
-        const auto val_len = (size_t)(ptr - (str.data + cursor));
+        assert(p >= str.data);
+        const auto val_len = (size_t)(p - (str.data + cursor));
         assert(val_len <= str.length);
         cursor += val_len;
 
@@ -177,6 +179,16 @@ EXPORT bool ung_parse_float(ung_string str, float* fptr, usize num)
         }
     }
     return true;
+}
+
+EXPORT bool ung_parse_float(ung_string str, float* ptr, usize num)
+{
+  return parse(str, ptr, num);
+}
+
+EXPORT bool ung_parse_int(ung_string str, int64_t* ptr, usize num)
+{
+    return parse(str, ptr, num);
 }
 
 EXPORT ung_file_watch_id ung_file_watch_create(
