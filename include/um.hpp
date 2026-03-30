@@ -16,6 +16,11 @@ using mat = ::um_mat;
     return um_exp(x);
 }
 
+[[nodiscard]] inline float log(float x) noexcept
+{
+    return um_log(x);
+}
+
 [[nodiscard]] inline float pow(float x, float y) noexcept
 {
     return um_pow(x, y);

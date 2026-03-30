@@ -15,6 +15,11 @@ EXPORT float um_exp(float x)
     return expf(x);
 }
 
+EXPORT float um_log(float x)
+{
+    return logf(x);
+}
+
 EXPORT float um_pow(float x, float y)
 {
     return powf(x, y);

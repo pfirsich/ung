@@ -11,6 +11,7 @@ extern "C" {
 
 // math.h took > 70% of my compile time, so I put some common functions in here
 float um_exp(float x);
+float um_log(float x);
 float um_pow(float x, float y);
 float um_sin(float x);
 float um_cos(float x);
