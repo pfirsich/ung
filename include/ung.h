@@ -205,6 +205,7 @@ typedef struct {
     uint64_t* keys;
     uint32_t capacity;
     uint32_t free_list_head;
+    uint32_t num_alive;
 } ung_slotmap;
 
 // set keys and capacity before init

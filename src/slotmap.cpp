@@ -35,6 +35,7 @@ EXPORT void ung_slotmap_init(ung_slotmap* s)
         s->keys[i] = FreeMask | make_key(i + 1, 1);
     }
     s->free_list_head = 0;
+    s->num_alive = 0;
 }
 
 EXPORT uint64_t ung_slotmap_insert(ung_slotmap* s, uint32_t* oidx)
@@ -50,6 +51,7 @@ EXPORT uint64_t ung_slotmap_insert(ung_slotmap* s, uint32_t* oidx)
     const auto gen = ung_slotmap_get_generation(s->keys[idx]);
     s->keys[idx] = make_key(idx, gen);
     *oidx = idx;
+    s->num_alive++;
     return s->keys[idx];
 }
 
@@ -89,6 +91,7 @@ EXPORT bool ung_slotmap_remove(ung_slotmap* s, uint64_t key)
     assert(s->free_list_head <= s->capacity); // capacity is allowed if slotmap is now empty
     s->keys[idx] = FreeMask | make_key(s->free_list_head, gen + 1);
     s->free_list_head = idx;
+    s->num_alive--;
     return true;
 }
 }
