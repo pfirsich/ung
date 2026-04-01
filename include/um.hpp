@@ -322,6 +322,11 @@ inline void to_ptr(vec4 v, float xyzw[3]) noexcept
     return um_quat_from_axis_angle(axis, angle);
 }
 
+[[nodiscard]] inline quat make_quat(vec3 to, vec3 from = { 0.0f, 0.0f, 1.0f }) noexcept
+{
+    return um_quat_align(to, from);
+}
+
 inline void to_ptr(quat v, float xyzw[3]) noexcept
 {
     um_quat_to_ptr(v, xyzw);
@@ -387,6 +392,11 @@ inline void to_ptr(um_mat m, float p[16])
 [[nodiscard]] inline mat rotate(vec3 axis, rad angle) noexcept
 {
     return um_mat_rotate(axis, angle);
+}
+
+[[nodiscard]] inline mat rotate_align(vec3 to, vec3 from = { 0.0f, 0.0f, 1.0f }) noexcept
+{
+    return um_mat_rotate_align(to, from);
 }
 
 [[nodiscard]] inline mat translate(vec3 t) noexcept

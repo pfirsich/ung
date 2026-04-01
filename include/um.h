@@ -108,6 +108,7 @@ void um_quat_to_ptr(um_quat q, float xyzw[4]);
 um_quat um_quat_identity();
 um_quat um_quat_from_matrix(um_mat m);
 um_quat um_quat_from_axis_angle(um_vec3 axis, um_rad angle);
+um_quat um_quat_align(um_vec3 to, um_vec3 from);
 
 // Unary
 float um_quat_len(um_quat q);
@@ -128,6 +129,7 @@ void um_mat_to_ptr(um_mat m, float p[16]);
 um_mat um_mat_identity();
 um_mat um_mat_scale(um_vec3 v);
 um_mat um_mat_rotate(um_vec3 axis, um_rad angle);
+um_mat um_mat_rotate_align(um_vec3 to, um_vec3 from);
 um_mat um_mat_translate(um_vec3 v);
 um_mat um_mat_transform(um_vec3 translation, um_quat rotation, um_vec3 scale);
 um_mat um_mat_ortho(float left, float right, float bottom, float top, float znear, float zfar);

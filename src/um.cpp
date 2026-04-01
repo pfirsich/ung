@@ -4,6 +4,10 @@
 #include <math.h>
 #include <stdlib.h>
 
+#include <um.hpp>
+
+using namespace um;
+
 #if defined(WIN32)
 #define EXPORT extern "C" __declspec(dllexport)
 #else
@@ -72,7 +76,7 @@ EXPORT float um_absf(float x)
 
 EXPORT int um_absi(int x)
 {
-    return abs(x);
+    return std::abs(x);
 }
 
 EXPORT float um_fmod(float x, float y)
@@ -382,6 +386,27 @@ EXPORT um_quat um_quat_from_axis_angle(um_vec3 axis, um_rad angle)
     };
 }
 
+// https://iquilezles.org/articles/noacos/
+EXPORT um_quat um_quat_align(um_vec3 to, um_vec3 from)
+{
+    from = normalized(from);
+    to = normalized(to);
+
+    const auto d = dot(from, to);
+
+    // from and to are collinear, pick any orthogonal axis
+    if (d < -0.999999f) {
+        // if from is not too close to the z axis, cross with it
+        auto axis = um::abs(from.z) < 0.99f ? cross(from, vec3(0.0f, 0.0f, 1.0f))
+                                            : cross(from, vec3(0.0f, 1.0f, 0.0f));
+        axis = normalized(axis);
+        return quat { axis.x, axis.y, axis.z, 0.0f };
+    }
+
+    const auto axis = cross(from, to);
+    return normalized(quat { axis.x, axis.y, axis.z, 1.0f + d });
+}
+
 EXPORT um_quat um_quat_slerp(um_quat a, um_quat b, float t)
 {
     // Calculate angle between quaternions
@@ -485,6 +510,11 @@ EXPORT um_mat um_mat_scale(um_vec3 v)
 EXPORT um_mat um_mat_rotate(um_vec3 axis, um_rad angle)
 {
     return um_mat_from_quat(um_quat_from_axis_angle(axis, angle));
+}
+
+EXPORT um_mat um_mat_rotate_align(um_vec3 to, um_vec3 from)
+{
+    return um_mat_from_quat(um_quat_align(to, from));
 }
 
 EXPORT um_mat um_mat_from_quat(um_quat q)
