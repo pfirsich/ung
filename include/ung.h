@@ -99,7 +99,7 @@ typedef struct {
 typedef enum {
     UNG_FULLSCREEN_MODE_DEFAULT = 0,
     UNG_FULLSCREEN_MODE_WINDOWED,
-    UNG_FULLSCREEN_MODE_DESKTOP_FULLSCREEN,
+    UNG_FULLSCREEN_MODE_DESKTOP_FULLSCREEN, // width and height is ignored, cover the whole screen
     UNG_FULLSCREEN_MODE_FULLSCREEN,
 } ung_fullscreen_mode;
 
