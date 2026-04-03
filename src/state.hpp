@@ -36,8 +36,8 @@ struct UTransform {
 struct TextureReloadCtx {
     ung_texture_id texture;
     Array<char> path;
-    bool flip_y;
-    mugfx_texture_create_params params;
+    ung_texture_type type;
+    ung_texture_load_params params;
 };
 
 struct Texture {

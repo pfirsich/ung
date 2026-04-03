@@ -37,7 +37,8 @@ struct Game {
             "examples/assets/hello_game.frag",
             { .mugfx = { .cull_face = MUGFX_CULL_FACE_MODE_NONE } });
 
-        const auto texture = ung_texture_load("examples/assets/checkerboard.png", false, {});
+        const auto texture
+            = ung_texture_load("examples/assets/checkerboard.png", UNG_TEXTURE_COLOR, {});
         ung_material_set_texture(material, 0, texture);
 
         geometry = ung_geometry_load("examples/assets/Wasp.obj");
@@ -66,8 +67,7 @@ struct Game {
                   .cull_face = MUGFX_CULL_FACE_MODE_NONE,
             },
         });
-        const auto sprite_texture = ung_texture_load("examples/assets/checkerboard.png", false, {});
-        ung_material_set_texture(sprite_material, 0, sprite_texture);
+        ung_material_set_texture(sprite_material, 0, texture);
 
         font
             = ung_font_load_ttf("examples/assets/NotoSans.ttf", { .size = 50, .atlas_size = 1024 });
@@ -91,8 +91,8 @@ struct Game {
 
         pfx_renderer.init(smoke_particles.size());
 
-        const auto smoke
-            = ung_texture_load("examples/assets/smoke.png", true, { .generate_mipmaps = true });
+        const auto smoke = ung_texture_load("examples/assets/smoke.png", UNG_TEXTURE_COLOR,
+            { .flip_y = true, .mugfx = { .generate_mipmaps = true } });
 
         pfx_smoke.buffer.particles = smoke_particles;
         pfx_smoke.draw_data.init(smoke_particles.size(), "pasta/pfx/pfx.vert", "pasta/pfx/pfx.frag",

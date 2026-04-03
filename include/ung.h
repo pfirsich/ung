@@ -111,7 +111,7 @@ typedef struct {
     ung_fullscreen_mode fullscreen_mode;
     uint8_t msaa_samples;
     bool vsync;
-    bool srgb;
+    mugfx_color_space backbuffer_color_space;
 } ung_window_mode;
 
 /*
@@ -380,11 +380,21 @@ void ung_texture_recreate(ung_texture_id texture, mugfx_texture_create_params pa
 void ung_texture_destroy(ung_texture_id texture);
 ung_dimensions ung_texture_get_size(ung_texture_id texture);
 
-ung_texture_id ung_texture_load(const char* path, bool flip_y, mugfx_texture_create_params params);
+typedef enum {
+    UNG_TEXTURE_INVALID = 0,
+    UNG_TEXTURE_COLOR, // sRGB
+    UNG_TEXTURE_DATA, // linear
+} ung_texture_type;
+
+typedef struct {
+    bool flip_y;
+    mugfx_texture_create_params mugfx;
+} ung_texture_load_params;
+
+ung_texture_id ung_texture_load(
+    const char* path, ung_texture_type type, ung_texture_load_params params);
 ung_texture_id ung_texture_load_buffer(
-    const void* buffer, size_t size, bool flip_y, mugfx_texture_create_params params);
-bool ung_texture_reload(
-    ung_texture_id texture, const char* path, bool flip_y, mugfx_texture_create_params params);
+    const void* buffer, size_t size, ung_texture_type type, ung_texture_load_params params);
 
 /*
  * Materials
@@ -836,9 +846,8 @@ typedef struct {
     uint32_t flags; // ung_model_load_flags
 
     // applied if UNG_MODEL_LOAD_MATERIALS is given
-    mugfx_texture_create_params texture_params;
+    ung_texture_load_params texture_params;
     uint32_t material_flags; // ung_model_load_material_flags
-    bool texture_flip_y;
 
     // If names are provided, result.animations has exactly this many entries in this order.
     // Missing names will have animation id {0}.
@@ -892,7 +901,7 @@ ung_animation_id ung_animation_from_cgltf(const cgltf_animation* anim, const cgl
 
 typedef struct cgltf_texture_view cgltf_texture_view;
 ung_texture_id ung_texture_from_cgltf(const char* gltf_path, const cgltf_texture_view* tex_view,
-    bool flip_y, mugfx_texture_create_params params);
+    ung_texture_type type, ung_texture_load_params params);
 #endif
 
 /*

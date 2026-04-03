@@ -596,7 +596,7 @@ const char* get_path(std::string_view gltf_path, std::string_view path)
 }
 
 EXPORT ung_texture_id ung_texture_from_cgltf(const char* gltf_path,
-    const cgltf_texture_view* tex_view, bool flip_y, mugfx_texture_create_params params)
+    const cgltf_texture_view* tex_view, ung_texture_type type, ung_texture_load_params params)
 {
     const auto texture = tex_view->texture;
     if (!texture) {
@@ -610,9 +610,9 @@ EXPORT ung_texture_id ung_texture_from_cgltf(const char* gltf_path,
     }
     const auto bv = image->buffer_view;
     if (bv) {
-        return ung_texture_load_buffer(cgltf_buffer_view_data(bv), bv->size, flip_y, params);
+        return ung_texture_load_buffer(cgltf_buffer_view_data(bv), bv->size, type, params);
     } else if (image->uri) {
-        return ung_texture_load(get_path(gltf_path, image->uri), flip_y, params);
+        return ung_texture_load(get_path(gltf_path, image->uri), type, params);
     } else {
         ung_panicf("No image buffer view");
     }
@@ -647,6 +647,17 @@ const char* get_texture_scope(uint32_t flag)
         return "occlusion_texture";
     default:
         return "invalid";
+    }
+}
+
+ung_texture_type get_texture_type(uint32_t flag)
+{
+    switch (flag) {
+    case UNG_MODEL_MATERIAL_TEXTURE_BASE_COLOR:
+    case UNG_MODEL_MATERIAL_TEXTURE_EMISSIVE:
+        return UNG_TEXTURE_COLOR;
+    default:
+        return UNG_TEXTURE_DATA;
     }
 }
 
@@ -715,7 +726,7 @@ ung_model_load_result model_load_gltf(ung_model_load_params params)
         if (params.material_flags & flag) {
             LoadProfScope lpscope(get_texture_scope(flag));
             return ung_texture_from_cgltf(
-                gltf_path, &tex, params.texture_flip_y, params.texture_params);
+                gltf_path, &tex, get_texture_type(flag), params.texture_params);
         } else {
             return { 0 };
         }

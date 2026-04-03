@@ -42,7 +42,8 @@ struct Game {
                     .mugfx = { .cull_face = MUGFX_CULL_FACE_MODE_NONE },
                     .dynamic_data_size = 64 * 16 * sizeof(float),
                 });
-        const auto texture = ung_texture_load("examples/assets/checkerboard.png", false, {});
+        const auto texture
+            = ung_texture_load("examples/assets/checkerboard.png", UNG_TEXTURE_COLOR, {});
         ung_material_set_texture(material, 0, texture);
 
         trafo = ung_transform_create();

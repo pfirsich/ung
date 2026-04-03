@@ -223,7 +223,8 @@ EXPORT void ung_init(ung_init_params params)
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 0);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-    SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, params.window_mode.srgb ? 1 : 0);
+    SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE,
+        params.window_mode.backbuffer_color_space == MUGFX_COLOR_SPACE_SRGB ? 1 : 0);
     if (params.window_mode.msaa_samples) {
         SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
         SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, params.window_mode.msaa_samples);
@@ -267,6 +268,8 @@ EXPORT void ung_init(ung_init_params params)
     if (!params.mugfx.allocator) {
         params.mugfx.allocator = &mugfx_alloc;
     }
+
+    params.mugfx.backbuffer_color_space = params.window_mode.backbuffer_color_space;
 
     params.max_num_textures = params.max_num_textures ? params.max_num_textures : 128;
     params.mugfx.max_num_textures
@@ -736,15 +739,22 @@ EXPORT void ung_texture_recreate(ung_texture_id texture_id, mugfx_texture_create
     texture->texture = t;
 }
 
-static mugfx_texture_id create_texture(
-    const void* data, int width, int height, int comp, mugfx_texture_create_params& params)
+static mugfx_texture_id create_texture(const void* data, int width, int height, int comp,
+    ung_texture_type type, mugfx_texture_create_params& params)
 {
-    static constexpr mugfx_pixel_format pixel_formats[] {
+    static constexpr mugfx_pixel_format pixel_formats_linear[] {
         MUGFX_PIXEL_FORMAT_DEFAULT,
         MUGFX_PIXEL_FORMAT_R8,
         MUGFX_PIXEL_FORMAT_RG8,
         MUGFX_PIXEL_FORMAT_RGB8,
         MUGFX_PIXEL_FORMAT_RGBA8,
+    };
+    static constexpr mugfx_pixel_format pixel_formats_srgb[] {
+        MUGFX_PIXEL_FORMAT_DEFAULT,
+        MUGFX_PIXEL_FORMAT_SRGB8,
+        MUGFX_PIXEL_FORMAT_SRGB8,
+        MUGFX_PIXEL_FORMAT_SRGB8,
+        MUGFX_PIXEL_FORMAT_SRGB8_ALPHA8,
     };
     LoadProfScope lpscope("upload");
     assert(width > 0 && height > 0 && comp > 0);
@@ -753,9 +763,14 @@ static mugfx_texture_id create_texture(
     params.height = (u32)height;
     params.data = { data, (usize)(width * height * comp) };
     if (params.format == MUGFX_PIXEL_FORMAT_DEFAULT) {
-        params.format = pixel_formats[comp];
+        if (type == UNG_TEXTURE_COLOR) {
+            assert(comp >= 3); // TODO: Implement expansion (R -> RGB, LA -> RGBA)
+            params.format = pixel_formats_srgb[comp];
+        } else if (type == UNG_TEXTURE_DATA) {
+            params.format = pixel_formats_linear[comp];
+        }
     }
-    params.data_format = pixel_formats[comp];
+    params.data_format = pixel_formats_linear[comp];
     return mugfx_texture_create(params);
 }
 
@@ -922,7 +937,7 @@ TexDecode decode_texture(const u8* data, usize size, bool flip_y)
 }
 
 static mugfx_texture_id load_texture(
-    const char* path, bool flip_y, mugfx_texture_create_params& params)
+    const char* path, ung_texture_type type, ung_texture_load_params& params)
 {
     LoadProfScope lpscope(path);
     usize size = 0;
@@ -934,23 +949,23 @@ static mugfx_texture_id load_texture(
         return { 0 };
     }
 
-    const auto decoded = decode_texture((const u8*)data, size, flip_y);
+    const auto decoded = decode_texture((const u8*)data, size, params.flip_y);
     ung_free_file_data(data, size);
     if (!decoded.decoded) {
         return { 0 };
     }
 
-    params.debug_label = path;
+    params.mugfx.debug_label = path;
     const auto texture = create_texture(
-        decoded.decoded, decoded.width, decoded.height, decoded.components, params);
+        decoded.decoded, decoded.width, decoded.height, decoded.components, type, params.mugfx);
 
     return texture;
 }
 
 static bool reload_texture(
-    Texture* texture, const char* path, bool flip_y, mugfx_texture_create_params& params)
+    Texture* texture, const char* path, ung_texture_type type, ung_texture_load_params& params)
 {
-    const auto tex = load_texture(path, flip_y, params);
+    const auto tex = load_texture(path, type, params);
     if (!tex.id) {
         return false;
     }
@@ -965,13 +980,14 @@ static bool texture_reload_cb(void* userdata)
     auto ctx = (TextureReloadCtx*)userdata;
     std::fprintf(stderr, "Reloading texture %#lx: %s\n", ctx->texture.id, ctx->path.data);
     auto texture = get(state->textures, ctx->texture.id);
-    return reload_texture(texture, ctx->path.data, ctx->flip_y, ctx->params);
+    return reload_texture(texture, ctx->path.data, ctx->type, ctx->params);
 }
 
 EXPORT ung_texture_id ung_texture_load(
-    const char* path, bool flip_y, mugfx_texture_create_params params)
+    const char* path, ung_texture_type type, ung_texture_load_params params)
 {
-    const auto t = load_texture(path, flip_y, params);
+    assert(type);
+    const auto t = load_texture(path, type, params);
     if (!t.id) {
         ung_panicf("Error loading texture '%s'", path);
     }
@@ -983,7 +999,7 @@ EXPORT ung_texture_id ung_texture_load(
         texture->reload_ctx = allocate<TextureReloadCtx>();
         texture->reload_ctx->texture = { id };
         assign(texture->reload_ctx->path, path);
-        texture->reload_ctx->flip_y = flip_y;
+        texture->reload_ctx->type = type;
         texture->reload_ctx->params = params;
         texture->resource = ung_resource_create(texture_reload_cb, texture->reload_ctx);
         ung_resource_set_deps(texture->resource, &path, 1, nullptr, 0);
@@ -993,16 +1009,16 @@ EXPORT ung_texture_id ung_texture_load(
 }
 
 EXPORT ung_texture_id ung_texture_load_buffer(
-    const void* buffer, size_t size, bool flip_y, mugfx_texture_create_params params)
+    const void* buffer, size_t size, ung_texture_type type, ung_texture_load_params params)
 {
-
-    const auto decoded = decode_texture((const u8*)buffer, size, flip_y);
+    assert(type);
+    const auto decoded = decode_texture((const u8*)buffer, size, params.flip_y);
     if (!decoded.decoded) {
         assert(decoded.error);
         ung_panicf("Error loading texture: %s", decoded.error);
     }
     const auto tex = create_texture(
-        decoded.decoded, decoded.width, decoded.height, decoded.components, params);
+        decoded.decoded, decoded.width, decoded.height, decoded.components, type, params.mugfx);
 
     if (!tex.id) {
         ung_panicf("Error loading texture");
@@ -1011,22 +1027,6 @@ EXPORT ung_texture_id ung_texture_load_buffer(
     const auto [id, texture] = state->textures.insert();
     texture->texture = tex;
     return { id };
-}
-
-EXPORT bool ung_texture_reload(
-    ung_texture_id texture_id, const char* path, bool flip_y, mugfx_texture_create_params params)
-{
-    const auto texture = get(state->textures, texture_id.id);
-
-    if (texture->reload_ctx) {
-        texture->reload_ctx->path.free();
-        assign(texture->reload_ctx->path, path);
-        texture->reload_ctx->flip_y = flip_y;
-        texture->reload_ctx->params = params;
-        ung_resource_set_deps(texture->resource, &path, 1, nullptr, 0);
-    }
-
-    return reload_texture(texture, path, flip_y, params);
 }
 
 EXPORT void ung_texture_destroy(ung_texture_id texture_id)
