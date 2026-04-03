@@ -752,7 +752,9 @@ static mugfx_texture_id create_texture(
     params.width = (u32)width;
     params.height = (u32)height;
     params.data = { data, (usize)(width * height * comp) };
-    params.format = pixel_formats[comp];
+    if (params.format == MUGFX_PIXEL_FORMAT_DEFAULT) {
+        params.format = pixel_formats[comp];
+    }
     params.data_format = pixel_formats[comp];
     return mugfx_texture_create(params);
 }
