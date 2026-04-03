@@ -36,14 +36,21 @@ set(UNG_SOURCES
   src/animation.cpp
   src/allocator.cpp
   src/files.cpp
+  src/geometry.cpp
   src/input.cpp
   src/load-profiler.cpp
+  src/material.cpp
   src/model.cpp
   src/random.cpp
+  src/render.cpp
+  src/shader.cpp
   src/slotmap.cpp
   src/sound.cpp
   src/sprite_renderer.cpp
+  src/text.cpp
+  src/texture.cpp
   src/transform.cpp
+  src/types.cpp
 )
 
 if(UNG_CGLTF)

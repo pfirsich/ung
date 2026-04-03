@@ -257,4 +257,7 @@ struct LoadProfScope {
     LoadProfScope(const LoadProfScope&) = delete;
     LoadProfScope& operator=(const LoadProfScope&) = delete;
 };
+
+bool is_same_binding(const mugfx_draw_binding& a, const mugfx_draw_binding& b);
+
 }

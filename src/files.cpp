@@ -3,9 +3,9 @@
 #include <cstdlib>
 #include <string_view>
 
+#include <SDL.h>
+
 #include "state.hpp"
-#include "types.hpp"
-#include "ung.h"
 
 namespace ung::files {
 struct Watch {
@@ -87,6 +87,20 @@ void begin_frame()
     }
 
     state->next_file_watch_check = ung_get_time() + 0.5f;
+}
+
+EXPORT char* ung_read_whole_file(const char* path, usize* size, bool panic_on_error)
+{
+    auto data = (char*)SDL_LoadFile(path, size);
+    if (panic_on_error && !data) {
+        ung_panicf("Error reading file '%s': %s", path, SDL_GetError());
+    }
+    return data;
+}
+
+EXPORT void ung_free_file_data(char* data, usize)
+{
+    SDL_free(data);
 }
 
 static std::string_view trim(std::string_view str)
@@ -183,7 +197,7 @@ bool parse(ung_string str, T* ptr, usize num)
 
 EXPORT bool ung_parse_float(ung_string str, float* ptr, usize num)
 {
-  return parse(str, ptr, num);
+    return parse(str, ptr, num);
 }
 
 EXPORT bool ung_parse_int(ung_string str, int64_t* ptr, usize num)
