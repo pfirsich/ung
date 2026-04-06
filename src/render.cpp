@@ -132,8 +132,8 @@ EXPORT void ung_camera_get_projection_matrix(ung_camera_id camera, float matrix[
 void begin_frame()
 {
     mugfx_begin_frame();
-    state->u_frame.time.x = 0.0f;
-    state->u_frame.time.y = 0.0f;
+    state->u_frame.time.x = ung_get_time();
+    state->u_frame.time.y = (float)state->frame_counter;
     mugfx_uniform_data_update(state->frame_data);
 }
 

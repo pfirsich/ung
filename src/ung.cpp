@@ -408,6 +408,7 @@ EXPORT bool ung_poll_events()
 
 EXPORT void ung_begin_frame()
 {
+    state->frame_counter++;
     files::begin_frame();
     render::begin_frame();
     sound::begin_frame();

@@ -169,6 +169,7 @@ struct State {
 
     bool auto_reload;
     bool load_cache;
+    u64 frame_counter;
 
     // Load Profiling
     Vector<LoadProfilerZone> prof_zones;
