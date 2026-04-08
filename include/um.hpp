@@ -128,14 +128,15 @@ template <typename T>
     return um_clamp(v, lo, hi);
 }
 
-[[nodiscard]] inline rad to_rad(deg deg) noexcept
+[[nodiscard]] constexpr rad to_rad(deg deg) noexcept
 {
-    return um_to_rad(deg);
+    // don't call um_to_rad so we can be constexpr
+    return { deg.v * (UM_PI / 180.0f) };
 }
 
-[[nodiscard]] inline deg to_deg(rad rad) noexcept
+[[nodiscard]] constexpr deg to_deg(rad rad) noexcept
 {
-    return um_to_deg(rad);
+    return { rad.v * (180.0f / UM_PI) };
 }
 
 class angle {
@@ -144,11 +145,11 @@ class angle {
     float deg_;
 
 public:
-    angle(const um::deg& d) : deg_(d.v) { }
-    angle(const um::rad& r) : deg_(to_deg(r).v) { }
+    constexpr angle(const um::deg& d) : deg_(d.v) { }
+    constexpr angle(const um::rad& r) : deg_(to_deg(r).v) { }
 
-    float deg() const { return deg_; }
-    float rad() const { return to_rad({ deg_ }).v; }
+    constexpr float deg() const { return deg_; }
+    constexpr float rad() const { return to_rad({ deg_ }).v; }
 };
 
 // vec3
