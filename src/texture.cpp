@@ -87,14 +87,44 @@ char* fmt_hex(char* buf, const void* data, usize size)
     return buf;
 }
 
-void format_texture_cache_path(char* pathbuf, u64 hash, bool flip_y)
+void format_texture_cache_path(char* pathbuf, const void* data, usize size, bool flip_y)
 {
+    const auto hash = ung_fnv1a(data, size);
     pathbuf = append(pathbuf, ".ungcache/");
     pathbuf = fmt_hex(pathbuf, &hash, sizeof(hash));
     if (flip_y) {
         pathbuf = append(pathbuf, "-flip");
     }
     append(pathbuf, "-v1.tex");
+}
+
+const char* format_texture_cache_path(const void* data, usize size, bool flip_y)
+{
+    static char path_buf[128];
+    format_texture_cache_path(path_buf, data, size, flip_y);
+    return path_buf;
+}
+
+void format_texture_cache_path(char* pathbuf, const char* path, bool flip_y)
+{
+    const auto path_hash = ung_fnv1a(path, strlen(path));
+    const auto mtime = ung_file_get_mtime(path);
+
+    pathbuf = append(pathbuf, ".ungcache/");
+    pathbuf = fmt_hex(pathbuf, &path_hash, sizeof(path_hash));
+    append(pathbuf, "-");
+    pathbuf = fmt_hex(pathbuf, &mtime, sizeof(mtime));
+    if (flip_y) {
+        pathbuf = append(pathbuf, "-flip");
+    }
+    append(pathbuf, "-v1.tex");
+}
+
+const char* format_texture_cache_path(const char* path, bool flip_y)
+{
+    static char path_buf[128];
+    format_texture_cache_path(path_buf, path, flip_y);
+    return path_buf;
 }
 
 struct TexDecode {
@@ -187,15 +217,12 @@ TexDecode load_cached_texture(const char* cache_path)
     return ret;
 }
 
-TexDecode decode_texture(const u8* data, usize size, bool flip_y)
+TexDecode decode_texture(const u8* data, usize size, const char* cache_path, bool flip_y)
 {
     LoadProfScope lpscope("decode");
 #ifdef UNG_STB_IMAGE
-    char cache_path[128];
-    if (state->load_cache) {
+    if (cache_path) {
         LoadProfScope s("load cache");
-        format_texture_cache_path(cache_path, ung_fnv1a(data, size), flip_y);
-
         auto cached = load_cached_texture(cache_path);
 
         if (cached.data) {
@@ -243,7 +270,13 @@ static mugfx_texture_id load_texture(
         return { 0 };
     }
 
-    const auto decoded = decode_texture((const u8*)data, size, params.flip_y);
+    const char* cache_path = nullptr;
+    if (state->load_cache) {
+        ung_load_profiler_push("cachekey");
+        cache_path = format_texture_cache_path(path, params.flip_y);
+        ung_load_profiler_pop("cachekey");
+    }
+    const auto decoded = decode_texture((const u8*)data, size, cache_path, params.flip_y);
     ung_free_file_data(data, size);
     if (!decoded.decoded) {
         return { 0 };
@@ -306,7 +339,13 @@ EXPORT ung_texture_id ung_texture_load_buffer(
     const void* buffer, size_t size, ung_texture_type type, ung_texture_load_params params)
 {
     assert(type);
-    const auto decoded = decode_texture((const u8*)buffer, size, params.flip_y);
+    const char* cache_path = nullptr;
+    if (state->load_cache) {
+        ung_load_profiler_push("cachekey");
+        cache_path = format_texture_cache_path(buffer, size, params.flip_y);
+        ung_load_profiler_pop("cachekey");
+    }
+    const auto decoded = decode_texture((const u8*)buffer, size, cache_path, params.flip_y);
     if (!decoded.decoded) {
         assert(decoded.error);
         ung_panicf("Error loading texture: %s", decoded.error);
