@@ -58,6 +58,30 @@ namespace text {
     void shutdown();
 }
 
+static const char* default_sprite_vert = R"(
+layout (binding = 2, std140) uniform UngCamera {
+    mat4 view;
+    mat4 view_inv;
+    mat4 projection;
+    mat4 projection_inv;
+    mat4 view_projection;
+    mat4 view_projection_inv;
+};
+
+layout (location = 0) in vec2 a_position;
+layout (location = 1) in vec2 a_texcoord;
+layout (location = 2) in vec4 a_color;
+
+out vec2 vs_out_texcoord;
+out vec4 vs_out_color;
+
+void main() {
+    vs_out_texcoord = a_texcoord;
+    vs_out_color = a_color;
+    gl_Position = view_projection * vec4(a_position, 0.0, 1.0);
+}
+)";
+
 State* state = nullptr;
 
 static void update_window_metrics(bool update_constant_uniform_data)
@@ -215,6 +239,15 @@ EXPORT void ung_init(ung_init_params params)
 
     state->auto_reload = params.auto_reload;
     state->load_cache = params.load_cache;
+
+    state->default_sprite_vert = ung_shader_create({
+        .stage = MUGFX_SHADER_STAGE_VERTEX,
+        .source = default_sprite_vert,
+        .bindings = {
+            { .type = MUGFX_SHADER_BINDING_TYPE_UNIFORM, .binding = 2 },
+        },
+        .debug_label = "ung:default_sprite.vert",
+    });
 
     files::init(params);
     transform::init(params);

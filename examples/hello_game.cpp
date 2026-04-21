@@ -9,6 +9,7 @@
 struct Game {
     ung_camera_id camera;
     ung_material_id material;
+    ung_texture_id checkerboard;
     ung_geometry_id geometry;
     ung_transform_id trafo;
     um_rad cam_yaw = { 0.0f };
@@ -18,7 +19,6 @@ struct Game {
     ung_geometry_id level;
     ung_transform_id level_trafo;
     ung_camera_id ui_camera;
-    ung_material_id sprite_material;
     ung_font_id font;
     ung_text_layout_id layout;
     ung_sound_source_id shoot_sound;
@@ -37,9 +37,8 @@ struct Game {
             "examples/assets/hello_game.frag",
             { .mugfx = { .cull_face = MUGFX_CULL_FACE_MODE_NONE } });
 
-        const auto texture
-            = ung_texture_load("examples/assets/checkerboard.png", UNG_TEXTURE_COLOR, {});
-        ung_material_set_texture(material, 0, texture);
+        checkerboard = ung_texture_load("examples/assets/checkerboard.png", UNG_TEXTURE_COLOR, {});
+        ung_material_set_texture(material, 0, checkerboard);
 
         geometry = ung_geometry_load("examples/assets/Wasp.obj");
         // geometry = ung_geometry_box(1.0f, 1.0f, 1.0f);
@@ -59,15 +58,6 @@ struct Game {
 
         ui_camera = ung_camera_create();
         ung_camera_set_orthographic_fullscreen(ui_camera);
-
-        sprite_material = ung_material_load("examples/assets/sprite.vert", "examples/assets/sprite.frag", {
-            .mugfx = {
-                  .depth_func = MUGFX_DEPTH_FUNC_ALWAYS,
-                  .write_mask = MUGFX_WRITE_MASK_RGBA,
-                  .cull_face = MUGFX_CULL_FACE_MODE_NONE,
-            },
-        });
-        ung_material_set_texture(sprite_material, 0, texture);
 
         font
             = ung_font_load_ttf("examples/assets/NotoSans.ttf", { .size = 50, .atlas_size = 1024 });
@@ -171,8 +161,8 @@ struct Game {
         ung_end_pass();
 
         ung_begin_pass(MUGFX_RENDER_TARGET_BACKBUFFER, ui_camera);
-        ung_sprite_add(sprite_material, { .x = 20.0f, .y = 160.0f }, UNG_REGION_FULL,
-            { 0.4f, 0.4f, 0.4f, 1.0f });
+        ung_sprite_add(
+            checkerboard, { .x = 20.0f, .y = 160.0f }, UNG_REGION_FULL, { 0.4f, 0.4f, 0.4f, 1.0f });
         ung_font_draw(font, UNG_LITERAL("Hallo, Jana! Guck dir mal den Text an :)"), 20.0f, 40.0f,
             UNG_COLOR_WHITE);
         ung_text_layout_draw(layout, {}, 20.0f, 200.0f);

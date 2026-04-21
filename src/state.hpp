@@ -109,7 +109,6 @@ struct Camera {
 struct Font {
     utxt_font* font;
     ung_texture_id texture;
-    ung_material_id material;
 };
 
 struct TextLayoutRun {
@@ -167,9 +166,15 @@ struct State {
     u32 fb_width;
     u32 fb_height;
 
+    // Text
+    ung_shader_id default_text_frag;
+    ung_material_id default_text_mat;
+
+    // Other
     bool auto_reload;
     bool load_cache;
     u64 frame_counter;
+    ung_shader_id default_sprite_vert;
 
     // Load Profiling
     Vector<LoadProfilerZone> prof_zones;

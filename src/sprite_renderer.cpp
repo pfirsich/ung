@@ -6,6 +6,19 @@
 #include "types.hpp"
 
 namespace ung::sprite_renderer {
+static const char* default_sprite_frag = R"(
+layout(binding = 0) uniform sampler2D u_base;
+
+in vec2 vs_out_texcoord;
+in vec4 vs_out_color;
+
+out vec4 frag_color;
+
+void main() {
+    frag_color = vs_out_color * texture(u_base, vs_out_texcoord);
+}
+)";
+
 struct Vertex {
     float x, y;
     uint16_t u, v;
@@ -23,8 +36,11 @@ struct State {
     u32 vertex_offset;
     u32 index_offset;
     ung_material_id current_material;
+    ung_texture_id current_texture;
     u32 current_tex_width;
     u32 current_tex_height;
+    ung_shader_id default_frag;
+    ung_material_id default_material;
 };
 
 State* state = nullptr;
@@ -67,6 +83,28 @@ void init(ung_init_params params)
         .index_buffer = state->index_buffer,
         .index_type = MUGFX_INDEX_TYPE_U16,
     });
+
+    state->default_frag = ung_shader_create({
+        .stage = MUGFX_SHADER_STAGE_FRAGMENT,
+        .source = default_sprite_frag,
+        .bindings = {
+            { .type = MUGFX_SHADER_BINDING_TYPE_SAMPLER, .binding = 0 },
+        },
+        .debug_label = "ung:default_sprite.frag",
+    });
+
+    state->default_material = ung_material_create({
+        .mugfx = {
+            .depth_func = MUGFX_DEPTH_FUNC_ALWAYS,
+            .write_mask = MUGFX_WRITE_MASK_RGBA,
+            .cull_face = MUGFX_CULL_FACE_MODE_NONE,
+            .src_blend = MUGFX_BLEND_FUNC_SRC_ALPHA,
+            .dst_blend = MUGFX_BLEND_FUNC_ONE_MINUS_SRC_ALPHA,
+        },
+        .vert = ung::state->default_sprite_vert,
+        .frag = state->default_frag,
+    });
+    state->current_material = state->default_material;
 }
 
 void shutdown()
@@ -85,24 +123,25 @@ void shutdown()
     state = nullptr;
 }
 
-static mugfx_texture_id get_texture(ung_material_id material, uint32_t binding)
-{
-    auto mat = get(ung::state->materials, material.id);
-    for (const auto& b : mat->bindings) {
-        if (b.type == MUGFX_BINDING_TYPE_TEXTURE && b.texture.binding == binding) {
-            return b.texture.id;
-        }
-    }
-    return { 0 };
-}
-
 EXPORT void ung_sprite_set_material(ung_material_id mat)
 {
+    if (!mat.id) {
+        mat = state->default_material;
+    }
     if (mat.id != state->current_material.id) {
         ung_sprite_flush();
         state->current_material = mat;
-        const auto tex = get_texture(mat, 0);
-        mugfx_texture_get_size(tex, &state->current_tex_width, &state->current_tex_height);
+    }
+}
+
+EXPORT void ung_sprite_set_texture(ung_texture_id tex)
+{
+    if (tex.id != state->current_texture.id) {
+        ung_sprite_flush();
+        state->current_texture = tex;
+        const auto [w, h] = ung_texture_get_size(tex);
+        state->current_tex_width = w;
+        state->current_tex_height = h;
     }
 }
 
@@ -184,12 +223,12 @@ static u16 add_vertex(
 }
 
 EXPORT void ung_sprite_add(
-    ung_material_id mat, ung_transform_2d transform, ung_texture_region texture, ung_color color)
+    ung_texture_id tex, ung_transform_2d transform, ung_texture_region texture, ung_color color)
 {
     transform.scale_x = transform.scale_x != 0.0f ? transform.scale_x : 1.0f;
     transform.scale_y = transform.scale_y != 0.0f ? transform.scale_y : 1.0f;
 
-    ung_sprite_set_material(mat);
+    ung_sprite_set_texture(tex);
 
     const auto tl = add_vertex({ 0.0f, 0.0f }, transform, texture, color);
     const auto bl = add_vertex({ 0.0f, 1.0f }, transform, texture, color);
@@ -207,17 +246,27 @@ EXPORT void ung_sprite_add(
 
 EXPORT void ung_sprite_flush()
 {
+    static mugfx_draw_binding binding = {
+        .type = MUGFX_BINDING_TYPE_TEXTURE,
+        .texture = { .binding = 0 },
+    };
     if (state->index_offset > 0) {
-        const auto geom = get(ung::state->geometries, state->geometry.id);
-        mugfx_buffer_update(state->vertex_buffer, 0,
-            { .data = state->vertices, .length = sizeof(Vertex) * state->vertex_offset });
-        mugfx_buffer_update(state->index_buffer, 0,
-            { .data = state->indices, .length = sizeof(u16) * state->index_offset });
-        mugfx_geometry_set_index_range(geom->geometry, 0, state->index_offset);
-        ung_draw(state->current_material, state->geometry, { 0 });
+        if (state->current_texture.id) {
+            const auto tex = ung::state->textures.find(state->current_texture.id);
+            assert(tex);
+            binding.texture.id = tex->texture;
+
+            const auto geom = get(ung::state->geometries, state->geometry.id);
+            mugfx_buffer_update(state->vertex_buffer, 0,
+                { .data = state->vertices, .length = sizeof(Vertex) * state->vertex_offset });
+            mugfx_buffer_update(state->index_buffer, 0,
+                { .data = state->indices, .length = sizeof(u16) * state->index_offset });
+            mugfx_geometry_set_index_range(geom->geometry, 0, state->index_offset);
+            ung_draw_ex(state->current_material, state->geometry, { 0 },
+                { .binding_overrides = &binding, .num_binding_overrides = 1 });
+        }
         state->vertex_offset = 0;
         state->index_offset = 0;
     }
 }
-
 }

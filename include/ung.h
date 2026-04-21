@@ -568,7 +568,8 @@ ung_geometry_id ung_geometry_sphere(float radius);
  */
 // I don't think multiple sprite renderers are very useful, so there is a singleton
 
-void ung_sprite_set_material(ung_material_id mat);
+void ung_sprite_set_material(ung_material_id mat); // {0} for default sprite material
+void ung_sprite_set_texture(ung_texture_id tex);
 uint16_t ung_sprite_add_vertex(float x, float y, float u, float v, ung_color color);
 void ung_sprite_add_index(uint16_t idx);
 
@@ -583,7 +584,7 @@ typedef struct {
 } ung_transform_2d;
 
 void ung_sprite_add(
-    ung_material_id mat, ung_transform_2d transform, ung_texture_region texture, ung_color color);
+    ung_texture_id tex, ung_transform_2d transform, ung_texture_region texture, ung_color color);
 
 void ung_sprite_flush();
 

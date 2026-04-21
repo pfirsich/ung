@@ -3,31 +3,6 @@
 #include <span>
 
 namespace ung::text {
-
-static const char* default_text_vert = R"(
-layout (binding = 2, std140) uniform UngCamera {
-    mat4 view;
-    mat4 view_inv;
-    mat4 projection;
-    mat4 projection_inv;
-    mat4 view_projection;
-    mat4 view_projection_inv;
-};
-
-layout (location = 0) in vec2 a_position;
-layout (location = 1) in vec2 a_texcoord;
-layout (location = 2) in vec4 a_color;
-
-out vec2 vs_out_texcoord;
-out vec4 vs_out_color;
-
-void main() {
-    vs_out_texcoord = a_texcoord;
-    vs_out_color = a_color;
-    gl_Position = view_projection * vec4(a_position, 0.0, 1.0);
-}
-)";
-
 static const char* default_text_frag = R"(
 layout(binding = 0) uniform sampler2D u_base;
 
@@ -46,22 +21,25 @@ void init(ung_init_params params)
     state->fonts.init(params.max_num_fonts ? params.max_num_fonts : 16);
     state->text_layouts.init(params.max_num_text_layouts ? params.max_num_text_layouts : 16);
 
-    state->text_vert_shader = ung_shader_create({
-        .stage = MUGFX_SHADER_STAGE_VERTEX,
-        .source = default_text_vert,
-        .bindings = {
-            { .type = MUGFX_SHADER_BINDING_TYPE_UNIFORM, .binding = 2 },
-        },
-        .debug_label = "ung:default_text.vert",
-    });
-
-    state->text_frag_shader = ung_shader_create({
+    state->default_text_frag = ung_shader_create({
         .stage = MUGFX_SHADER_STAGE_FRAGMENT,
         .source = default_text_frag,
         .bindings = {
             { .type = MUGFX_SHADER_BINDING_TYPE_SAMPLER, .binding = 0 },
         },
         .debug_label = "ung:default_text.frag",
+    });
+
+    state->default_text_mat = ung_material_create({
+        .mugfx = {
+            .depth_func = MUGFX_DEPTH_FUNC_ALWAYS,
+            .write_mask = MUGFX_WRITE_MASK_RGBA,
+            .cull_face = MUGFX_CULL_FACE_MODE_NONE,
+            .src_blend = MUGFX_BLEND_FUNC_SRC_ALPHA,
+            .dst_blend = MUGFX_BLEND_FUNC_ONE_MINUS_SRC_ALPHA,
+        },
+        .vert = state->default_sprite_vert,
+        .frag = state->default_text_frag,
     });
 }
 
@@ -88,23 +66,6 @@ void shutdown()
 static Font* get_font(u64 key)
 {
     return get(state->fonts, key);
-}
-
-static ung_material_id create_font_material(ung_texture_id texture)
-{
-    const auto material = ung_material_create({
-        .mugfx = {
-            .depth_func = MUGFX_DEPTH_FUNC_ALWAYS,
-            .write_mask = MUGFX_WRITE_MASK_RGBA,
-            .cull_face = MUGFX_CULL_FACE_MODE_NONE,
-            .src_blend = MUGFX_BLEND_FUNC_SRC_ALPHA,
-            .dst_blend = MUGFX_BLEND_FUNC_ONE_MINUS_SRC_ALPHA,
-        },
-        .vert = state->text_vert_shader,
-        .frag = state->text_frag_shader,
-    });
-    ung_material_set_texture(material, 0, texture);
-    return material;
 }
 
 static ung_font_id create_font(utxt_font* utxt_font, const char* debug_label)
@@ -136,7 +97,6 @@ static ung_font_id create_font(utxt_font* utxt_font, const char* debug_label)
         .data_format = MUGFX_PIXEL_FORMAT_R8,
         .debug_label = debug_label,
     });
-    font->material = create_font_material(font->texture);
 
     return { id };
 }
@@ -178,9 +138,6 @@ EXPORT void ung_font_destroy(ung_font_id font_id)
 {
     auto font = get_font(font_id.id);
 
-    if (font->material.id) {
-        ung_material_destroy(font->material);
-    }
     if (font->texture.id) {
         ung_texture_destroy(font->texture);
     }
@@ -211,17 +168,18 @@ EXPORT float ung_font_get_text_width(ung_font_id font, ung_string string)
     return utxt_get_text_width(get_font(font.id)->font, { string.data, string.length });
 }
 
-static void draw_text_quads(
-    ung_material_id material, std::span<const utxt_quad> quads, ung_color color)
+static void draw_text_quads(ung_material_id material, ung_texture_id texture,
+    std::span<const utxt_quad> quads, ung_color color)
 {
     ung_sprite_set_material(material);
+    ung_sprite_set_texture(texture);
     for (const auto& q : quads) {
         ung_sprite_add_quad(q.x, q.y, q.w, q.h, { q.u0, q.v0, q.u1 - q.u0, q.v1 - q.v0 }, color);
     }
 }
 
-static void draw_text(
-    utxt_font* font, ung_material_id material, ung_string text, float x, float y, ung_color color)
+static void draw_text(utxt_font* font, ung_material_id material, ung_texture_id texture,
+    ung_string text, float x, float y, ung_color color)
 {
     static std::array<utxt_quad, 512> quads;
 
@@ -229,7 +187,7 @@ static void draw_text(
     while (state.text.len) {
         const auto n = utxt_draw_text_batch(quads.data(), quads.size(), font, &state, y);
         if (n > 0) {
-            draw_text_quads(material, std::span { quads }.first(n), color);
+            draw_text_quads(material, texture, std::span { quads }.first(n), color);
         }
     }
 }
@@ -237,16 +195,14 @@ static void draw_text(
 EXPORT void ung_font_draw(ung_font_id font_id, ung_string text, float x, float y, ung_color color)
 {
     const auto font = get_font(font_id.id);
-    draw_text(font->font, font->material, text, x, y, color);
+    draw_text(font->font, state->default_text_mat, font->texture, text, x, y, color);
 }
 
 EXPORT void ung_font_draw_mat(ung_font_id font_id, ung_material_id material, ung_string text,
     float x, float y, ung_color color)
 {
     const auto font = get_font(font_id.id);
-    ung_sprite_flush(); // we change texture, so we need to batch break
-    ung_material_set_texture(material, 0, font->texture);
-    draw_text(font->font, material, text, x, y, color);
+    draw_text(font->font, material, font->texture, text, x, y, color);
 }
 
 static TextLayout* get_text_layout(u64 key)
@@ -427,9 +383,6 @@ EXPORT void ung_text_draw_items(const ung_text_draw_item* items, size_t num_item
 {
     assert(items);
 
-    ung_material_id current_material = { 0 };
-    u64 mat_override_last_font = 0;
-
     for (size_t i = 0; i < num_items; ++i) {
         const auto& item = items[i];
         if (!item.font.id) { // super secret way to skip glyphs
@@ -437,25 +390,10 @@ EXPORT void ung_text_draw_items(const ung_text_draw_item* items, size_t num_item
         }
 
         const auto font = get_font(item.font.id);
-        auto mat = font->material;
+        const auto mat = mat_override.id ? mat_override : state->default_text_mat;
 
-        if (mat_override.id) {
-            mat = mat_override;
-            if (mat_override_last_font != item.font.id) {
-                // Changing material texture modifies the material, but the sprite renderer
-                // will not flush by itself (it doesn't know that the material changed).
-                // We need to flush ourselves.
-                ung_sprite_flush();
-                ung_material_set_texture(mat, 0, font->texture);
-                mat_override_last_font = item.font.id;
-            }
-        }
-
-        if (current_material.id != mat.id) {
-            ung_sprite_set_material(mat);
-            current_material = mat;
-        }
-
+        ung_sprite_set_material(mat);
+        ung_sprite_set_texture(font->texture);
         ung_sprite_add_quad(item.x + x, item.y + y, item.w, item.h,
             { item.u0, item.v0, item.u1 - item.u0, item.v1 - item.v0 }, item.color);
     }
