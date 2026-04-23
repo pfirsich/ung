@@ -705,10 +705,15 @@ void ung_skeleton_reset_to_bind_pose(ung_skeleton_id skel);
 // before obtaining joint matrices using the function below.
 ung_joint_transform* ung_skeleton_get_joint_transforms(ung_skeleton_id skel, uint16_t* num_joints);
 
-// Returns a pointer to num_joints joint matrices (mat4) to pass to a shader.
+// Recalculate joint and skinning matrices (so it is not cheap).
+void ung_skeleton_update(ung_skeleton_id skel);
+
+// Returns a pointer to num_joints joint matrices (mat4, global transforms)
 // The returned pointer is valid for the lifetime of the skeleton.
-// The joint matrices are updated when this function is called (so it is not cheap).
-const float* ung_skeleton_update_joint_matrices(ung_skeleton_id skel, uint16_t* num_joints);
+const float* ung_skeleton_get_joint_matrices(ung_skeleton_id skel, uint16_t* num_joints);
+// Returns a pointer to num_joints skinning matrices (mat4) to pass to a shader.
+// The skinning matrix is joint_matrix * inverse_bind_matrix
+const float* ung_skeleton_get_skinning_matrices(ung_skeleton_id skel, uint16_t* num_joints);
 
 // This is a general purpose blend function, you most likely want to wrap this with something more
 // high level first.

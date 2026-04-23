@@ -21,7 +21,7 @@ struct Skeleton {
     ung_joint_transform* local_bind; // local bind pose transforms
     // cached globals & skin matrices:
     um_mat* global_transforms;
-    um_mat* joint_matrices; // skin matrix (global_trafo * inverse_bind)
+    um_mat* skinning_matrices; // skin matrix (global_trafo * inverse_bind)
 };
 
 struct AnimationChannel {
@@ -103,7 +103,7 @@ EXPORT ung_skeleton_id ung_skeleton_create(ung_skeleton_create_params params)
     s.joint_transforms = allocate<ung_joint_transform>(s.num_joints);
     s.local_bind = allocate<ung_joint_transform>(s.num_joints);
     s.global_transforms = allocate<um_mat>(s.num_joints);
-    s.joint_matrices = allocate<um_mat>(s.num_joints);
+    s.skinning_matrices = allocate<um_mat>(s.num_joints);
 
     // local rest pose is all identities
     for (u16 i = 0; i < s.num_joints; ++i) {
@@ -140,7 +140,7 @@ EXPORT ung_skeleton_id ung_skeleton_create(ung_skeleton_create_params params)
 
         s.joint_transforms[i] = s.local_bind[i];
         s.global_transforms[i] = um_mat_identity();
-        s.joint_matrices[i] = um_mat_identity();
+        s.skinning_matrices[i] = um_mat_identity();
     }
 
     return { id };
@@ -153,7 +153,7 @@ EXPORT void ung_skeleton_destroy(ung_skeleton_id skel)
     deallocate(s->joints, s->num_joints);
     deallocate(s->joint_transforms, s->num_joints);
     deallocate(s->global_transforms, s->num_joints);
-    deallocate(s->joint_matrices, s->num_joints);
+    deallocate(s->skinning_matrices, s->num_joints);
     state->skeletons.remove(skel.id);
 }
 
@@ -185,13 +185,10 @@ static um_mat get_matrix(const ung_joint_transform& trafo)
     return um_mat_mul(um_mat_mul(t, r), s);
 }
 
-EXPORT const float* ung_skeleton_update_joint_matrices(ung_skeleton_id skel, uint16_t* num_joints)
+EXPORT void ung_skeleton_update(ung_skeleton_id skel)
 {
     assert(state);
     auto s = get(state->skeletons, skel.id);
-    if (num_joints) {
-        *num_joints = s->num_joints;
-    }
 
     // This works only because the joints are topologically ordered (asserted in create)!
     for (u16 i = 0; i < s->num_joints; ++i) {
@@ -206,11 +203,27 @@ EXPORT const float* ung_skeleton_update_joint_matrices(ung_skeleton_id skel, uin
             s->global_transforms[i] = local_trafo;
         }
 
-        s->joint_matrices[i]
+        s->skinning_matrices[i]
             = um_mat_mul(s->global_transforms[i], s->joints[i].inverse_bind_matrix);
     }
+}
 
-    return &s->joint_matrices[0].cols[0].x;
+EXPORT const float* ung_skeleton_get_joint_matrices(ung_skeleton_id skel, uint16_t* num_joints)
+{
+    auto s = get(state->skeletons, skel.id);
+    if (num_joints) {
+        *num_joints = s->num_joints;
+    }
+    return &s->global_transforms[0].cols[0].x;
+}
+
+EXPORT const float* ung_skeleton_get_skinning_matrices(ung_skeleton_id skel, uint16_t* num_joints)
+{
+    auto s = get(state->skeletons, skel.id);
+    if (num_joints) {
+        *num_joints = s->num_joints;
+    }
+    return &s->skinning_matrices[0].cols[0].x;
 }
 
 static void add_vec3(float out[3], const float in[3], float weight)
