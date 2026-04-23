@@ -165,7 +165,7 @@ static void dump_full(Array<ZoneAux>& aux, u32 root, float total_dur)
     }
 }
 
-EXPORT void ung_load_profiler_dump()
+EXPORT void ung_load_profiler_dump(bool verbose)
 {
     if (state->prof_zones.size == 0) {
         return;
@@ -198,9 +198,10 @@ EXPORT void ung_load_profiler_dump()
 
     dump_speedscope(aux, root, total_dur);
 
-    sort_children(aux, root);
-
-    dump_full(aux, root, total_dur);
+    if (verbose) {
+        sort_children(aux, root);
+        dump_full(aux, root, total_dur);
+    }
 
     u32 num_assets = 0;
     for (u32 c = aux[root].first_child; c != UINT32_MAX; c = aux[c].next_sibling) {

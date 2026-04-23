@@ -529,7 +529,7 @@ ung_resource_id ung_sound_get_resource(ung_sound_id sound);
 
 void ung_load_profiler_push(const char* name);
 void ung_load_profiler_pop(const char* name); // name optional, asserts equality
-void ung_load_profiler_dump();
+void ung_load_profiler_dump(bool verbose);
 
 /*
  * Geometry
