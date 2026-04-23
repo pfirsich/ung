@@ -171,11 +171,17 @@ EXPORT float ung_font_get_text_width(ung_font_id font, ung_string string)
 static void draw_text_quads(ung_material_id material, ung_texture_id texture,
     std::span<const utxt_quad> quads, ung_color color)
 {
+    const auto old_mat = ung_sprite_get_material();
+    const auto old_tex = ung_sprite_get_texture();
+
     ung_sprite_set_material(material);
     ung_sprite_set_texture(texture);
     for (const auto& q : quads) {
         ung_sprite_add_quad(q.x, q.y, q.w, q.h, { q.u0, q.v0, q.u1 - q.u0, q.v1 - q.v0 }, color);
     }
+
+    ung_sprite_set_material(old_mat);
+    ung_sprite_set_texture(old_tex);
 }
 
 static void draw_text(utxt_font* font, ung_material_id material, ung_texture_id texture,
@@ -383,6 +389,9 @@ EXPORT void ung_text_draw_items(const ung_text_draw_item* items, size_t num_item
 {
     assert(items);
 
+    const auto old_mat = ung_sprite_get_material();
+    const auto old_tex = ung_sprite_get_texture();
+
     for (size_t i = 0; i < num_items; ++i) {
         const auto& item = items[i];
         if (!item.font.id) { // super secret way to skip glyphs
@@ -397,6 +406,9 @@ EXPORT void ung_text_draw_items(const ung_text_draw_item* items, size_t num_item
         ung_sprite_add_quad(item.x + x, item.y + y, item.w, item.h,
             { item.u0, item.v0, item.u1 - item.u0, item.v1 - item.v0 }, item.color);
     }
+
+    ung_sprite_set_material(old_mat);
+    ung_sprite_set_texture(old_tex);
 }
 
 EXPORT void ung_text_layout_draw(

@@ -36,7 +36,9 @@ struct State {
     u32 vertex_offset;
     u32 index_offset;
     ung_material_id current_material;
+    ung_material_id next_material;
     ung_texture_id current_texture;
+    ung_texture_id next_texture;
     u32 current_tex_width;
     u32 current_tex_height;
     ung_shader_id default_frag;
@@ -104,7 +106,9 @@ void init(ung_init_params params)
         .vert = ung::state->default_sprite_vert,
         .frag = state->default_frag,
     });
+
     state->current_material = state->default_material;
+    state->next_material = state->default_material;
 }
 
 void shutdown()
@@ -123,30 +127,48 @@ void shutdown()
     state = nullptr;
 }
 
+static void apply_next()
+{
+    const auto mat_changed = state->next_material.id != state->current_material.id;
+    const auto tex_changed = state->next_texture.id != state->current_texture.id;
+    if (mat_changed || tex_changed) {
+        ung_sprite_flush();
+    }
+    if (tex_changed) {
+        const auto [w, h] = ung_texture_get_size(state->next_texture);
+        state->current_tex_width = w;
+        state->current_tex_height = h;
+    }
+    state->current_material = state->next_material;
+    state->current_texture = state->next_texture;
+}
+
 EXPORT void ung_sprite_set_material(ung_material_id mat)
 {
     if (!mat.id) {
         mat = state->default_material;
     }
-    if (mat.id != state->current_material.id) {
-        ung_sprite_flush();
-        state->current_material = mat;
-    }
+    state->next_material = mat;
+}
+
+EXPORT ung_material_id ung_sprite_get_material()
+{
+    return state->next_material;
 }
 
 EXPORT void ung_sprite_set_texture(ung_texture_id tex)
 {
-    if (tex.id != state->current_texture.id) {
-        ung_sprite_flush();
-        state->current_texture = tex;
-        const auto [w, h] = ung_texture_get_size(tex);
-        state->current_tex_width = w;
-        state->current_tex_height = h;
-    }
+    state->next_texture = tex;
+}
+
+EXPORT ung_texture_id ung_sprite_get_texture()
+{
+    return state->next_texture;
 }
 
 EXPORT uint16_t ung_sprite_add_vertex(float x, float y, float u, float v, ung_color color)
 {
+    apply_next();
     assert(state->vertex_offset < state->num_vertices);
     state->vertices[state->vertex_offset] = Vertex {
         x,
@@ -229,6 +251,7 @@ EXPORT void ung_sprite_add(
     transform.scale_y = transform.scale_y != 0.0f ? transform.scale_y : 1.0f;
 
     ung_sprite_set_texture(tex);
+    apply_next(); // make sure current texture size is correct
 
     const auto tl = add_vertex({ 0.0f, 0.0f }, transform, texture, color);
     const auto bl = add_vertex({ 0.0f, 1.0f }, transform, texture, color);
