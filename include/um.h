@@ -149,6 +149,17 @@ um_vec4 um_mat_mul_vec4(um_mat m, um_vec4 v);
 // Other
 void um_mat_decompose_trs(um_mat m, um_vec3* translation, um_quat* rotation, um_vec3* scale);
 
+// Trafo
+typedef struct {
+    um_vec3 position;
+    um_quat orientation;
+    um_vec3 scale;
+} um_trafo;
+
+um_trafo um_trafo_identity();
+um_mat um_mat_from_trafo(um_trafo trafo);
+um_trafo um_mat_decompose_trafo(um_mat m);
+
 // Sphere
 
 typedef struct {

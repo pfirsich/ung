@@ -753,6 +753,27 @@ EXPORT um_mat um_mat_mul(um_mat a, um_mat b)
     return result;
 }
 
+EXPORT um_trafo um_trafo_identity()
+{
+    return {
+        .position = {},
+        .orientation = um_quat_identity(),
+        .scale = { 1.0f, 1.0f, 1.0f },
+    };
+}
+
+EXPORT um_mat um_mat_from_trafo(um_trafo trafo)
+{
+    return um_mat_transform(trafo.position, trafo.orientation, trafo.scale);
+}
+
+EXPORT um_trafo um_mat_decompose_trafo(um_mat m)
+{
+    um_trafo trafo;
+    um_mat_decompose_trs(m, &trafo.position, &trafo.orientation, &trafo.scale);
+    return trafo;
+}
+
 EXPORT um_sphere um_sphere_transform(um_mat mat, um_sphere sphere)
 {
     const auto center = um::make_vec3(um::mul(mat, um::make_vec4(sphere.center, 1.0f)));

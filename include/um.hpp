@@ -10,6 +10,7 @@ using vec3 = ::um_vec3;
 using vec4 = ::um_vec4;
 using quat = ::um_quat;
 using mat = ::um_mat;
+using trafo = ::um_trafo;
 
 [[nodiscard]] inline float exp(float x) noexcept
 {
@@ -380,6 +381,11 @@ inline void to_ptr(quat v, float xyzw[3]) noexcept
     return um_mat_from_quat(q);
 }
 
+[[nodiscard]] inline mat make_mat(trafo t) noexcept
+{
+    return um_mat_from_trafo(t);
+}
+
 inline void to_ptr(um_mat m, float p[16])
 {
     um_mat_to_ptr(m, p);
@@ -446,9 +452,14 @@ inline void to_ptr(um_mat m, float p[16])
     return um_mat_mul_vec4(m, v);
 }
 
-inline void decompose(mat m, vec3& t, quat& r, vec3& s) noexcept
+inline trafo make_trafo()
 {
-    um_mat_decompose_trs(m, &t, &r, &s);
+    return um_trafo_identity();
+}
+
+inline trafo decompose(mat m) noexcept
+{
+    return um_mat_decompose_trafo(m);
 }
 
 }
