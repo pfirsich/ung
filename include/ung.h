@@ -338,6 +338,7 @@ void ung_transform_set_scale(ung_transform_id transform, const float xyz[3]);
 void ung_transform_set_scale_u(ung_transform_id transform, float scale); // uniform
 void ung_transform_set_scale_v(ung_transform_id transform, float x, float y, float z);
 void ung_transform_get_scale(ung_transform_id transform, float scale[3]);
+void ung_transform_set_matrix(ung_transform_id transform, const float m[16]);
 
 void ung_transform_look_at(ung_transform_id transform, const float xyz[3]);
 void ung_transform_look_at_v(ung_transform_id transform, float x, float y, float z);

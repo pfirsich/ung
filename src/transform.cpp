@@ -197,6 +197,14 @@ EXPORT void ung_transform_get_scale(ung_transform_id transform, float scale[3])
     scale[2] = trafo->scale.z;
 }
 
+EXPORT void ung_transform_set_matrix(ung_transform_id transform, const float m[16])
+{
+    auto trafo = get_transform(transform.id);
+    const auto mat = um_mat_from_ptr(m);
+    um_mat_decompose_trs(mat, &trafo->position, &trafo->orientation, &trafo->scale);
+    trafo->local_matrix_dirty = true;
+}
+
 static void look_at(Transform* trafo, um_vec3 at, um_vec3 up)
 {
     const auto look_at = um_mat_look_at(trafo->position, at, up);
