@@ -12,7 +12,6 @@ struct Transform {
     u64 first_child;
     u64 prev_sibling;
     u64 next_sibling;
-    mugfx_uniform_data_id uniform_data;
     bool local_matrix_dirty;
 };
 
@@ -48,22 +47,11 @@ static Transform* get_transform(u64 key)
     return get(state->transforms, key);
 }
 
-mugfx_uniform_data_id get_uniform_data(ung_transform_id transform_id)
-{
-    auto trafo = get_transform(transform_id.id);
-    return trafo->uniform_data;
-}
-
 EXPORT ung_transform_id ung_transform_create()
 {
     const auto [id, trafo] = state->transforms.insert();
     trafo->orientation = um_quat_identity();
     trafo->scale = um_vec3 { 1.0f, 1.0f, 1.0f };
-    trafo->uniform_data = mugfx_uniform_data_create({
-        .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_FRAME,
-        .size = sizeof(UTransform),
-        .debug_label = "UngTransform",
-    });
     trafo->local_matrix_dirty = true;
     return { id };
 }

@@ -66,8 +66,6 @@ bool is_same_binding(const mugfx_draw_binding& a, const mugfx_draw_binding& b)
         return false;
     }
     switch (a.type) {
-    case MUGFX_BINDING_TYPE_UNIFORM_DATA:
-        return a.uniform_data.binding == b.uniform_data.binding;
     case MUGFX_BINDING_TYPE_TEXTURE:
         return a.texture.binding == b.texture.binding;
     case MUGFX_BINDING_TYPE_BUFFER:

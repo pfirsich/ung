@@ -96,15 +96,16 @@ static void update_window_metrics(bool update_constant_uniform_data)
     state->fb_width = (u32)w;
     state->fb_height = (u32)h;
 
-    state->u_constant.screen_dimensions = um_vec4 {
+    state->u_constant_data.screen_dimensions = um_vec4 {
         (float)state->win_width,
         (float)state->win_height,
         state->win_width ? 1.0f / (float)state->win_width : 0.0f,
         state->win_height ? 1.0f / (float)state->win_height : 0.0f,
     };
 
-    if (update_constant_uniform_data && state->constant_data.id) {
-        mugfx_uniform_data_update(state->constant_data);
+    if (update_constant_uniform_data) {
+        mugfx_buffer_update(
+            state->u_constant_buf, 0, { &state->u_constant_data, sizeof(UConstant) });
     }
 }
 
@@ -228,6 +229,11 @@ EXPORT void ung_init(ung_init_params params)
     params.mugfx.max_num_geometries = params.mugfx.max_num_geometries
         ? params.mugfx.max_num_geometries
         : params.max_num_geometries;
+
+    // Materials have a constant and dynamic buffer (or only one of them or neither)
+    // Geometries have vertex/index (or just vertex)
+    // Add 8 for sprite rendering and default uniform blocks
+    params.mugfx.max_num_buffers = params.max_num_materials * 2 + params.max_num_geometries * 2 + 8;
 
     mugfx_init(params.mugfx);
 

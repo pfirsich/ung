@@ -93,8 +93,12 @@ struct Material {
     // owns them.
     ung_shader_id vert;
     ung_shader_id frag;
-    mugfx_uniform_data_id constant_data;
-    mugfx_uniform_data_id dynamic_data;
+    mugfx_buffer_id constant_buf;
+    mugfx_buffer_id dynamic_buf;
+    uint8_t* dynamic_data;
+    size_t dynamic_data_size;
+    bool dynamic_data_dirty;
+    u64 last_update_frame;
     StaticVector<mugfx_draw_binding, 16> bindings;
     ung_resource_id resource;
     MaterialReloadCtx* reload_ctx;
@@ -146,15 +150,13 @@ struct State {
     Pool<TextLayout> text_layouts;
 
     // Uniform Buffers
-    UConstant u_constant;
-    UFrame u_frame;
-    UCamera u_camera;
-    mugfx_uniform_data_id constant_data;
-    mugfx_uniform_data_id frame_data;
-    mugfx_uniform_data_id camera_data;
-    ung_transform_id identity_trafo;
-    ung_shader_id text_vert_shader;
-    ung_shader_id text_frag_shader;
+    mugfx_buffer_id u_constant_buf;
+    mugfx_buffer_id u_frame_buf;
+    mugfx_buffer_id u_camera_buf;
+    mugfx_buffer_id u_transform_buf;
+
+    UConstant u_constant_data;
+    UCamera pass_camera;
 
     // SDL
     SDL_Window* window;

@@ -450,14 +450,12 @@ bool ung_material_reload(ung_material_id material, const char* vert_path, const 
     ung_material_create_params params);
 void ung_material_destroy(ung_material_id material);
 void ung_material_set_binding(ung_material_id material, mugfx_draw_binding binding);
-void ung_material_set_uniform_data(
-    ung_material_id material, uint32_t binding, mugfx_uniform_data_id uniform_data);
+void ung_material_set_buffer(
+    ung_material_id material, uint32_t binding, mugfx_buffer_id uniform_data);
 void ung_material_set_texture(ung_material_id material, uint32_t binding, ung_texture_id texture);
 // Getting this data pointer marks the associated uniform buffer dirty, because it is assumed
 // you modified it
 void* ung_material_get_dynamic_data(ung_material_id material);
-// You can mark the associated uniform buffers dirty with this function
-void ung_material_update(ung_material_id material);
 
 /*
  * Files

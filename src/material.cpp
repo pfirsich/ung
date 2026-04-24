@@ -95,45 +95,46 @@ EXPORT ung_material_id ung_material_create(ung_material_create_params params)
     const auto [id, material] = state->materials.insert();
     material->material = mugfx_material_create(params.mugfx);
     material->bindings.append() = {
-        .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
-        .uniform_data = { .binding = 0, .id = state->constant_data },
+        .type = MUGFX_BINDING_TYPE_BUFFER,
+        .buffer = { .binding = 0 }, // rest set in draw
     };
     material->bindings.append() = {
-        .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
-        .uniform_data = { .binding = 1, .id = state->frame_data },
+        .type = MUGFX_BINDING_TYPE_BUFFER,
+        .buffer = { .binding = 1 }, // rest set in draw
     };
     material->bindings.append() = {
-        .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
-        .uniform_data = { .binding = 2, .id = state->camera_data },
+        .type = MUGFX_BINDING_TYPE_BUFFER,
+        .buffer = { .binding = 2 }, // rest set in draw
     };
     material->bindings.append() = {
-        .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
-        .uniform_data = { .binding = 3, .id = { 0 } }, // Transform, replaced before draw
+        .type = MUGFX_BINDING_TYPE_BUFFER,
+        .buffer = { .binding = 3 }, // rest set in draw
     };
-    if (params.constant_data_size) {
-        material->constant_data = mugfx_uniform_data_create({
-            .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_CONSTANT,
-            .size = params.constant_data_size,
+    if (params.constant_data) {
+        material->constant_buf = mugfx_buffer_create({
+            .target = MUGFX_BUFFER_TARGET_UNIFORM,
+            .usage = MUGFX_BUFFER_USAGE_HINT_STATIC,
+            .data = { params.constant_data, params.constant_data_size },
             .debug_label = "mat.constant",
         });
-        if (params.constant_data) {
-            std::memcpy(mugfx_uniform_data_get_ptr(material->constant_data), params.constant_data,
-                params.constant_data_size);
-        }
         material->bindings.append() = {
-            .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
-            .uniform_data = { .binding = 8, .id = material->constant_data },
+            .type = MUGFX_BINDING_TYPE_BUFFER,
+            .buffer = { .binding = 8, .id = material->constant_buf },
         };
     }
     if (params.dynamic_data_size) {
-        material->dynamic_data = mugfx_uniform_data_create({
-            .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_FRAME,
-            .size = params.dynamic_data_size,
+        material->dynamic_data = allocate<uint8_t>(params.dynamic_data_size);
+        material->dynamic_data_size = params.dynamic_data_size;
+
+        material->dynamic_buf = mugfx_buffer_create({
+            .target = MUGFX_BUFFER_TARGET_UNIFORM,
+            .usage = MUGFX_BUFFER_USAGE_HINT_DYNAMIC,
+            .data = { nullptr, params.dynamic_data_size },
             .debug_label = "mat.dynamic",
         });
         material->bindings.append() = {
-            .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
-            .uniform_data = { .binding = 9, .id = material->dynamic_data },
+            .type = MUGFX_BINDING_TYPE_BUFFER,
+            .buffer = { .binding = 9, .id = material->dynamic_buf },
         };
     }
 
@@ -199,39 +200,44 @@ EXPORT bool ung_material_recreate(ung_material_id material_id, ung_material_crea
     mugfx_material_destroy(mat->material);
     mat->material = new_mat;
 
-    if (params.constant_data_size) {
-        if (mat->constant_data.id) {
-            mugfx_uniform_data_destroy(mat->constant_data);
+    if (params.constant_data) {
+        if (mat->constant_buf.id) {
+            mugfx_buffer_destroy(mat->constant_buf);
         }
-        mat->constant_data = mugfx_uniform_data_create({
-            .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_CONSTANT,
-            .size = params.constant_data_size,
+        mat->constant_buf = mugfx_buffer_create({
+            .target = MUGFX_BUFFER_TARGET_UNIFORM,
+            .usage = MUGFX_BUFFER_USAGE_HINT_STATIC,
+            .data = { params.constant_data, params.constant_data_size },
             .debug_label = "mat.constant",
         });
-        if (params.constant_data) {
-            std::memcpy(mugfx_uniform_data_get_ptr(mat->constant_data), params.constant_data,
-                params.constant_data_size);
-        }
         for (auto& b : mat->bindings) {
-            if (b.type == MUGFX_BINDING_TYPE_UNIFORM_DATA && b.uniform_data.binding == 8) {
-                b.uniform_data.id = mat->constant_data;
+            if (b.type == MUGFX_BINDING_TYPE_BUFFER && b.buffer.binding == 8) {
+                b.buffer.id = mat->constant_buf;
                 break;
             }
         }
     }
 
     if (params.dynamic_data_size) {
-        if (mat->dynamic_data.id) {
-            mugfx_uniform_data_destroy(mat->dynamic_data);
+        if (mat->dynamic_buf.id) {
+            mugfx_buffer_destroy(mat->dynamic_buf);
         }
-        mat->dynamic_data = mugfx_uniform_data_create({
-            .usage_hint = MUGFX_UNIFORM_DATA_USAGE_HINT_FRAME,
-            .size = params.dynamic_data_size,
+        if (mat->dynamic_data) {
+            deallocate(mat->dynamic_data, mat->dynamic_data_size);
+        }
+
+        mat->dynamic_data = allocate<uint8_t>(params.dynamic_data_size);
+        mat->dynamic_data_size = params.dynamic_data_size;
+
+        mat->dynamic_buf = mugfx_buffer_create({
+            .target = MUGFX_BUFFER_TARGET_UNIFORM,
+            .usage = MUGFX_BUFFER_USAGE_HINT_DYNAMIC,
+            .data = { nullptr, params.dynamic_data_size },
             .debug_label = "mat.dynamic",
         });
         for (auto& b : mat->bindings) {
-            if (b.type == MUGFX_BINDING_TYPE_UNIFORM_DATA && b.uniform_data.binding == 9) {
-                b.uniform_data.id = mat->dynamic_data;
+            if (b.type == MUGFX_BINDING_TYPE_BUFFER && b.buffer.binding == 9) {
+                b.buffer.id = mat->dynamic_buf;
                 break;
             }
         }
@@ -291,11 +297,14 @@ EXPORT bool ung_material_reload(ung_material_id material_id, const char* vert_pa
 EXPORT void ung_material_destroy(ung_material_id material)
 {
     auto mat = get_material(material.id);
-    if (mat->constant_data.id) {
-        mugfx_uniform_data_destroy(mat->constant_data);
+    if (mat->constant_buf.id) {
+        mugfx_buffer_destroy(mat->constant_buf);
     }
-    if (mat->dynamic_data.id) {
-        mugfx_uniform_data_destroy(mat->dynamic_data);
+    if (mat->dynamic_data) {
+        deallocate(mat->dynamic_data, mat->dynamic_data_size);
+    }
+    if (mat->dynamic_buf.id) {
+        mugfx_buffer_destroy(mat->dynamic_buf);
     }
     mugfx_material_destroy(mat->material);
 
@@ -333,13 +342,12 @@ EXPORT void ung_material_set_binding(ung_material_id material, mugfx_draw_bindin
     mat->bindings.append() = binding;
 }
 
-EXPORT void ung_material_set_uniform_data(
-    ung_material_id material, u32 binding, mugfx_uniform_data_id uniform_data)
+EXPORT void ung_material_set_buffer(ung_material_id material, u32 binding, mugfx_buffer_id buffer)
 {
     ung_material_set_binding(material,
         {
-            .type = MUGFX_BINDING_TYPE_UNIFORM_DATA,
-            .uniform_data = { .binding = binding, .id = uniform_data },
+            .type = MUGFX_BINDING_TYPE_BUFFER,
+            .buffer = { .binding = binding, .id = buffer },
         });
 }
 
@@ -376,15 +384,8 @@ EXPORT void ung_material_set_texture(ung_material_id material, u32 binding, ung_
 EXPORT void* ung_material_get_dynamic_data(ung_material_id material)
 {
     auto mat = get_material(material.id);
-    return mat->dynamic_data.id ? mugfx_uniform_data_get_ptr(mat->dynamic_data) : nullptr;
-}
-
-EXPORT void ung_material_update(ung_material_id material)
-{
-    auto mat = get_material(material.id);
-    if (mat->dynamic_data.id) {
-        mugfx_uniform_data_update(mat->dynamic_data);
-    }
+    mat->dynamic_data_dirty = true;
+    return mat->dynamic_data;
 }
 
 }
