@@ -1,19 +1,5 @@
-layout (binding = 1, std140) uniform UngPass {
-    mat4 view;
-    mat4 view_inv;
-    mat4 projection;
-    mat4 projection_inv;
-    mat4 view_projection;
-    mat4 view_projection_inv;
-    vec4 view_dimensions; // xy: size, zw: reciprocal size
-};
-
-layout (binding = 2, std140) uniform UngTransform {
-    mat4 model;
-    mat4 model_view;
-    mat4 model_view_projection;
-    mat4 normal_matrix;
-};
+#pragma ung-include UngPass
+#pragma ung-include UngTransform
 
 layout (location = 0) in vec3 a_position;
 layout (location = 1) in vec2 a_texcoord;

@@ -428,6 +428,13 @@ layout (binding = 2, std140) uniform UngTransform {
     mat4 normal_matrix; // inverse transpose of model, use mat3(normal_matrix)
 };
 
+You may use
+#pragma ung-include UngFrame
+#pragma ung-include UngPass
+#pragma ung-include UngTransform
+
+to "include" these uniform blocks into your shader.
+
  */
 typedef struct {
     mugfx_material_create_params mugfx;
