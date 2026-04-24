@@ -925,20 +925,14 @@ typedef struct {
     const mugfx_draw_binding* binding_overrides;
     size_t num_binding_overrides;
     uint32_t instance_count; // non-instanced
-} ung_draw_ex_params;
+} ung_draw_params;
 
 // use mugfx_clear, mugfx_set_viewport, mugfx_set_scissor
 void ung_begin_frame();
 void ung_begin_pass(mugfx_render_target_id target, ung_camera_id camera);
 // Transform may be 0 to use the identity transform
-void ung_draw(ung_material_id material, ung_geometry_id geometry, ung_transform_id transform);
-void ung_draw_matrix(ung_material_id material, ung_geometry_id geometry, const float transform[16],
-    ung_draw_ex_params params);
-void ung_draw_ex(ung_material_id material, ung_geometry_id geometry, ung_transform_id transform,
-    ung_draw_ex_params params);
-// Kept for backwards compatibility, just calls ung_draw_ex
-void ung_draw_instanced(ung_material_id material, ung_geometry_id geometry,
-    ung_transform_id transform, uint32_t instance_count);
+void ung_draw(ung_material_id material, ung_geometry_id geometry, const float transform[16],
+    ung_draw_params params);
 void ung_end_pass();
 void ung_end_frame();
 

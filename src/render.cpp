@@ -203,18 +203,13 @@ static void upload_transform(um_mat transform)
     mugfx_buffer_update(state->u_transform_buf, 0, { &trafo_data, sizeof(UTransform) });
 }
 
-EXPORT void ung_draw(ung_material_id material, ung_geometry_id geometry, ung_transform_id transform)
-{
-    ung_draw_ex(material, geometry, transform, {});
-}
-
 static mugfx_draw_binding buffer_binding(uint32_t binding, mugfx_buffer_id buffer)
 {
     return { .type = MUGFX_BINDING_TYPE_BUFFER, .buffer = { binding, buffer } };
 }
 
-EXPORT void ung_draw_matrix(ung_material_id material, ung_geometry_id geometry,
-    const float transform[16], ung_draw_ex_params params)
+EXPORT void ung_draw(ung_material_id material, ung_geometry_id geometry, const float transform[16],
+    ung_draw_params params)
 {
     auto mat = get(state->materials, material.id);
     auto geom = get(state->geometries, geometry.id);
@@ -262,20 +257,6 @@ EXPORT void ung_draw_matrix(ung_material_id material, ung_geometry_id geometry,
 
     mugfx_draw_instanced(mat->material, geom->geometry, draw_bindings.data(), draw_bindings.size(),
         params.instance_count);
-}
-
-EXPORT void ung_draw_ex(ung_material_id material, ung_geometry_id geometry,
-    ung_transform_id transform, ung_draw_ex_params params)
-{
-    const auto trafo_matrix
-        = transform.id ? transform::get_world_matrix(transform) : um_mat_identity();
-    ung_draw_matrix(material, geometry, &trafo_matrix.cols[0].x, params);
-}
-
-EXPORT void ung_draw_instanced(ung_material_id material, ung_geometry_id geometry,
-    ung_transform_id transform, uint32_t instance_count)
-{
-    ung_draw_ex(material, geometry, transform, { .instance_count = instance_count });
 }
 
 EXPORT void ung_end_pass()

@@ -285,7 +285,7 @@ EXPORT void ung_sprite_flush()
             mugfx_buffer_update(state->index_buffer, 0,
                 { .data = state->indices, .length = sizeof(u16) * state->index_offset });
             mugfx_geometry_set_index_range(geom->geometry, 0, state->index_offset);
-            ung_draw_ex(state->current_material, state->geometry, { 0 },
+            ung_draw(state->current_material, state->geometry, nullptr,
                 { .binding_overrides = &binding, .num_binding_overrides = 1 });
         }
         state->vertex_offset = 0;
