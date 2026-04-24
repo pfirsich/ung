@@ -669,9 +669,12 @@ void ung_camera_set_orthographic(
     ung_camera_id camera, float left, float right, float bottom, float top);
 void ung_camera_set_orthographic_z(
     ung_camera_id camera, float left, float right, float bottom, float top, float near, float far);
-ung_transform_id ung_camera_get_transform(ung_camera_id camera);
-void ung_camera_get_view_matrix(ung_camera_id camera, float matrix[16]);
 void ung_camera_get_projection_matrix(ung_camera_id camera, float matrix[16]);
+ung_transform_id ung_camera_get_transform(ung_camera_id camera);
+void ung_camera_set_world_matrix(ung_camera_id camera, const float matrix[16]);
+void ung_camera_get_world_matrix(ung_camera_id camera, float matrix[16]);
+void ung_camera_set_view_matrix(ung_camera_id camera, const float matrix[16]);
+void ung_camera_get_view_matrix(ung_camera_id camera, float matrix[16]);
 
 /*
  * Animation

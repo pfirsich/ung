@@ -107,9 +107,26 @@ EXPORT void ung_camera_set_orthographic_z(
     set_projection(get_camera(camera.id), proj);
 }
 
+EXPORT void ung_camera_get_projection_matrix(ung_camera_id camera, float matrix[16])
+{
+    std::memcpy(matrix, &get_camera(camera.id)->projection, sizeof(float) * 16);
+}
+
 EXPORT ung_transform_id ung_camera_get_transform(ung_camera_id camera)
 {
     return get_camera(camera.id)->transform;
+}
+
+EXPORT void ung_camera_get_world_matrix(ung_camera_id camera, float matrix[16])
+{
+    auto cam = get_camera(camera.id);
+    ung_transform_get_world_matrix(cam->transform, matrix);
+}
+
+EXPORT void ung_camera_set_world_matrix(ung_camera_id camera, const float matrix[16])
+{
+    auto cam = get_camera(camera.id);
+    ung_transform_set_matrix(cam->transform, matrix);
 }
 
 EXPORT void ung_camera_get_view_matrix(ung_camera_id camera, float matrix[16])
@@ -119,9 +136,11 @@ EXPORT void ung_camera_get_view_matrix(ung_camera_id camera, float matrix[16])
     std::memcpy(matrix, &view, sizeof(float) * 16);
 }
 
-EXPORT void ung_camera_get_projection_matrix(ung_camera_id camera, float matrix[16])
+EXPORT void ung_camera_set_view_matrix(ung_camera_id camera, const float matrix[16])
 {
-    std::memcpy(matrix, &get_camera(camera.id)->projection, sizeof(float) * 16);
+    auto cam = get_camera(camera.id);
+    const auto world = um_mat_invert(um_mat_from_ptr(matrix));
+    ung_transform_set_matrix(cam->transform, &world.cols[0].x);
 }
 
 void begin_frame()
