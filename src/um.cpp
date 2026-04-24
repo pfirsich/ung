@@ -407,6 +407,35 @@ EXPORT um_quat um_quat_align(um_vec3 to, um_vec3 from)
     return normalized(quat { axis.x, axis.y, axis.z, 1.0f + d });
 }
 
+EXPORT um_quat um_quat_look_dir(um_vec3 direction, um_vec3 up)
+{
+    constexpr float eps = 1e-5f;
+
+    auto fwd = um::normalized(direction);
+    if (um::len(fwd) < eps) {
+        return um_quat_identity();
+    }
+
+    auto desired_up = up - fwd * um::dot(up, fwd);
+    if (um::len(desired_up) < eps) {
+        const auto fallback
+            = um::abs(fwd.y) < 0.99f ? um_vec3 { 0.0f, 1.0f, 0.0f } : um_vec3 { 1.0f, 0.0f, 0.0f };
+        desired_up = fallback - fwd * um::dot(fallback, fwd);
+    }
+    desired_up = um::normalized(desired_up);
+
+    const auto swing = um_quat_align(fwd, { 0.0f, 0.0f, -1.0f });
+
+    auto current_up = um_quat_mul_vec3(swing, { 0.0f, 1.0f, 0.0f });
+    current_up = um::normalized(current_up - fwd * um::dot(current_up, fwd));
+
+    const auto sin_angle = um::dot(fwd, um::cross(current_up, desired_up));
+    const auto cos_angle = um::clamp(um::dot(current_up, desired_up), -1.0f, 1.0f);
+    const auto twist = um_quat_from_axis_angle(fwd, { um_atan2(sin_angle, cos_angle) });
+
+    return um_quat_normalized(um_quat_mul(twist, swing));
+}
+
 EXPORT um_quat um_quat_slerp(um_quat a, um_quat b, float t)
 {
     // Calculate angle between quaternions

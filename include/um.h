@@ -109,6 +109,7 @@ um_quat um_quat_identity();
 um_quat um_quat_from_matrix(um_mat m);
 um_quat um_quat_from_axis_angle(um_vec3 axis, um_rad angle);
 um_quat um_quat_align(um_vec3 to, um_vec3 from);
+um_quat um_quat_look_dir(um_vec3 dir, um_vec3 up); // align -Z with dir, but keep up (avoid roll)
 
 // Unary
 float um_quat_len(um_quat q);
