@@ -9,28 +9,25 @@
 struct SDL_Window;
 
 namespace ung {
-struct UConstant {
-    um_vec4 screen_dimensions; // xy: size, zw: reciprocal size
-};
-
 struct UFrame {
     um_vec4 time; // x: seconds since game started, y: frame counter
 };
 
-struct UCamera {
+struct UPass {
     um_mat view;
     um_mat view_inv;
     um_mat projection;
     um_mat projection_inv;
     um_mat view_projection;
     um_mat view_projection_inv;
+    um_vec4 view_dimensions; // xy: size, zw: reciprocal size
 };
 
 struct UTransform {
     um_mat model;
-    um_mat model_inv;
     um_mat model_view;
     um_mat model_view_projection;
+    um_mat normal_matrix;
 };
 
 struct TextureReloadCtx {
@@ -150,13 +147,12 @@ struct State {
     Pool<TextLayout> text_layouts;
 
     // Uniform Buffers
-    mugfx_buffer_id u_constant_buf;
     mugfx_buffer_id u_frame_buf;
-    mugfx_buffer_id u_camera_buf;
+    mugfx_buffer_id u_pass_buf;
     mugfx_buffer_id u_transform_buf;
 
-    UConstant u_constant_data;
-    UCamera pass_camera;
+    // Rendering
+    UPass pass_data;
 
     // SDL
     SDL_Window* window;

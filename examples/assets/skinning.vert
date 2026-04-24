@@ -1,8 +1,18 @@
-layout (binding = 3, std140) uniform UngTransform {
+layout (binding = 1, std140) uniform UngPass {
+    mat4 view;
+    mat4 view_inv;
+    mat4 projection;
+    mat4 projection_inv;
+    mat4 view_projection;
+    mat4 view_projection_inv;
+    vec4 view_dimensions; // xy: size, zw: reciprocal size
+};
+
+layout (binding = 2, std140) uniform UngTransform {
     mat4 model;
-    mat4 model_inv;
     mat4 model_view;
     mat4 model_view_projection;
+    mat4 normal_matrix;
 };
 
 layout (binding = 9, std140) uniform UngMaterialDynamic {
@@ -30,7 +40,7 @@ void main()
 
     vs_out_texcoord = a_texcoord;
     vs_out_color = a_color;
-    vs_out_normal = transpose(inverse(mat3(model_view))) * a_normal;
+    vs_out_normal = mat3(view) * mat3(normal_matrix) * mat3(skin_matrix) * a_normal;
     vs_out_position = (model_view * vec4(a_position, 1.0)).xyz;
     gl_Position = model_view_projection * skin_matrix * vec4(a_position, 1.0);
 }

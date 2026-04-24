@@ -10,14 +10,6 @@ void init(ung_init_params params)
 {
     state->cameras.init(params.max_num_cameras ? params.max_num_cameras : 8);
 
-    state->u_constant_buf = mugfx_buffer_create({
-        .target = MUGFX_BUFFER_TARGET_UNIFORM,
-        .usage = MUGFX_BUFFER_USAGE_HINT_STATIC,
-        .data = { nullptr, sizeof(UConstant) },
-        .debug_label = "UngConstant",
-    });
-    mugfx_buffer_update(state->u_constant_buf, 0, { &state->u_constant_data, sizeof(UConstant) });
-
     state->u_frame_buf = mugfx_buffer_create({
         .target = MUGFX_BUFFER_TARGET_UNIFORM,
         .usage = MUGFX_BUFFER_USAGE_HINT_DYNAMIC,
@@ -25,11 +17,11 @@ void init(ung_init_params params)
         .debug_label = "UngFrame",
     });
 
-    state->u_camera_buf = mugfx_buffer_create({
+    state->u_pass_buf = mugfx_buffer_create({
         .target = MUGFX_BUFFER_TARGET_UNIFORM,
         .usage = MUGFX_BUFFER_USAGE_HINT_DYNAMIC,
-        .data = { nullptr, sizeof(UCamera) },
-        .debug_label = "UngCamera",
+        .data = { nullptr, sizeof(UPass) },
+        .debug_label = "UngPass",
     });
 
     state->u_transform_buf = mugfx_buffer_create({
@@ -43,9 +35,8 @@ void init(ung_init_params params)
 void shutdown()
 {
     mugfx_buffer_destroy(state->u_transform_buf);
-    mugfx_buffer_destroy(state->u_camera_buf);
+    mugfx_buffer_destroy(state->u_pass_buf);
     mugfx_buffer_destroy(state->u_frame_buf);
-    mugfx_buffer_destroy(state->u_constant_buf);
 
     for (u32 i = 0; i < state->cameras.capacity(); ++i) {
         const auto key = state->cameras.get_key(i);
@@ -153,34 +144,42 @@ EXPORT void ung_begin_pass(mugfx_render_target_id target, ung_camera_id camera)
     mugfx_begin_pass(target);
 
     auto cam = get_camera(camera.id);
-    state->pass_camera.projection = cam->projection;
-    state->pass_camera.projection_inv = cam->projection_inv;
-    state->pass_camera.view_inv = transform::get_world_matrix(cam->transform);
-    state->pass_camera.view = um_mat_invert(state->pass_camera.view_inv);
-    state->pass_camera.view_projection
-        = um_mat_mul(state->pass_camera.projection, state->pass_camera.view);
-    state->pass_camera.view_projection_inv = um_mat_invert(state->pass_camera.view_projection);
+    state->pass_data.projection = cam->projection;
+    state->pass_data.projection_inv = cam->projection_inv;
+    state->pass_data.view_inv = transform::get_world_matrix(cam->transform);
+    state->pass_data.view = um_mat_invert(state->pass_data.view_inv);
+    state->pass_data.view_projection
+        = um_mat_mul(state->pass_data.projection, state->pass_data.view);
+    state->pass_data.view_projection_inv = um_mat_invert(state->pass_data.view_projection);
 
-    mugfx_buffer_update(state->u_camera_buf, 0, {}); // orphan
-    mugfx_buffer_update(state->u_camera_buf, 0, { &state->pass_camera, sizeof(UCamera) });
+    u32 view_width = state->fb_width, view_height = state->fb_height;
+    if (target.id) {
+        mugfx_render_target_get_size(target, &view_width, &view_height);
+    }
+
+    state->pass_data.view_dimensions = {
+        (float)view_width,
+        (float)view_height,
+        view_width ? 1.0f / (float)view_width : 0.0f,
+        view_height ? 1.0f / (float)view_height : 0.0f,
+    };
+
+    mugfx_buffer_update(state->u_pass_buf, 0, {}); // orphan
+    mugfx_buffer_update(state->u_pass_buf, 0, { &state->pass_data, sizeof(state->pass_data) });
 
     if (!target.id) {
         mugfx_set_viewport(0, 0, state->fb_width, state->fb_height);
     }
 }
 
-static void upload_transform(ung_transform_id transform)
+static void upload_transform(um_mat transform)
 {
     UTransform trafo_data;
-    if (transform.id) {
-        trafo_data.model = transform::get_world_matrix(transform);
-    } else {
-        trafo_data.model = um_mat_identity();
-    }
-    trafo_data.model_inv = um_mat_invert(trafo_data.model);
-    trafo_data.model_view = um_mat_mul(state->pass_camera.view, trafo_data.model);
+    trafo_data.model = transform;
+    trafo_data.model_view = um_mat_mul(state->pass_data.view, trafo_data.model);
     trafo_data.model_view_projection
-        = um_mat_mul(state->pass_camera.projection, trafo_data.model_view);
+        = um_mat_mul(state->pass_data.projection, trafo_data.model_view);
+    trafo_data.normal_matrix = um_mat_transpose(um_mat_invert(trafo_data.model));
 
     mugfx_buffer_update(state->u_transform_buf, 0, { &trafo_data, sizeof(UTransform) });
 }
@@ -195,8 +194,8 @@ static mugfx_draw_binding buffer_binding(uint32_t binding, mugfx_buffer_id buffe
     return { .type = MUGFX_BINDING_TYPE_BUFFER, .buffer = { binding, buffer } };
 }
 
-EXPORT void ung_draw_ex(ung_material_id material, ung_geometry_id geometry,
-    ung_transform_id transform, ung_draw_ex_params params)
+EXPORT void ung_draw_matrix(ung_material_id material, ung_geometry_id geometry,
+    const float transform[16], ung_draw_ex_params params)
 {
     auto mat = get(state->materials, material.id);
     auto geom = get(state->geometries, geometry.id);
@@ -216,11 +215,10 @@ EXPORT void ung_draw_ex(ung_material_id material, ung_geometry_id geometry,
     draw_bindings.size_ = mat->bindings.size();
 
     // TODO: maybe avoid upload if transform is overriden
-    draw_bindings[0] = buffer_binding(0, state->u_constant_buf);
-    draw_bindings[1] = buffer_binding(1, state->u_frame_buf);
-    draw_bindings[2] = buffer_binding(2, state->u_camera_buf);
-    draw_bindings[3] = buffer_binding(3, state->u_transform_buf);
-    upload_transform(transform);
+    draw_bindings[0] = buffer_binding(0, state->u_frame_buf);
+    draw_bindings[1] = buffer_binding(1, state->u_pass_buf);
+    draw_bindings[2] = buffer_binding(2, state->u_transform_buf);
+    upload_transform(transform ? um_mat_from_ptr(transform) : um_mat_identity());
 
     if (params.num_binding_overrides) {
         assert(params.binding_overrides);
@@ -245,6 +243,14 @@ EXPORT void ung_draw_ex(ung_material_id material, ung_geometry_id geometry,
 
     mugfx_draw_instanced(mat->material, geom->geometry, draw_bindings.data(), draw_bindings.size(),
         params.instance_count);
+}
+
+EXPORT void ung_draw_ex(ung_material_id material, ung_geometry_id geometry,
+    ung_transform_id transform, ung_draw_ex_params params)
+{
+    const auto trafo_matrix
+        = transform.id ? transform::get_world_matrix(transform) : um_mat_identity();
+    ung_draw_matrix(material, geometry, &trafo_matrix.cols[0].x, params);
 }
 
 EXPORT void ung_draw_instanced(ung_material_id material, ung_geometry_id geometry,

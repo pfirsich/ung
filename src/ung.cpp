@@ -59,13 +59,14 @@ namespace text {
 }
 
 static const char* default_sprite_vert = R"(
-layout (binding = 2, std140) uniform UngCamera {
+layout (binding = 1, std140) uniform UngPass {
     mat4 view;
     mat4 view_inv;
     mat4 projection;
     mat4 projection_inv;
     mat4 view_projection;
     mat4 view_projection_inv;
+    vec4 view_dimensions; // xy: size, zw: reciprocal size
 };
 
 layout (location = 0) in vec2 a_position;
@@ -84,7 +85,7 @@ void main() {
 
 State* state = nullptr;
 
-static void update_window_metrics(bool update_constant_uniform_data)
+static void update_window_metrics()
 {
     int w = 0;
     int h = 0;
@@ -95,18 +96,6 @@ static void update_window_metrics(bool update_constant_uniform_data)
     SDL_GL_GetDrawableSize(state->window, &w, &h);
     state->fb_width = (u32)w;
     state->fb_height = (u32)h;
-
-    state->u_constant_data.screen_dimensions = um_vec4 {
-        (float)state->win_width,
-        (float)state->win_height,
-        state->win_width ? 1.0f / (float)state->win_width : 0.0f,
-        state->win_height ? 1.0f / (float)state->win_height : 0.0f,
-    };
-
-    if (update_constant_uniform_data) {
-        mugfx_buffer_update(
-            state->u_constant_buf, 0, { &state->u_constant_data, sizeof(UConstant) });
-    }
 }
 
 EXPORT ung_string ung_zstr(const char* str)
@@ -208,7 +197,7 @@ EXPORT void ung_init(ung_init_params params)
 
     SDL_GL_SetSwapInterval(params.window_mode.vsync);
 
-    update_window_metrics(false);
+    update_window_metrics();
 
     // mugfx
     if (!params.mugfx.allocator) {
@@ -250,7 +239,7 @@ EXPORT void ung_init(ung_init_params params)
         .stage = MUGFX_SHADER_STAGE_VERTEX,
         .source = default_sprite_vert,
         .bindings = {
-            { .type = MUGFX_SHADER_BINDING_TYPE_UNIFORM, .binding = 2 },
+            { .type = MUGFX_SHADER_BINDING_TYPE_UNIFORM, .binding = 1 },
         },
         .debug_label = "ung:default_sprite.vert",
     });
@@ -427,7 +416,7 @@ EXPORT bool ung_poll_events()
             case SDL_WINDOWEVENT_RESIZED:
             case SDL_WINDOWEVENT_SIZE_CHANGED:
             case SDL_WINDOWEVENT_DISPLAY_CHANGED:
-                update_window_metrics(true);
+                update_window_metrics();
                 break;
             default:
                 break;

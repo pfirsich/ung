@@ -1,10 +1,11 @@
-layout (binding = 2, std140) uniform UngCamera {
+layout (binding = 1, std140) uniform UngPass {
     mat4 view;
     mat4 view_inv;
     mat4 projection;
     mat4 projection_inv;
     mat4 view_projection;
     mat4 view_projection_inv;
+    vec4 view_dimensions; // xy: size, zw: reciprocal size
 };
 
 layout (location = 0) in vec3 a_position;

@@ -407,28 +407,25 @@ ung_texture_id ung_texture_load_buffer(
  *
  * The following bindings are provided by ung by default:
 
-layout (binding = 0, std140) uniform UngConstant {
-    vec4 screen_dimensions; // xy: size, zw: reciprocal size
-};
-
-layout (binding = 1, std140) uniform UngFrame {
+layout (binding = 0, std140) uniform UngFrame {
     vec4 time; // x: seconds since game started, y: frame counter
 };
 
-layout (binding = 2, std140) uniform UngCamera {
+layout (binding = 1, std140) uniform UngPass {
     mat4 view;
     mat4 view_inv;
     mat4 projection;
     mat4 projection_inv;
     mat4 view_projection;
     mat4 view_projection_inv;
+    vec4 view_dimensions; // xy: size, zw: reciprocal size
 };
 
-layout (binding = 3, std140) uniform UngTransform {
+layout (binding = 2, std140) uniform UngTransform {
     mat4 model;
-    mat4 model_inv;
     mat4 model_view;
     mat4 model_view_projection;
+    mat4 normal_matrix; // inverse transpose of model, use mat3(normal_matrix)
 };
 
  */
@@ -609,7 +606,7 @@ float ung_font_get_text_width(ung_font_id font, ung_string string);
 // uses built-in text rendering material
 void ung_font_draw(ung_font_id font, ung_string text, float x, float y, ung_color color);
 // a text rendering material has:
-// - a UngCamera uniform block at binding 2,
+// - a UngPass uniform block at binding 1
 // - three vertes attributes (vec2 pos, vec2 texcoord, vec4 color) (location 0, 1, 2 respectively)
 // - a font atlas texture at uniform binding = 0
 // This will set the texture at binding=0 to the font atlas texture!
@@ -925,6 +922,8 @@ void ung_begin_frame();
 void ung_begin_pass(mugfx_render_target_id target, ung_camera_id camera);
 // Transform may be 0 to use the identity transform
 void ung_draw(ung_material_id material, ung_geometry_id geometry, ung_transform_id transform);
+void ung_draw_matrix(ung_material_id material, ung_geometry_id geometry, const float transform[16],
+    ung_draw_ex_params params);
 void ung_draw_ex(ung_material_id material, ung_geometry_id geometry, ung_transform_id transform,
     ung_draw_ex_params params);
 // Kept for backwards compatibility, just calls ung_draw_ex

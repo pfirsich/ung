@@ -94,22 +94,23 @@ EXPORT ung_material_id ung_material_create(ung_material_create_params params)
 
     const auto [id, material] = state->materials.insert();
     material->material = mugfx_material_create(params.mugfx);
+
+    // UngFrame
     material->bindings.append() = {
         .type = MUGFX_BINDING_TYPE_BUFFER,
         .buffer = { .binding = 0 }, // rest set in draw
     };
+    // UngPass
     material->bindings.append() = {
         .type = MUGFX_BINDING_TYPE_BUFFER,
         .buffer = { .binding = 1 }, // rest set in draw
     };
+    // UngTransform
     material->bindings.append() = {
         .type = MUGFX_BINDING_TYPE_BUFFER,
         .buffer = { .binding = 2 }, // rest set in draw
     };
-    material->bindings.append() = {
-        .type = MUGFX_BINDING_TYPE_BUFFER,
-        .buffer = { .binding = 3 }, // rest set in draw
-    };
+
     if (params.constant_data) {
         material->constant_buf = mugfx_buffer_create({
             .target = MUGFX_BUFFER_TARGET_UNIFORM,
@@ -122,6 +123,7 @@ EXPORT ung_material_id ung_material_create(ung_material_create_params params)
             .buffer = { .binding = 8, .id = material->constant_buf },
         };
     }
+
     if (params.dynamic_data_size) {
         material->dynamic_data = allocate<uint8_t>(params.dynamic_data_size);
         material->dynamic_data_size = params.dynamic_data_size;
