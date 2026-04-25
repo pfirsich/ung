@@ -1,9 +1,5 @@
 #include "state.hpp"
 
-namespace ung::transform {
-um_mat get_world_matrix(ung_transform_id trafo);
-}
-
 namespace ung::render {
 
 void init(ung_init_params params)
@@ -55,14 +51,15 @@ Camera* get_camera(u64 key)
 EXPORT ung_camera_id ung_camera_create()
 {
     const auto [id, camera] = state->cameras.insert();
-    camera->transform = ung_transform_create();
+    camera->projection = um_mat_identity();
+    camera->projection_inv = um_mat_identity();
+    camera->view = um_mat_identity();
+    camera->view_inv = um_mat_identity();
     return { id };
 }
 
 EXPORT void ung_camera_destroy(ung_camera_id camera)
 {
-    auto cam = get_camera(camera.id);
-    ung_transform_destroy(cam->transform);
     state->cameras.remove(camera.id);
 }
 
@@ -112,35 +109,30 @@ EXPORT void ung_camera_get_projection_matrix(ung_camera_id camera, float matrix[
     std::memcpy(matrix, &get_camera(camera.id)->projection, sizeof(float) * 16);
 }
 
-EXPORT ung_transform_id ung_camera_get_transform(ung_camera_id camera)
-{
-    return get_camera(camera.id)->transform;
-}
-
 EXPORT void ung_camera_get_world_matrix(ung_camera_id camera, float matrix[16])
 {
     auto cam = get_camera(camera.id);
-    ung_transform_get_world_matrix(cam->transform, matrix);
+    um_mat_to_ptr(cam->view_inv, matrix);
 }
 
 EXPORT void ung_camera_set_world_matrix(ung_camera_id camera, const float matrix[16])
 {
     auto cam = get_camera(camera.id);
-    ung_transform_set_matrix(cam->transform, matrix);
+    cam->view_inv = um_mat_from_ptr(matrix);
+    cam->view = um_mat_invert(cam->view_inv);
 }
 
 EXPORT void ung_camera_get_view_matrix(ung_camera_id camera, float matrix[16])
 {
     auto cam = get_camera(camera.id);
-    const auto view = um_mat_invert(transform::get_world_matrix(cam->transform));
-    std::memcpy(matrix, &view, sizeof(float) * 16);
+    um_mat_to_ptr(cam->view, matrix);
 }
 
 EXPORT void ung_camera_set_view_matrix(ung_camera_id camera, const float matrix[16])
 {
     auto cam = get_camera(camera.id);
-    const auto world = um_mat_invert(um_mat_from_ptr(matrix));
-    ung_transform_set_matrix(cam->transform, &world.cols[0].x);
+    cam->view = um_mat_from_ptr(matrix);
+    cam->view_inv = um_mat_invert(cam->view);
 }
 
 void begin_frame()
@@ -165,8 +157,8 @@ EXPORT void ung_begin_pass(mugfx_render_target_id target, ung_camera_id camera)
     auto cam = get_camera(camera.id);
     state->pass_data.projection = cam->projection;
     state->pass_data.projection_inv = cam->projection_inv;
-    state->pass_data.view_inv = transform::get_world_matrix(cam->transform);
-    state->pass_data.view = um_mat_invert(state->pass_data.view_inv);
+    state->pass_data.view = cam->view;
+    state->pass_data.view_inv = cam->view_inv;
     state->pass_data.view_projection
         = um_mat_mul(state->pass_data.projection, state->pass_data.view);
     state->pass_data.view_projection_inv = um_mat_invert(state->pass_data.view_projection);

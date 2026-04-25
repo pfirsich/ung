@@ -104,7 +104,8 @@ struct Material {
 struct Camera {
     um_mat projection;
     um_mat projection_inv;
-    ung_transform_id transform;
+    um_mat view;
+    um_mat view_inv;
 };
 
 struct Font {

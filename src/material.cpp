@@ -40,8 +40,9 @@ static bool reload_material(Material* mat, MaterialReloadCtx* ctx)
 {
     const auto vert = get(state->shaders, ctx->vert.id);
     const auto frag = get(state->shaders, ctx->frag.id);
-    const auto recreate = ung_resource_get_version(vert->resource) != ctx->vert_version
-        || ung_resource_get_version(frag->resource) != ctx->frag_version;
+    const auto recreate
+        = (ctx->vert_version && ung_resource_get_version(vert->resource) != ctx->vert_version)
+        || (ctx->frag_version && ung_resource_get_version(frag->resource) != ctx->frag_version);
 
     bool res = true;
     if (recreate) {
@@ -148,11 +149,11 @@ EXPORT ung_material_id ung_material_create(ung_material_create_params params)
         material->reload_ctx->dynamic_data_size = params.dynamic_data_size;
 
         material->reload_ctx->vert = params.vert;
-        material->reload_ctx->vert_version
-            = ung_resource_get_version(ung_shader_get_resource(params.vert));
+        const auto vert_res = ung_shader_get_resource(params.vert);
+        material->reload_ctx->vert_version = vert_res.id ? ung_resource_get_version(vert_res) : 0;
         material->reload_ctx->frag = params.frag;
-        material->reload_ctx->frag_version
-            = ung_resource_get_version(ung_shader_get_resource(params.frag));
+        const auto frag_res = ung_shader_get_resource(params.frag);
+        material->reload_ctx->frag_version = frag_res.id ? ung_resource_get_version(frag_res) : 0;
         material->resource = ung_resource_create(material_reload_cb, material->reload_ctx);
 
         update_deps(material);
@@ -250,9 +251,11 @@ EXPORT bool ung_material_recreate(ung_material_id material_id, ung_material_crea
         mat->reload_ctx->constant_data_size = params.constant_data_size;
         mat->reload_ctx->dynamic_data_size = params.dynamic_data_size;
         mat->reload_ctx->vert = params.vert;
-        mat->reload_ctx->vert_version = ung_resource_get_version(vert->resource);
+        mat->reload_ctx->vert_version
+            = vert->resource.id ? ung_resource_get_version(vert->resource) : 0;
         mat->reload_ctx->frag = params.frag;
-        mat->reload_ctx->frag_version = ung_resource_get_version(frag->resource);
+        mat->reload_ctx->frag_version
+            = frag->resource.id ? ung_resource_get_version(frag->resource) : 0;
 
         update_deps(mat);
     }

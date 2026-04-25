@@ -49,7 +49,6 @@ set(UNG_SOURCES
   src/sprite_renderer.cpp
   src/text.cpp
   src/texture.cpp
-  src/transform.cpp
   src/types.cpp
 )
 

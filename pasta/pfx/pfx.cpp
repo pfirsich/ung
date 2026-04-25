@@ -226,24 +226,19 @@ void sort_particles(std::span<GpuParticleInstance> gpu_particles, ung_camera_id 
     }
 
     // Camera pose
-    const auto trafo = ung_camera_get_transform(cam);
-    um_vec3 cam_pos;
-    ung_transform_get_position(trafo, &cam_pos.x);
-
-    um_quat q;
-    ung_transform_get_orientation(trafo, &q.x);
-    auto fwd = um_vec3_normalized(um_quat_mul_vec3(q, { 0.0f, 0.0f, -1.0f }));
+    um_mat cam_world;
+    ung_camera_get_world_matrix(cam, &cam_world.cols[0].x);
+    const auto cam_pos = um_vec3_from_ptr(&cam_world.cols[3].x);
+    auto cam_fwd = um_vec3_mul(um_vec3_normalized(um_vec3_from_ptr(&cam_world.cols[2].x)), -1.0f);
 
     if (sort == Sort::FrontToBack) {
-        fwd = um_vec3_mul(fwd, -1.f);
+        cam_fwd = um_vec3_mul(cam_fwd, -1.f);
     }
 
     std::stable_sort(gpu_particles.begin(), gpu_particles.end(),
         [&](const GpuParticleInstance& a, const GpuParticleInstance& b) {
-            const auto dot_a = (a.pos[0] - cam_pos.x) * fwd.x + (a.pos[1] - cam_pos.y) * fwd.y
-                + (a.pos[2] - cam_pos.z) * fwd.z;
-            const auto dot_b = (b.pos[0] - cam_pos.x) * fwd.x + (b.pos[1] - cam_pos.y) * fwd.y
-                + (b.pos[2] - cam_pos.z) * fwd.z;
+            const auto dot_a = um_vec3_dot(um_vec3_sub(um_vec3_from_ptr(a.pos), cam_pos), cam_fwd);
+            const auto dot_b = um_vec3_dot(um_vec3_sub(um_vec3_from_ptr(b.pos), cam_pos), cam_fwd);
             return dot_a > dot_b;
         });
 }
@@ -373,7 +368,8 @@ void Renderer::draw(std::span<Particle> particles, DrawData& draw_data, ung_came
     if (count == 0) {
         return;
     }
-    ung_draw_instanced(draw_data.material, draw_data.geometry, { 0 }, count);
+    ung_draw(
+        draw_data.material, draw_data.geometry, nullptr, { .instance_count = (uint32_t)count });
 }
 
 static std::string_view sv(const ung_string& s)

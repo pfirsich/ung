@@ -36,11 +36,6 @@ namespace input {
     void shutdown();
 }
 
-namespace transform {
-    void init(ung_init_params params);
-    void shutdown();
-}
-
 namespace sprite_renderer {
     void init(ung_init_params params);
     void shutdown();
@@ -245,7 +240,6 @@ EXPORT void ung_init(ung_init_params params)
     });
 
     files::init(params);
-    transform::init(params);
     render::init(params);
     text::init(params);
     input::init(params);
@@ -271,7 +265,6 @@ EXPORT void ung_shutdown()
     input::shutdown();
     text::shutdown();
     render::shutdown();
-    transform::shutdown();
     files::shutdown();
 
     state->materials.free();

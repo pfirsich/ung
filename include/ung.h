@@ -20,10 +20,6 @@ typedef struct {
 
 typedef struct {
     uint64_t id;
-} ung_transform_id;
-
-typedef struct {
-    uint64_t id;
 } ung_material_id;
 
 typedef struct {
@@ -124,7 +120,6 @@ typedef struct {
     uint32_t max_num_textures; // default: 128
     uint32_t max_num_shaders; // default: 64
     uint32_t max_num_geometries; // default: 1024
-    uint32_t max_num_transforms; // default: 1024
     uint32_t max_num_materials; // default: 1024
     uint32_t max_num_cameras; // default: 8
     uint32_t max_num_sprite_vertices; // default: 1024*16
@@ -319,46 +314,6 @@ void ung_gamepad_set_led(ung_gamepad_id gamepad, uint8_t red, uint8_t green, uin
 // default: 0.1f, 0.9f
 void ung_gamepad_axis_deadzone(
     ung_gamepad_id gamepad, ung_gamepad_axis axis, float inner, float outer);
-
-/*
- * Transforms
- */
-ung_transform_id ung_transform_create();
-// This will reparent all children to the parent of the deleted transform
-void ung_transform_destroy(ung_transform_id transform);
-
-void ung_transform_set_position(ung_transform_id transform, const float xyz[3]);
-void ung_transform_set_position_v(ung_transform_id transform, float x, float y, float z);
-void ung_transform_get_position(ung_transform_id transform, float position[3]);
-void ung_transform_set_orientation(ung_transform_id transform, const float xyzw[4]);
-void ung_transform_set_orientation_v(
-    ung_transform_id transform, float x, float y, float z, float w);
-void ung_transform_get_orientation(ung_transform_id transform, float quat_xyzw[4]);
-void ung_transform_set_scale(ung_transform_id transform, const float xyz[3]);
-void ung_transform_set_scale_u(ung_transform_id transform, float scale); // uniform
-void ung_transform_set_scale_v(ung_transform_id transform, float x, float y, float z);
-void ung_transform_get_scale(ung_transform_id transform, float scale[3]);
-void ung_transform_set_matrix(ung_transform_id transform, const float m[16]);
-
-void ung_transform_look_at(ung_transform_id transform, const float xyz[3]);
-void ung_transform_look_at_v(ung_transform_id transform, float x, float y, float z);
-void ung_transform_look_at_up(
-    ung_transform_id transform, const float xyz[3], const float up_xyz[3]);
-void ung_transform_look_at_up_v(
-    ung_transform_id transform, float x, float y, float z, float up_x, float up_y, float up_z);
-
-// Returns matrix in parent coordinate system
-void ung_transform_get_local_matrix(ung_transform_id transform, float matrix[16]);
-// Takes into account parent transform, if parent is set
-void ung_transform_get_world_matrix(ung_transform_id transform, float matrix[16]);
-
-void ung_transform_local_to_world(ung_transform_id transform, float dir[3]);
-
-// Object hierarchy
-void ung_transform_set_parent(ung_transform_id transform, ung_transform_id parent);
-ung_transform_id ung_transform_get_parent(ung_transform_id transform);
-ung_transform_id ung_transform_get_first_child(ung_transform_id transform);
-ung_transform_id ung_transform_get_next_sibling(ung_transform_id transform);
 
 /*
  * Graphics
@@ -670,7 +625,6 @@ void ung_camera_set_orthographic(
 void ung_camera_set_orthographic_z(
     ung_camera_id camera, float left, float right, float bottom, float top, float near, float far);
 void ung_camera_get_projection_matrix(ung_camera_id camera, float matrix[16]);
-ung_transform_id ung_camera_get_transform(ung_camera_id camera);
 void ung_camera_set_world_matrix(ung_camera_id camera, const float matrix[16]);
 void ung_camera_get_world_matrix(ung_camera_id camera, float matrix[16]);
 void ung_camera_set_view_matrix(ung_camera_id camera, const float matrix[16]);
