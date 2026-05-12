@@ -335,6 +335,8 @@ ung_texture_id ung_texture_create(mugfx_texture_create_params params);
 void ung_texture_recreate(ung_texture_id texture, mugfx_texture_create_params params);
 void ung_texture_destroy(ung_texture_id texture);
 ung_dimensions ung_texture_get_size(ung_texture_id texture);
+void ung_texture_set_data(
+    ung_texture_id texture, mugfx_slice data, mugfx_pixel_format data_format);
 
 typedef enum {
     UNG_TEXTURE_INVALID = 0,

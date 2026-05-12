@@ -388,4 +388,11 @@ EXPORT ung_dimensions ung_texture_get_size(ung_texture_id texture_id)
     return { width, height };
 }
 
+EXPORT void ung_texture_set_data(
+    ung_texture_id id, mugfx_slice data, mugfx_pixel_format data_format)
+{
+    auto texture = get(state->textures, id.id);
+    mugfx_texture_set_data(texture->texture, data, data_format);
+}
+
 }
