@@ -77,6 +77,15 @@ static std::string_view line_directive(u32 line_num)
     return { buf, (size_t)n };
 }
 
+static const char* nullterm(std::string_view str)
+{
+    thread_local char buf[512];
+    assert(str.size() < sizeof(buf));
+    memcpy(buf, str.data(), str.size());
+    buf[str.size()] = 0;
+    return buf;
+}
+
 static const char* process_pragmas(std::string_view src)
 {
     thread_local std::array<char, 8 * 1024> expanded;
@@ -97,6 +106,14 @@ static const char* process_pragmas(std::string_view src)
                     offset = append(expanded, offset, line_directive(line_num + 1));
                 } else if (name == "UngTransform") {
                     offset = append(expanded, offset, UngTransform);
+                    offset = append(expanded, offset, line_directive(line_num + 1));
+                } else if (name.size() > 2 && name[0] == '"') {
+                    const auto path = nullterm(name.substr(1, name.size() - 2));
+                    size_t file_size = 0;
+                    const auto file_data = ung_read_whole_file(path, &file_size, true);
+                    offset = append(expanded, offset, line_directive(1));
+                    offset = append(expanded, offset, { file_data, file_size });
+                    offset = append(expanded, offset, "\n");
                     offset = append(expanded, offset, line_directive(line_num + 1));
                 } else {
                     std::printf("Unknown ung-include '%.*s'\n", (int)name.size(), name.data());
