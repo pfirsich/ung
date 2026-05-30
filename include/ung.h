@@ -14,49 +14,23 @@ extern "C" {
 // id == 0 always represents an invalid object, the id uses 48 bits and therefore fits into a double
 // precision floating point number exactly.
 
-typedef struct {
-    uint64_t id;
-} ung_controller_id;
-
-typedef struct {
-    uint64_t id;
-} ung_material_id;
-
-typedef struct {
-    uint64_t id;
-} ung_camera_id;
-
-typedef struct {
-    uint64_t id;
-} ung_gamepad_id;
-
-typedef struct {
-    uint64_t id;
-} ung_sound_source_id;
-
-typedef struct {
-    uint64_t id;
-} ung_sound_id;
-
-typedef struct {
-    uint64_t id;
-} ung_skeleton_id;
-
-typedef struct {
-    uint64_t id;
-} ung_animation_id;
-
-typedef struct {
-    uint64_t id;
-} ung_texture_id;
-
-typedef struct {
-    uint64_t id;
-} ung_shader_id;
-
-typedef struct {
-    uint64_t id;
-} ung_geometry_id;
+// clang-format off
+typedef struct { uint64_t id; } ung_animation_id;
+typedef struct { uint64_t id; } ung_camera_id;
+typedef struct { uint64_t id; } ung_controller_id;
+typedef struct { uint64_t id; } ung_file_watch_id;
+typedef struct { uint64_t id; } ung_font_id;
+typedef struct { uint64_t id; } ung_gamepad_id;
+typedef struct { uint64_t id; } ung_geometry_id;
+typedef struct { uint64_t id; } ung_material_id;
+typedef struct { uint64_t id; } ung_resource_id;
+typedef struct { uint64_t id; } ung_shader_id;
+typedef struct { uint64_t id; } ung_skeleton_id;
+typedef struct { uint64_t id; } ung_sound_id;
+typedef struct { uint64_t id; } ung_sound_source_id;
+typedef struct { uint64_t id; } ung_text_layout_id;
+typedef struct { uint64_t id; } ung_texture_id;
+// clang-format
 
 typedef struct {
     const char* data;
@@ -445,10 +419,6 @@ uint64_t ung_file_get_mtime(const char* path);
 
 typedef void (*ung_file_watch_cb)(void* ctx, const char* changed_path);
 
-typedef struct {
-    uint64_t id;
-} ung_file_watch_id;
-
 // The callback will be called from ung_begin_frame.
 // Inside this function you can queue _reloads, which will be applied transactionally when this
 // function terminates. If you need to update a watch, just recreate it.
@@ -460,10 +430,6 @@ void ung_file_watch_destroy(ung_file_watch_id watch);
 // Resources
 // This is just so you can add auto-reloading for custom resource files (e.g. glTF).
 // If auto_reload is false, all these will no-op as much as possible.
-
-typedef struct {
-    uint64_t id;
-} ung_resource_id;
 
 // If false is returned, the reload is considered failed and dependents are not reloaded.
 typedef bool (*ung_resource_reload_cb)(void* ctx);
@@ -553,10 +519,6 @@ void ung_sprite_flush();
 /*
  * Text
  */
-typedef struct {
-    uint64_t id;
-} ung_font_id;
-
 ung_font_id ung_font_load_ttf(const char* ttf_path, utxt_load_ttf_params params);
 ung_font_id ung_font_load_ttf_buffer(const void* data, size_t size, utxt_load_ttf_params params);
 void ung_font_destroy(ung_font_id font);
@@ -589,9 +551,6 @@ typedef struct {
 void ung_text_draw_items(
     const ung_text_draw_item* items, size_t num_items, ung_material_id mat, float x, float y);
 
-typedef struct {
-    uint64_t id;
-} ung_text_layout_id;
 
 ung_text_layout_id ung_text_layout_create(uint32_t num_glyphs, uint32_t num_runs);
 void ung_text_layout_destroy(ung_text_layout_id layout);
