@@ -318,4 +318,61 @@ struct Formatter {
     }
 };
 
+template <typename Key, typename Value>
+struct FlatMap {
+    struct Entry {
+        Key key;
+        Value value;
+    };
+
+    Array<Entry> data;
+    u32 size;
+
+    void init(u32 cap)
+    {
+        data.init(cap);
+        size = 0;
+    }
+
+    void free()
+    {
+        data.free();
+        size = 0;
+    }
+
+    void insert(Key key, Value value) { data[size++] = { std::move(key), std::move(value) }; }
+
+    bool remove(const Key& key)
+    {
+        for (u32 i = 0; i < size; ++i) {
+            if (data[i].key == key) {
+                ung::remove(data, i);
+                size--;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    Value* find(const Key& key)
+    {
+        for (u32 i = 0; i < size; ++i) {
+            if (data[i].key == key) {
+                return &data[i].value;
+            }
+        }
+        return nullptr;
+    }
+
+    const Value* find(const Key& key) const
+    {
+        for (u32 i = 0; i < size; ++i) {
+            if (data[i].key == key) {
+                return &data[i].value;
+            }
+        }
+        return nullptr;
+    }
+};
+
 }
