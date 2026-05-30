@@ -1,6 +1,7 @@
 #include "state.hpp"
 
 #include <cstdio>
+#include <span>
 #include <utility>
 
 #ifdef UNG_STB_IMAGE
@@ -9,32 +10,217 @@
 
 namespace ung {
 
-EXPORT ung_texture_id ung_texture_create(mugfx_texture_create_params params)
-{
-    const auto t = mugfx_texture_create(params);
-    if (!t.id) {
-        ung_panic("Failed to create shader");
-    }
+// This is everything you need to keep around while a texture is loading and that you can throw away
+// once it has finished loading.
+// It will only live until either decode has failed or upload has finished (failed or succeeded).
+struct TexturePending {
+    // Non-owning pointers
+    std::span<const u8> encoded_data;
+    const u8* decoded_data;
+    const char* cache_path;
+    const char* error;
 
-    const auto [id, texture] = state->textures.insert();
-    texture->texture = t;
-    return { id };
+    // Owning pointers
+    char* file_data; // just for freeing
+    size_t file_size;
+    std::span<u8> allocated_data;
+#ifdef UNG_STB_IMAGE
+    u8* stbi_data; // just for freeing
+#endif
+
+    u32 width;
+    u32 height;
+    u32 components;
+
+    void free()
+    {
+        if (file_data) {
+            ung_free_file_data(file_data, file_size);
+        }
+        if (allocated_data.size()) {
+            deallocate(allocated_data.data(), allocated_data.size());
+        }
+#ifdef UNG_STB_IMAGE
+        if (stbi_data) {
+            stbi_image_free(stbi_data);
+        }
+#endif
+    }
+};
+
+// This stores everything you need to keep around to reload a texture later, i.e.
+// for as long as the texture itself.
+struct TextureResource {
+    ung_texture_id texture;
+    Array<char> path;
+    ung_texture_type type;
+    ung_texture_load_params params;
+    TexturePending* pending;
+};
+
+static void format_texture_cache_path(Formatter& fmt, const void* data, usize size, bool flip_y)
+{
+    fmt.append(".ungcache/");
+    fmt.append_hash(data, size);
+    if (flip_y) {
+        fmt.append("-flip");
+    }
+    fmt.append("-v1.tex");
 }
 
-EXPORT void ung_texture_recreate(ung_texture_id texture_id, mugfx_texture_create_params params)
+static const char* format_texture_cache_path(const void* data, usize size, bool flip_y)
 {
-    const auto t = mugfx_texture_create(params);
-    if (!t.id) {
+    thread_local char path_buf[128];
+    Formatter fmt { path_buf };
+    format_texture_cache_path(fmt, data, size, flip_y);
+    return path_buf;
+}
+
+static void format_texture_cache_path(Formatter& fmt, const char* path, bool flip_y)
+{
+    const auto mtime = ung_file_get_mtime(path);
+    fmt.append(".ungcache/");
+    fmt.append_hash(path, strlen(path));
+    fmt.append("-");
+    fmt.append_hex_obj(mtime);
+    if (flip_y) {
+        fmt.append("-flip");
+    }
+    fmt.append("-v1.tex");
+}
+
+static const char* format_texture_cache_path(const char* path, bool flip_y)
+{
+    thread_local char path_buf[128];
+    Formatter fmt { path_buf };
+    format_texture_cache_path(fmt, path, flip_y);
+    return path_buf;
+}
+
+struct CacheTexHeader {
+    u32 width, height, components;
+};
+
+static void write_texture_cache_file(TexturePending* pending)
+{
+    auto file = fopen(pending->cache_path, "wb");
+    if (!file) {
+        fprintf(stderr, "Could not open texture cache file for writing: %s\n", pending->cache_path);
         return;
     }
-
-    auto texture = get(state->textures, texture_id.id);
-    mugfx_texture_destroy(texture->texture);
-    texture->texture = t;
+    CacheTexHeader hdr { pending->width, pending->height, pending->components };
+    fwrite(&hdr, sizeof(CacheTexHeader), 1, file);
+    fwrite(pending->decoded_data, 1, hdr.width * hdr.height * hdr.components, file);
+    fclose(file);
 }
 
-static mugfx_texture_id create_texture(const void* data, int width, int height, int comp,
-    ung_texture_type type, mugfx_texture_create_params& params)
+static bool load_cache(TexturePending* pending)
+{
+    size_t file_size = 0;
+    const auto file_data = ung_read_whole_file(pending->cache_path, &file_size, false);
+    if (!file_data) {
+        return false; // couldn't load from cache
+    }
+
+    pending->file_data = file_data;
+    pending->file_size = file_size;
+
+    CacheTexHeader hdr;
+    memcpy(&hdr, file_data, sizeof(CacheTexHeader));
+    pending->decoded_data = (u8*)file_data + sizeof(CacheTexHeader);
+    pending->width = hdr.width;
+    pending->height = hdr.height;
+    pending->components = hdr.components;
+
+    return true;
+}
+
+static bool load_path(TextureResource* res, TexturePending* pending)
+{
+    ung_resource_depend_file(res->path.data);
+
+    if (state->load_cache) {
+        pending->cache_path = format_texture_cache_path(res->path.data, res->params.flip_y);
+        if (load_cache(pending)) {
+            return true;
+        }
+    }
+
+    pending->file_data = ung_read_whole_file(res->path.data, &pending->file_size, false);
+    if (!pending->file_data) {
+        fprintf(stderr, "Could not open texture file: %s\n", res->path.data);
+        pending->error = "Could not open file";
+        return false;
+    }
+
+    pending->encoded_data = { (const u8*)pending->file_data, pending->file_size };
+    return true;
+}
+
+static bool load_buffer(TextureResource* res, TexturePending* pending)
+{
+    assert(pending->encoded_data.data());
+    if (state->load_cache) {
+        pending->cache_path = format_texture_cache_path(
+            pending->encoded_data.data(), pending->encoded_data.size(), res->params.flip_y);
+        if (load_cache(pending)) {
+            return true;
+        }
+    }
+    return true;
+}
+
+static bool res_texture_decode(ung_resource_id self, void* instance)
+{
+    auto res = (TextureResource*)instance;
+
+    if (!res->pending) {
+        res->pending = allocate<TexturePending>();
+    }
+    auto pending = res->pending;
+
+    if (res->path.size) {
+        if (!load_path(res, pending)) {
+            return false;
+        }
+    } else {
+        if (!load_buffer(res, pending)) {
+            return false;
+        }
+    }
+
+    if (pending->error) {
+        return false;
+    }
+
+    if (!pending->decoded_data) {
+        assert(pending->encoded_data.data());
+#ifdef UNG_STB_IMAGE
+        stbi_set_flip_vertically_on_load_thread(res->params.flip_y);
+        int w = 0, h = 0, c = 0;
+        pending->stbi_data = stbi_load_from_memory(
+            pending->encoded_data.data(), (int)pending->encoded_data.size(), &w, &h, &c, 0);
+        if (!pending->stbi_data) {
+            pending->error = stbi_failure_reason();
+            return false;
+        }
+        pending->decoded_data = pending->stbi_data;
+        pending->width = (u32)w;
+        pending->height = (u32)h;
+        pending->components = (u32)c;
+
+        if (state->load_cache && pending->decoded_data) {
+            write_texture_cache_file(pending);
+        }
+#else
+        ung_panicf("Texture loading requires stb_image (UNG_STB_IMAGE=ON)");
+#endif
+    }
+
+    return true;
+}
+
+static bool res_texture_upload(ung_resource_id self, void* instance)
 {
     static constexpr mugfx_pixel_format pixel_formats_linear[] {
         MUGFX_PIXEL_FORMAT_DEFAULT,
@@ -50,339 +236,209 @@ static mugfx_texture_id create_texture(const void* data, int width, int height, 
         MUGFX_PIXEL_FORMAT_SRGB8,
         MUGFX_PIXEL_FORMAT_SRGB8_ALPHA8,
     };
-    LoadProfScope lpscope("upload");
-    assert(width > 0 && height > 0 && comp > 0);
-    assert(comp <= 4);
-    params.width = (u32)width;
-    params.height = (u32)height;
-    params.data = { data, (usize)(width * height * comp) };
-    if (params.format == MUGFX_PIXEL_FORMAT_DEFAULT) {
-        if (type == UNG_TEXTURE_COLOR) {
-            assert(comp >= 3); // TODO: Implement expansion (R -> RGB, LA -> RGBA)
-            params.format = pixel_formats_srgb[comp];
-        } else if (type == UNG_TEXTURE_DATA) {
-            params.format = pixel_formats_linear[comp];
-        }
-    }
-    params.data_format = pixel_formats_linear[comp];
-    return mugfx_texture_create(params);
-}
 
-char* append(char* pathbuf, std::string_view str)
-{
-    memcpy(pathbuf, str.data(), str.size());
-    pathbuf[str.size()] = '\0';
-    return pathbuf + str.size();
-}
+    auto res = (TextureResource*)instance;
+    auto pending = res->pending;
+    auto tex = get(state->textures, res->texture.id);
 
-char* fmt_hex(char* buf, const void* data, usize size)
-{
-    constexpr static char digits[16]
-        = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
-    auto bytes = (const u8*)data;
-    for (size_t i = 0; i < size; ++i) {
-        *(buf++) = digits[0xF & (bytes[i]) >> 4];
-        *(buf++) = digits[0xF & bytes[i]];
-    }
-    return buf;
-}
+    assert(pending->decoded_data);
+    assert(pending->width > 0 && pending->height > 0 && pending->components > 0);
+    assert(pending->components <= 4);
 
-void format_texture_cache_path(char* pathbuf, const void* data, usize size, bool flip_y)
-{
-    const auto hash = ung_fnv1a(data, size);
-    pathbuf = append(pathbuf, ".ungcache/");
-    pathbuf = fmt_hex(pathbuf, &hash, sizeof(hash));
-    if (flip_y) {
-        pathbuf = append(pathbuf, "-flip");
-    }
-    append(pathbuf, "-v1.tex");
-}
-
-const char* format_texture_cache_path(const void* data, usize size, bool flip_y)
-{
-    static char path_buf[128];
-    format_texture_cache_path(path_buf, data, size, flip_y);
-    return path_buf;
-}
-
-void format_texture_cache_path(char* pathbuf, const char* path, bool flip_y)
-{
-    const auto path_hash = ung_fnv1a(path, strlen(path));
-    const auto mtime = ung_file_get_mtime(path);
-
-    pathbuf = append(pathbuf, ".ungcache/");
-    pathbuf = fmt_hex(pathbuf, &path_hash, sizeof(path_hash));
-    append(pathbuf, "-");
-    pathbuf = fmt_hex(pathbuf, &mtime, sizeof(mtime));
-    if (flip_y) {
-        pathbuf = append(pathbuf, "-flip");
-    }
-    append(pathbuf, "-v1.tex");
-}
-
-const char* format_texture_cache_path(const char* path, bool flip_y)
-{
-    static char path_buf[128];
-    format_texture_cache_path(path_buf, path, flip_y);
-    return path_buf;
-}
-
-struct TexDecode {
-    enum class Type {
-        Invalid,
-        Cached,
-#ifdef UNG_STB_IMAGE
-        Stbi,
-#endif
+    auto gfx_params = res->params.mugfx;
+    gfx_params.width = (u32)pending->width;
+    gfx_params.height = (u32)pending->height;
+    gfx_params.data = {
+        pending->decoded_data,
+        (usize)(pending->width * pending->height * pending->components),
     };
-
-    Type type = Type::Invalid;
-    void* data = nullptr;
-    size_t size = 0;
-    u8* decoded = nullptr;
-    int width = 0;
-    int height = 0;
-    int components = 0;
-    const char* error = nullptr;
-
-    TexDecode() = default;
-    TexDecode(TexDecode&) = delete;
-    TexDecode(TexDecode&& r)
-        : type(std::exchange(r.type, Type::Invalid))
-        , data(std::exchange(r.data, nullptr))
-        , size(std::exchange(r.size, 0))
-        , decoded(std::exchange(r.decoded, nullptr))
-        , width(std::exchange(r.width, 0))
-        , height(std::exchange(r.height, 0))
-        , components(std::exchange(r.components, 0))
-        , error(std::exchange(r.error, nullptr))
-    {
-    }
-
-    ~TexDecode()
-    {
-        switch (type) {
-        case Type::Cached:
-            ung_free_file_data((char*)data, size);
-            break;
-#ifdef UNG_STB_IMAGE
-        case Type::Stbi:
-            stbi_image_free(data);
-            break;
-#endif
-        default:
-            break;
+    if (gfx_params.format == MUGFX_PIXEL_FORMAT_DEFAULT) {
+        if (res->type == UNG_TEXTURE_COLOR) {
+            assert(pending->components >= 3); // TODO: Implement expansion (R -> RGB, LA -> RGBA)
+            gfx_params.format = pixel_formats_srgb[pending->components];
+        } else if (res->type == UNG_TEXTURE_DATA) {
+            gfx_params.format = pixel_formats_linear[pending->components];
         }
     }
-};
+    gfx_params.data_format = pixel_formats_linear[pending->components];
 
-struct CacheTexHeader {
-    u32 width, height, components;
-};
-
-void write_texture_cache_file(const char* path, const TexDecode& tex)
-{
-    auto file = fopen(path, "wb");
-    if (!file) {
-        std::fprintf(stderr, "Could not open texture cache file for writing: %s\n", path);
-        return;
-    }
-    CacheTexHeader hdr { (u32)tex.width, (u32)tex.height, (u32)tex.components };
-    fwrite(&hdr, sizeof(CacheTexHeader), 1, file);
-    fwrite(tex.decoded, 1, hdr.width * hdr.height * hdr.components, file);
-    fclose(file);
-}
-
-TexDecode load_cached_texture(const char* cache_path)
-{
-    TexDecode ret;
-    ret.type = TexDecode::Type::Cached;
-    {
-        LoadProfScope s("read cached");
-        ret.data = ung_read_whole_file(cache_path, &ret.size, false);
-    }
-    if (!ret.data) {
-        return ret;
+    if (res->path.size) {
+        gfx_params.debug_label = res->path.data;
     }
 
-    ret.decoded = (u8*)ret.data + sizeof(CacheTexHeader);
-
-    CacheTexHeader hdr;
-    memcpy(&hdr, ret.data, sizeof(CacheTexHeader));
-
-    ret.width = (int)hdr.width;
-    ret.height = (int)hdr.height;
-    ret.components = (int)hdr.components;
-
-    return ret;
-}
-
-TexDecode decode_texture(const u8* data, usize size, const char* cache_path, bool flip_y)
-{
-    LoadProfScope lpscope("decode");
-#ifdef UNG_STB_IMAGE
-    if (cache_path) {
-        LoadProfScope s("load cache");
-        auto cached = load_cached_texture(cache_path);
-
-        if (cached.data) {
-            return cached;
-        }
-    }
-
-    TexDecode ret;
-    ret.type = TexDecode::Type::Stbi;
-    stbi_set_flip_vertically_on_load(flip_y);
-    {
-        LoadProfScope s("stbi_load_from_memory");
-        ret.data
-            = stbi_load_from_memory(data, (int)size, &ret.width, &ret.height, &ret.components, 0);
-    }
-    ret.decoded = (u8*)ret.data;
-    if (!ret.decoded) {
-        ret.error = stbi_failure_reason();
-    }
-
-    if (state->load_cache && ret.decoded) {
-        LoadProfScope s("write cache");
-        write_texture_cache_file(cache_path, ret);
-    }
-
-    return ret;
-#else
-    (void)data;
-    (void)size;
-    (void)flip_y;
-    ung_panicf("Texture loading requires stb_image (UNG_STB_IMAGE=ON)");
-#endif
-}
-
-static mugfx_texture_id load_texture(
-    const char* path, ung_texture_type type, ung_texture_load_params& params)
-{
-    LoadProfScope lpscope(path);
-    usize size = 0;
-
-    ung_load_profiler_push("io");
-    const auto data = ung_read_whole_file(path, &size, false);
-    ung_load_profiler_pop("io");
-    if (!data) {
-        return { 0 };
-    }
-
-    const char* cache_path = nullptr;
-    if (state->load_cache) {
-        ung_load_profiler_push("cachekey");
-        cache_path = format_texture_cache_path(path, params.flip_y);
-        ung_load_profiler_pop("cachekey");
-    }
-    const auto decoded = decode_texture((const u8*)data, size, cache_path, params.flip_y);
-    ung_free_file_data(data, size);
-    if (!decoded.decoded) {
-        return { 0 };
-    }
-
-    params.mugfx.debug_label = path;
-    const auto texture = create_texture(
-        decoded.decoded, decoded.width, decoded.height, decoded.components, type, params.mugfx);
-
-    return texture;
-}
-
-static bool reload_texture(
-    Texture* texture, const char* path, ung_texture_type type, ung_texture_load_params& params)
-{
-    const auto tex = load_texture(path, type, params);
-    if (!tex.id) {
+    const auto mugfx_tex = mugfx_texture_create(gfx_params);
+    if (!mugfx_tex.id) {
+        pending->error = "Could not create mugfx texture";
         return false;
     }
 
-    mugfx_texture_destroy(texture->texture);
-    texture->texture = tex;
+    // commit
+    if (tex->texture.id) {
+        mugfx_texture_destroy(tex->texture);
+    }
+    tex->texture = mugfx_tex;
+
     return true;
 }
 
-static bool texture_reload_cb(void* userdata)
+const char* res_texture_get_error(void* instance)
 {
-    auto ctx = (TextureReloadCtx*)userdata;
-    std::fprintf(stderr, "Reloading texture %#lx: %s\n", ctx->texture.id, ctx->path.data);
-    auto texture = get(state->textures, ctx->texture.id);
-    return reload_texture(texture, ctx->path.data, ctx->type, ctx->params);
+    auto res = (TextureResource*)instance;
+    return res->pending ? res->pending->error : nullptr;
+}
+
+static void res_texture_cleanup_load(ung_resource_id self, void* instance)
+{
+    auto res = (TextureResource*)instance;
+    if (res->pending) {
+        res->pending->free();
+        deallocate(res->pending);
+        res->pending = nullptr;
+    }
+}
+
+void res_texture_destroy(ung_resource_id self, void* instance)
+{
+    auto res = (TextureResource*)instance;
+    const auto tex_id = res->texture.id;
+    auto tex = get(state->textures, tex_id);
+
+    res->path.free();
+    deallocate(res);
+
+    if (tex->texture.id) {
+        mugfx_texture_destroy(tex->texture);
+    }
+    state->textures.remove(tex_id);
+}
+
+EXPORT ung_texture_id ung_texture_create(mugfx_texture_create_params params)
+{
+    const auto t = mugfx_texture_create(params);
+    if (!t.id) {
+        ung_panic("Failed to create texture");
+    }
+
+    const auto [id, texture] = state->textures.insert();
+    texture->texture = t;
+    return { id };
+}
+
+static ung_resource_type_id texture_resource()
+{
+    static ung_resource_type_id res_type = {};
+    if (!res_type.id) {
+        res_type = ung_resource_type_register({
+            .type_name = "texture",
+            .decode = res_texture_decode,
+            .upload = res_texture_upload,
+            .get_error = res_texture_get_error,
+            .cleanup_load = res_texture_cleanup_load,
+            .destroy = res_texture_destroy,
+        });
+    }
+    return res_type;
+}
+
+// Pass a fully initialized TextureResource, becaude decode might kick off right away!
+static ung_texture_id load_texture(TextureResource* tex_res, const char* key)
+{
+    // We have to insert and assign the texture to the resource before we load, because
+    // it might kick off the decode immediately, which might want to access the texture.
+    const auto [id, tex] = state->textures.insert();
+    tex_res->texture = { id };
+    const auto [res, created] = ung_resource_load(texture_resource(), key, tex_res);
+
+    if (!created) {
+        state->textures.remove(id);
+        if (tex_res->path.size) {
+            tex_res->path.free();
+        }
+        if (tex_res->pending) {
+            tex_res->pending->free();
+            deallocate(tex_res->pending);
+        }
+        deallocate(tex_res);
+        return ((TextureResource*)ung_resource_instance(res))->texture;
+    }
+
+    tex->resource = res;
+
+    return { id };
 }
 
 EXPORT ung_texture_id ung_texture_load(
     const char* path, ung_texture_type type, ung_texture_load_params params)
 {
     assert(type);
-    const auto t = load_texture(path, type, params);
-    if (!t.id) {
-        ung_panicf("Error loading texture '%s'", path);
-    }
 
-    const auto [id, texture] = state->textures.insert();
-    texture->texture = t;
+    char key_buf[512];
+    Formatter fmt { key_buf };
+    fmt.append(path);
+    fmt.append("-");
+    fmt.append_hex_obj((u8)type);
+    fmt.append("-");
+    fmt.append_hash_obj(params);
 
-    if (state->auto_reload) {
-        texture->reload_ctx = allocate<TextureReloadCtx>();
-        texture->reload_ctx->texture = { id };
-        assign(texture->reload_ctx->path, path);
-        texture->reload_ctx->type = type;
-        texture->reload_ctx->params = params;
-        texture->resource = ung_resource_create(texture_reload_cb, texture->reload_ctx);
-        ung_resource_set_deps(texture->resource, &path, 1, nullptr, 0);
-    }
+    auto tex_res = allocate<TextureResource>();
+    assign(tex_res->path, path);
+    tex_res->type = type;
+    tex_res->params = params;
 
-    return { id };
+    return load_texture(tex_res, fmt.data());
 }
 
 EXPORT ung_texture_id ung_texture_load_buffer(
     const void* buffer, size_t size, ung_texture_type type, ung_texture_load_params params)
 {
     assert(type);
-    const char* cache_path = nullptr;
-    if (state->load_cache) {
-        ung_load_profiler_push("cachekey");
-        cache_path = format_texture_cache_path(buffer, size, params.flip_y);
-        ung_load_profiler_pop("cachekey");
-    }
-    const auto decoded = decode_texture((const u8*)buffer, size, cache_path, params.flip_y);
-    if (!decoded.decoded) {
-        assert(decoded.error);
-        ung_panicf("Error loading texture: %s", decoded.error);
-    }
-    const auto tex = create_texture(
-        decoded.decoded, decoded.width, decoded.height, decoded.components, type, params.mugfx);
 
-    if (!tex.id) {
-        ung_panicf("Error loading texture");
-    }
+    auto tex_res = allocate<TextureResource>();
+    tex_res->type = type;
+    tex_res->params = params;
+    tex_res->pending = allocate<TexturePending>();
+    tex_res->pending->allocated_data = { allocate<u8>(size), size };
+    std::memcpy(tex_res->pending->allocated_data.data(), buffer, size);
+    tex_res->pending->encoded_data = tex_res->pending->allocated_data;
 
-    const auto [id, texture] = state->textures.insert();
-    texture->texture = tex;
-    return { id };
+    return load_texture(tex_res, nullptr);
 }
 
-EXPORT void ung_texture_destroy(ung_texture_id texture_id)
+EXPORT void ung_texture_swap(ung_texture_id dst_id, ung_texture_id src_id)
 {
-    auto texture = get(state->textures, texture_id.id);
+    assert(src_id.id);
+    assert(dst_id.id);
+    assert(dst_id.id != src_id.id);
+    auto dst = get(state->textures, dst_id.id);
+    auto src = get(state->textures, src_id.id);
+    // We could actually handle the mixed cases, but I think that is mostly dumb, so I will assert
+    // instead.
+    assert((dst->resource.id && src->resource.id) || (!dst->resource.id && !src->resource.id));
+    std::swap(dst->texture, src->texture);
+    if (dst->resource.id) {
+        ung_resource_swap(dst->resource, src->resource);
+        ((TextureResource*)ung_resource_instance(dst->resource))->texture = dst_id;
+        ((TextureResource*)ung_resource_instance(src->resource))->texture = src_id;
+    }
+}
 
-    mugfx_texture_destroy(texture->texture);
-
+EXPORT void ung_texture_destroy(ung_texture_id id)
+{
+    auto texture = get(state->textures, id.id);
     if (texture->resource.id) {
-        ung_resource_destroy(texture->resource);
+        ung_resource_destroy_new(texture->resource);
+    } else {
+        mugfx_texture_destroy(texture->texture);
+        state->textures.remove(id.id);
     }
-
-    if (texture->reload_ctx) {
-        texture->reload_ctx->path.free();
-        deallocate(texture->reload_ctx);
-    }
-
-    state->textures.remove(texture_id.id);
 }
 
-EXPORT ung_dimensions ung_texture_get_size(ung_texture_id texture_id)
+EXPORT ung_dimensions ung_texture_get_size(ung_texture_id id)
 {
-    auto texture = get(state->textures, texture_id.id);
+    auto texture = get(state->textures, id.id);
+    if (texture->resource.id) {
+        ung_resource_wait_ready(texture->resource);
+    }
     u32 width = 0, height = 0;
     mugfx_texture_get_size(texture->texture, &width, &height);
     return { width, height };
@@ -393,6 +449,11 @@ EXPORT void ung_texture_set_data(
 {
     auto texture = get(state->textures, id.id);
     mugfx_texture_set_data(texture->texture, data, data_format);
+}
+
+EXPORT ung_resource_id ung_texture_resource(ung_texture_id id)
+{
+    return get(state->textures, id.id)->resource;
 }
 
 }

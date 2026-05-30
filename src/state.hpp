@@ -30,17 +30,9 @@ struct UTransform {
     um_mat normal_matrix;
 };
 
-struct TextureReloadCtx {
-    ung_texture_id texture;
-    Array<char> path;
-    ung_texture_type type;
-    ung_texture_load_params params;
-};
-
 struct Texture {
     mugfx_texture_id texture;
     ung_resource_id resource;
-    TextureReloadCtx* reload_ctx;
 };
 
 struct ShaderReloadCtx {

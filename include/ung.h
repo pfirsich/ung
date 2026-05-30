@@ -306,11 +306,11 @@ typedef struct {
 } ung_dimensions;
 
 ung_texture_id ung_texture_create(mugfx_texture_create_params params);
-void ung_texture_recreate(ung_texture_id texture, mugfx_texture_create_params params);
 void ung_texture_destroy(ung_texture_id texture);
 ung_dimensions ung_texture_get_size(ung_texture_id texture);
 void ung_texture_set_data(
     ung_texture_id texture, mugfx_slice data, mugfx_pixel_format data_format);
+ung_resource_id ung_texture_resource(ung_texture_id texture);
 
 typedef enum {
     UNG_TEXTURE_INVALID = 0,
@@ -327,6 +327,8 @@ ung_texture_id ung_texture_load(
     const char* path, ung_texture_type type, ung_texture_load_params params);
 ung_texture_id ung_texture_load_buffer(
     const void* buffer, size_t size, ung_texture_type type, ung_texture_load_params params);
+// This swaps the textures behind the given handles.
+void ung_texture_swap(ung_texture_id dst, ung_texture_id src);
 
 /*
  * Materials
@@ -448,7 +450,6 @@ void ung_resource_destroy(ung_resource_id resource);
 
 ung_resource_id ung_shader_get_resource(ung_shader_id shader);
 ung_resource_id ung_material_get_resource(ung_material_id material);
-ung_resource_id ung_texture_get_resource(ung_texture_id texture);
 ung_resource_id ung_geometry_get_resource(ung_geometry_id geometry);
 ung_resource_id ung_sound_get_resource(ung_sound_id sound);
 

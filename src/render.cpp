@@ -226,6 +226,16 @@ EXPORT void ung_draw(ung_material_id material, ung_geometry_id geometry, const f
     draw_bindings[2] = buffer_binding(2, state->u_transform_buf);
     upload_transform(transform ? um_mat_from_ptr(transform) : um_mat_identity());
 
+    for (size_t i = 0; i < mat->bindings.size(); ++i) {
+        if (mat->textures[i].id) {
+            const auto tex = get(state->textures, mat->textures[i].id);
+            if (tex->resource.id) {
+                ung_resource_wait_ready(tex->resource);
+            }
+            draw_bindings[i].texture.id = tex->texture;
+        }
+    }
+
     if (params.num_binding_overrides) {
         assert(params.binding_overrides);
         for (size_t i = 0; i < params.num_binding_overrides; ++i) {
