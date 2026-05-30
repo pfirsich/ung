@@ -171,6 +171,7 @@ struct State {
 
     // Other
     bool auto_reload;
+    bool async_decode;
     bool load_cache;
     u64 frame_counter;
     ung_shader_id default_sprite_vert;

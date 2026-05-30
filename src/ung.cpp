@@ -53,6 +53,12 @@ namespace text {
     void shutdown();
 }
 
+namespace resource {
+    void init(ung_init_params params);
+    void begin_frame();
+    void shutdown();
+}
+
 static const char* default_sprite_vert = R"(
 layout (binding = 1, std140) uniform UngPass {
     mat4 view;
@@ -228,6 +234,7 @@ EXPORT void ung_init(ung_init_params params)
     state->materials.init(params.max_num_materials ? params.max_num_materials : 1024);
 
     state->auto_reload = params.auto_reload;
+    state->async_decode = params.async_decode;
     state->load_cache = params.load_cache;
 
     state->default_sprite_vert = ung_shader_create({
@@ -239,6 +246,7 @@ EXPORT void ung_init(ung_init_params params)
         .debug_label = "ung:default_sprite.vert",
     });
 
+    resource::init(params);
     files::init(params);
     render::init(params);
     text::init(params);
@@ -266,6 +274,7 @@ EXPORT void ung_shutdown()
     text::shutdown();
     render::shutdown();
     files::shutdown();
+    resource::shutdown();
 
     state->materials.free();
     state->cameras.free();
@@ -431,6 +440,7 @@ EXPORT void ung_begin_frame()
 {
     state->frame_counter++;
     files::begin_frame();
+    resource::begin_frame();
     render::begin_frame();
     sound::begin_frame();
 }

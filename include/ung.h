@@ -24,6 +24,7 @@ typedef struct { uint64_t id; } ung_gamepad_id;
 typedef struct { uint64_t id; } ung_geometry_id;
 typedef struct { uint64_t id; } ung_material_id;
 typedef struct { uint64_t id; } ung_resource_id;
+typedef struct { uint64_t id; } ung_resource_type_id;
 typedef struct { uint64_t id; } ung_shader_id;
 typedef struct { uint64_t id; } ung_skeleton_id;
 typedef struct { uint64_t id; } ung_sound_id;
@@ -107,12 +108,11 @@ typedef struct {
     uint32_t max_num_file_watches; // default: 128
     uint32_t max_num_fonts; // default: 16
     uint32_t max_num_text_layouts; // default: 16
-    // default for max_num_resources: 0 if auto_reload is false, sum of textures, shaders,
-    // geometries, materials otherwise.
-    uint32_t max_num_resources;
+    uint32_t max_num_resources; // default: sum of textures, shaders, materials, sounds, ...
     mugfx_init_params mugfx;
     bool debug; // do error checking and panic if something is wrong
     bool auto_reload;
+    bool async_decode; // default: true
     bool load_cache;
 } ung_init_params;
 
@@ -452,6 +452,71 @@ ung_resource_id ung_texture_get_resource(ung_texture_id texture);
 ung_resource_id ung_geometry_get_resource(ung_geometry_id geometry);
 ung_resource_id ung_sound_get_resource(ung_sound_id sound);
 
+typedef struct {
+    const char* type_name;
+
+    // Read from disk and decode. Runs on worker thread.
+    // Be careful what you modify here! I recommend to write to dedicated fields here
+    // and "commit" their contents in upload.
+    // This may be NULL.
+    // Return whether decode succeeded.
+    // This function runs in another thread and may only call the following ung functions:
+    // - memory allocation functions
+    // - ung_resource_depend_*
+    // - ung_resource_wait_ready
+    // - ung_*_load*
+    bool (*decode)(ung_resource_id self, void* instance);
+
+    // Runs on main thread. Upload to GPU, etc.
+    // If all you need is decode, set this to NULL.
+    bool (*upload)(ung_resource_id self, void* instance);
+
+    const char* (*get_error)(void* instance);
+
+    // This is always called, no matter if decode or upload fails and it is
+    // called for every load attempt at the very last.
+    void (*cleanup_load)(ung_resource_id self, void* instance);
+
+    void (*destroy)(ung_resource_id self, void* instance);
+} ung_resource_type_desc;
+
+ung_resource_type_id ung_resource_type_register(ung_resource_type_desc desc);
+
+typedef struct {
+    ung_resource_id res;
+    bool created;
+} ung_resource_load_result;
+
+// If this returns an existing resource, it increments the reference count. If it created a
+// resource, it returns it with refcount = 1.
+ung_resource_load_result ung_resource_load(
+    ung_resource_type_id res_type, const char* key, void* instance);
+void* ung_resource_instance(ung_resource_id res);
+ung_resource_id ung_resource_get(ung_resource_type_id res_type, const char* key); // or {0}
+uint32_t ung_resource_incref(ung_resource_id res);
+uint32_t ung_resource_decref(ung_resource_id res);
+// This asserts that the reference cound is 1. ung_{texture,shader,...}_destroy simply forward to
+// this function. This may only be called from the main thread.
+// This decrements the reference count of all dependencies.
+void ung_resource_destroy_new(ung_resource_id res);
+// This function will NOT swap two resources through their resource handles.
+// You can't just swap two textures via their resource handles here and their texture IDs will
+// magically swap. It will just mess everything up really bad. The only reason this function
+// is public, is that you can implement a swap function for your own resources.
+void ung_resource_swap(ung_resource_id dst, ung_resource_id src);
+
+// You may call these from decode/upload to add the given res/file to the list of dependencies
+// of the currently decoding/uploading resource. ung_resource_load also adds the resource as a
+// dependency, so you likely do not need these most of the time.
+void ung_resource_depend_res(ung_resource_id res);
+void ung_resource_depend_file(const char* path);
+
+uint32_t ung_resource_version(ung_resource_id res);
+// This waits for the initial load to complete. Once a resource is ready, it will remain ready.
+// Reloads are asynchronous and as long as the reload is in progress, the old resource will be used.
+void ung_resource_wait_ready(ung_resource_id res);
+
+// Load Profiling
 void ung_load_profiler_push(const char* name);
 void ung_load_profiler_pop(const char* name); // name optional, asserts equality
 void ung_load_profiler_dump(bool verbose);

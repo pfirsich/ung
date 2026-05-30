@@ -43,6 +43,7 @@ set(UNG_SOURCES
   src/model.cpp
   src/random.cpp
   src/render.cpp
+  src/resource.cpp
   src/shader.cpp
   src/slotmap.cpp
   src/sound.cpp
