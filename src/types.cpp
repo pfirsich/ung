@@ -75,4 +75,40 @@ bool is_same_binding(const mugfx_draw_binding& a, const mugfx_draw_binding& b)
     }
 }
 
+char* fmt_hex(char* buf, const void* data, usize size)
+{
+    constexpr static char digits[16]
+        = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+    auto bytes = (const u8*)data;
+    for (size_t i = 0; i < size; ++i) {
+        *(buf++) = digits[0xF & (bytes[i]) >> 4];
+        *(buf++) = digits[0xF & bytes[i]];
+    }
+    return buf;
+}
+
+bool Formatter::append(std::string_view str)
+{
+    if (offset + str.size() >= buf.size() - 1) {
+        offset = SIZE_MAX; // mark this full
+        return false;
+    }
+    memcpy(buf.data() + offset, str.data(), str.size());
+    offset += str.size();
+    buf[offset] = '\0';
+    return true;
+}
+
+bool Formatter::append_hex(const void* data, size_t size)
+{
+    if (offset + size * 2 >= buf.size() - 1) {
+        offset = SIZE_MAX; // mark this full
+        return false;
+    }
+    fmt_hex(buf.data() + offset, data, size);
+    offset += size * 2;
+    buf[offset] = '\0';
+    return true;
+}
+
 }

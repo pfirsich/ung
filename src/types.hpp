@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <string_view>
 
 using u8 = uint8_t;
@@ -279,5 +280,42 @@ struct LoadProfScope {
 };
 
 bool is_same_binding(const mugfx_draw_binding& a, const mugfx_draw_binding& b);
+
+char* fmt_hex(char* buf, const void* data, usize size);
+
+struct Formatter {
+    std::span<char> buf;
+    size_t offset = 0;
+
+    const char* data() const { return buf.data(); }
+    std::string_view sv() const { return { buf.data(), offset }; }
+
+    bool full() const
+    {
+        // 1 for NULL-terminator
+        return offset >= buf.size() - 1;
+    }
+
+    bool append(std::string_view str);
+
+    bool append_hex(const void* data, size_t size);
+
+    template <typename T>
+    bool append_hex_obj(const T& o)
+    {
+        return append_hex(&o, sizeof(o));
+    }
+
+    bool append_hash(const void* data, size_t size)
+    {
+        return append_hex_obj(ung_fnv1a(data, size));
+    }
+
+    template <typename T>
+    bool append_hash_obj(const T& o)
+    {
+        return append_hash(&o, sizeof(o));
+    }
+};
 
 }
