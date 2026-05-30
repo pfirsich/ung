@@ -1,307 +1,114 @@
+#include "mugfx.h"
 #include "state.hpp"
+#include "types.hpp"
+#include "ung.h"
 
 #include <cstdio>
 
 namespace ung {
+
+struct MaterialPending {
+    const char* error;
+};
+
+struct MaterialResource {
+    ung_material_id material;
+    char* vert_path;
+    char* frag_path;
+    ung_material_create_params params;
+    MaterialPending* pending;
+};
 
 Material* get_material(u64 key)
 {
     return get(state->materials, key);
 }
 
-static bool recreate_material(Material* mat, MaterialReloadCtx* ctx, Shader* vert, Shader* frag)
+static size_t get_binding(Material& mat, mugfx_draw_binding binding)
 {
-    auto params = ctx->params;
-    params.vert_shader = vert->shader;
-    params.frag_shader = frag->shader;
-
-    const auto new_mat = mugfx_material_create(params);
-    if (!new_mat.id) {
-        return false;
-    }
-
-    mugfx_material_destroy(mat->material);
-    mat->material = new_mat;
-
-    return true;
-}
-
-static void update_texture_bindings(Material* mat, MaterialReloadCtx* ctx)
-{
-    for (size_t i = 0; i < mat->bindings.size(); ++i) {
-        if (mat->bindings[i].type == MUGFX_BINDING_TYPE_TEXTURE) {
-            ung_material_set_texture(
-                ctx->material, mat->bindings[i].texture.binding, ctx->textures[i]);
+    for (size_t i = 0; i < mat.bindings.size(); ++i) {
+        if (is_same_binding(mat.bindings[i], binding)) {
+            return i;
         }
     }
+    mat.bindings.append() = binding;
+    return mat.bindings.size() - 1;
 }
 
-static bool reload_material(Material* mat, MaterialReloadCtx* ctx)
+static void set_binding(Material& mat, mugfx_draw_binding binding)
 {
-    const auto vert = get(state->shaders, ctx->vert.id);
-    const auto frag = get(state->shaders, ctx->frag.id);
-    const auto recreate
-        = (ctx->vert_version && ung_resource_get_version(vert->resource) != ctx->vert_version)
-        || (ctx->frag_version && ung_resource_get_version(frag->resource) != ctx->frag_version);
-
-    bool res = true;
-    if (recreate) {
-        res = recreate_material(mat, ctx, vert, frag);
-    }
-
-    update_texture_bindings(mat, ctx);
-    return res;
+    const auto idx = get_binding(mat, binding);
+    mat.bindings[idx] = binding;
 }
 
-static bool material_reload_cb(void* userdata)
+static bool res_material_upload(ung_resource_id res_id, void* instance)
 {
-    auto ctx = (MaterialReloadCtx*)userdata;
-    std::fprintf(stderr, "Reloading material\n");
-    auto mat = get(state->materials, ctx->material.id);
-    return reload_material(mat, ctx);
-}
+    auto res = (MaterialResource*)instance;
+    auto mat = get_material(res->material.id);
+    auto& params = res->params;
 
-static void update_deps(Material* mat)
-{
-    StaticVector<ung_resource_id, 32> deps = {};
-    // shaders from ung_shader_create don't have resources
-    const auto vert_res = ung_shader_get_resource(mat->reload_ctx->vert);
-    if (vert_res.id) {
-        deps.append() = vert_res;
+    if (res->vert_path) {
+        assert(!params.vert.id);
+        params.vert = ung_shader_load(MUGFX_SHADER_STAGE_VERTEX, res->vert_path);
     }
-    const auto frag_res = ung_shader_get_resource(mat->reload_ctx->frag);
-    if (frag_res.id) {
-        deps.append() = frag_res;
+    if (res->frag_path) {
+        assert(!params.frag.id);
+        params.frag = ung_shader_load(MUGFX_SHADER_STAGE_FRAGMENT, res->frag_path);
     }
-    for (const auto tex : mat->reload_ctx->textures) {
-        if (tex.id) {
-            const auto res = ung_texture_get_resource(tex);
-            if (res.id) {
-                deps.append() = res;
-            }
-        }
-    }
-    ung_resource_set_deps(mat->resource, nullptr, 0, deps.data(), deps.size());
-}
 
-EXPORT ung_material_id ung_material_create(ung_material_create_params params)
-{
-    assert(params.mugfx.vert_shader.id == 0);
-    assert(params.mugfx.frag_shader.id == 0);
     const auto vert = get(state->shaders, params.vert.id);
     const auto frag = get(state->shaders, params.frag.id);
+
+    if (vert->resource.id) {
+        ung_resource_depend_res(vert->resource);
+        ung_resource_wait_ready(vert->resource);
+    }
+    if (frag->resource.id) {
+        ung_resource_depend_res(frag->resource);
+        ung_resource_wait_ready(frag->resource);
+    }
+
     params.mugfx.vert_shader = vert->shader;
     params.mugfx.frag_shader = frag->shader;
 
-    const auto [id, material] = state->materials.insert();
-    material->material = mugfx_material_create(params.mugfx);
-
-    // UngFrame
-    material->bindings.append() = {
-        .type = MUGFX_BINDING_TYPE_BUFFER,
-        .buffer = { .binding = 0 }, // rest set in draw
-    };
-    // UngPass
-    material->bindings.append() = {
-        .type = MUGFX_BINDING_TYPE_BUFFER,
-        .buffer = { .binding = 1 }, // rest set in draw
-    };
-    // UngTransform
-    material->bindings.append() = {
-        .type = MUGFX_BINDING_TYPE_BUFFER,
-        .buffer = { .binding = 2 }, // rest set in draw
-    };
-
-    if (params.constant_data) {
-        material->constant_buf = mugfx_buffer_create({
-            .target = MUGFX_BUFFER_TARGET_UNIFORM,
-            .usage = MUGFX_BUFFER_USAGE_HINT_STATIC,
-            .data = { params.constant_data, params.constant_data_size },
-            .debug_label = "mat.constant",
-        });
-        material->bindings.append() = {
-            .type = MUGFX_BINDING_TYPE_BUFFER,
-            .buffer = { .binding = 8, .id = material->constant_buf },
-        };
-    }
-
-    if (params.dynamic_data_size) {
-        material->dynamic_data = allocate<uint8_t>(params.dynamic_data_size);
-        material->dynamic_data_size = params.dynamic_data_size;
-
-        material->dynamic_buf = mugfx_buffer_create({
-            .target = MUGFX_BUFFER_TARGET_UNIFORM,
-            .usage = MUGFX_BUFFER_USAGE_HINT_DYNAMIC,
-            .data = { nullptr, params.dynamic_data_size },
-            .debug_label = "mat.dynamic",
-        });
-        material->bindings.append() = {
-            .type = MUGFX_BINDING_TYPE_BUFFER,
-            .buffer = { .binding = 9, .id = material->dynamic_buf },
-        };
-    }
-
-    if (state->auto_reload) {
-        material->reload_ctx = allocate<MaterialReloadCtx>();
-        material->reload_ctx->material = { id };
-        material->reload_ctx->params = params.mugfx;
-        material->reload_ctx->constant_data_size = params.constant_data_size;
-        material->reload_ctx->dynamic_data_size = params.dynamic_data_size;
-
-        material->reload_ctx->vert = params.vert;
-        const auto vert_res = ung_shader_get_resource(params.vert);
-        material->reload_ctx->vert_version = vert_res.id ? ung_resource_get_version(vert_res) : 0;
-        material->reload_ctx->frag = params.frag;
-        const auto frag_res = ung_shader_get_resource(params.frag);
-        material->reload_ctx->frag_version = frag_res.id ? ung_resource_get_version(frag_res) : 0;
-        material->resource = ung_resource_create(material_reload_cb, material->reload_ctx);
-
-        update_deps(material);
-    }
-
-    return { id };
-}
-
-EXPORT ung_material_id ung_material_load(
-    const char* vert_path, const char* frag_path, ung_material_create_params params)
-{
-    LoadProfScope s("material");
-    assert(params.vert.id == 0);
-    assert(params.frag.id == 0);
-    params.vert = ung_shader_load(MUGFX_SHADER_STAGE_VERTEX, vert_path);
-    params.frag = ung_shader_load(MUGFX_SHADER_STAGE_FRAGMENT, frag_path);
-
-    const auto mat_id = ung_material_create(params);
-    auto mat = get_material(mat_id.id);
-    mat->vert = params.vert;
-    mat->frag = params.frag;
-
-    if (state->auto_reload) {
-        assign(mat->reload_ctx->vert_path, vert_path);
-        assign(mat->reload_ctx->frag_path, frag_path);
-    }
-
-    return mat_id;
-}
-
-EXPORT bool ung_material_recreate(ung_material_id material_id, ung_material_create_params params)
-{
-    auto mat = get_material(material_id.id);
-
-    assert(params.mugfx.vert_shader.id == 0);
-    assert(params.mugfx.frag_shader.id == 0);
-    auto vert = get(state->shaders, params.vert.id);
-    auto frag = get(state->shaders, params.frag.id);
-    params.mugfx.vert_shader = vert->shader;
-    params.mugfx.frag_shader = frag->shader;
-
-    const auto new_mat = mugfx_material_create(params.mugfx);
-    if (!new_mat.id) {
+    const auto mugfx_mat = mugfx_material_create(params.mugfx);
+    if (!mugfx_mat.id) {
+        res->pending = allocate<MaterialPending>();
+        res->pending->error = "Could not create material";
         return false;
     }
 
-    mugfx_material_destroy(mat->material);
-    mat->material = new_mat;
-
-    if (params.constant_data) {
-        if (mat->constant_buf.id) {
-            mugfx_buffer_destroy(mat->constant_buf);
-        }
-        mat->constant_buf = mugfx_buffer_create({
-            .target = MUGFX_BUFFER_TARGET_UNIFORM,
-            .usage = MUGFX_BUFFER_USAGE_HINT_STATIC,
-            .data = { params.constant_data, params.constant_data_size },
-            .debug_label = "mat.constant",
-        });
-        for (auto& b : mat->bindings) {
-            if (b.type == MUGFX_BINDING_TYPE_BUFFER && b.buffer.binding == 8) {
-                b.buffer.id = mat->constant_buf;
-                break;
-            }
-        }
+    if (mat->material.id) {
+        mugfx_material_destroy(mat->material);
     }
-
-    if (params.dynamic_data_size) {
-        if (mat->dynamic_buf.id) {
-            mugfx_buffer_destroy(mat->dynamic_buf);
-        }
-        if (mat->dynamic_data) {
-            deallocate(mat->dynamic_data, mat->dynamic_data_size);
-        }
-
-        mat->dynamic_data = allocate<uint8_t>(params.dynamic_data_size);
-        mat->dynamic_data_size = params.dynamic_data_size;
-
-        mat->dynamic_buf = mugfx_buffer_create({
-            .target = MUGFX_BUFFER_TARGET_UNIFORM,
-            .usage = MUGFX_BUFFER_USAGE_HINT_DYNAMIC,
-            .data = { nullptr, params.dynamic_data_size },
-            .debug_label = "mat.dynamic",
-        });
-        for (auto& b : mat->bindings) {
-            if (b.type == MUGFX_BINDING_TYPE_BUFFER && b.buffer.binding == 9) {
-                b.buffer.id = mat->dynamic_buf;
-                break;
-            }
-        }
-    }
-
-    if (mat->reload_ctx) {
-        mat->reload_ctx->params = params.mugfx;
-        mat->reload_ctx->constant_data_size = params.constant_data_size;
-        mat->reload_ctx->dynamic_data_size = params.dynamic_data_size;
-        mat->reload_ctx->vert = params.vert;
-        mat->reload_ctx->vert_version
-            = vert->resource.id ? ung_resource_get_version(vert->resource) : 0;
-        mat->reload_ctx->frag = params.frag;
-        mat->reload_ctx->frag_version
-            = frag->resource.id ? ung_resource_get_version(frag->resource) : 0;
-
-        update_deps(mat);
-    }
+    mat->material = mugfx_mat;
 
     return true;
 }
 
-EXPORT bool ung_material_reload(ung_material_id material_id, const char* vert_path,
-    const char* frag_path, ung_material_create_params params)
+static const char* res_material_get_error(void* instance)
 {
-    assert(params.vert.id == 0);
-    assert(params.frag.id == 0);
-
-    auto mat = get_material(material_id.id);
-
-    if (mat->vert.id) {
-        ung_shader_reload(mat->vert, vert_path);
-    } else {
-        mat->vert = ung_shader_load(MUGFX_SHADER_STAGE_VERTEX, vert_path);
-    }
-
-    if (mat->frag.id) {
-        ung_shader_reload(mat->frag, frag_path);
-    } else {
-        mat->frag = ung_shader_load(MUGFX_SHADER_STAGE_FRAGMENT, frag_path);
-    }
-
-    params.vert = mat->vert;
-    params.frag = mat->frag;
-
-    const auto res = ung_material_recreate(material_id, params);
-    if (!res) {
-        return false;
-    }
-
-    if (mat->reload_ctx) {
-        assign(mat->reload_ctx->vert_path, vert_path);
-        assign(mat->reload_ctx->frag_path, frag_path);
-    }
-
-    return true;
+    auto res = (MaterialResource*)instance;
+    return res->pending ? res->pending->error : nullptr;
 }
 
-EXPORT void ung_material_destroy(ung_material_id material)
+static void res_material_cleanup_load(ung_resource_id self, void* instance)
 {
-    auto mat = get_material(material.id);
+    auto res = (MaterialResource*)instance;
+    if (res->pending) {
+        deallocate(res->pending);
+        res->pending = nullptr;
+    }
+}
+
+static void res_material_destroy(ung_resource_id self, void* instance)
+{
+    auto res = (MaterialResource*)instance;
+    const auto mat_id = res->material.id;
+    auto mat = get(state->materials, mat_id);
+
+    deallocate(res);
+
     if (mat->constant_buf.id) {
         mugfx_buffer_destroy(mat->constant_buf);
     }
@@ -311,40 +118,116 @@ EXPORT void ung_material_destroy(ung_material_id material)
     if (mat->dynamic_buf.id) {
         mugfx_buffer_destroy(mat->dynamic_buf);
     }
-    mugfx_material_destroy(mat->material);
+    if (mat->material.id) {
+        mugfx_material_destroy(mat->material);
+    }
+    state->materials.remove(mat_id);
+}
 
-    if (mat->resource.id) {
-        ung_resource_destroy(mat->resource);
+static ung_resource_type_id material_resource()
+{
+    static ung_resource_type_id res_type = {};
+    if (!res_type.id) {
+        res_type = ung_resource_type_register({
+            .type_name = "material",
+            .upload = res_material_upload,
+            .get_error = res_material_get_error,
+            .cleanup_load = res_material_cleanup_load,
+            .destroy = res_material_destroy,
+        });
+    }
+    return res_type;
+}
+
+static ung_material_id load_material(MaterialResource* mat_res)
+{
+    const auto [id, mat] = state->materials.insert();
+    mat_res->material = { id };
+    // We cannot use any dedup on materials, because we often create the same material multiple
+    // times, because we intend to use them with different textures.
+    const auto [res, created] = ung_resource_load(material_resource(), nullptr, mat_res);
+
+    if (!created) {
+        state->materials.remove(id);
+        deallocate(mat_res);
+        return ((MaterialResource*)ung_resource_instance(res))->material;
     }
 
-    if (mat->reload_ctx) {
-        mat->reload_ctx->vert_path.free();
-        mat->reload_ctx->frag_path.free();
-        deallocate(mat->reload_ctx);
+    // Prepare bindings so they can be set already (with ung_material_set_*)
+    // The actual buffers will be set in ung_draw.
+    // UngFrame
+    mat->bindings.append() = { .type = MUGFX_BINDING_TYPE_BUFFER, .buffer = { .binding = 0 } };
+    // UngPass
+    mat->bindings.append() = { .type = MUGFX_BINDING_TYPE_BUFFER, .buffer = { .binding = 1 } };
+    // UngTransform
+    mat->bindings.append() = { .type = MUGFX_BINDING_TYPE_BUFFER, .buffer = { .binding = 2 } };
+
+    // We create the buffers here, because we only want it to happen once and we don't want to copy
+    // constant data (to pending).
+    if (mat_res->params.constant_data) {
+        mat->constant_buf = mugfx_buffer_create({
+            .target = MUGFX_BUFFER_TARGET_UNIFORM,
+            .usage = MUGFX_BUFFER_USAGE_HINT_STATIC,
+            .data = { mat_res->params.constant_data, mat_res->params.constant_data_size },
+            .debug_label = "mat.constant",
+        });
+        mat->bindings.append() = {
+            .type = MUGFX_BINDING_TYPE_BUFFER,
+            .buffer = { .binding = 8, .id = mat->constant_buf },
+        };
     }
 
-    /* ung_shader_destroy is not implemented yet
-    if (mat->vert.id) {
-        ung_shader_destroy(mat->vert);
-    }
-    if (mat->frag.id) {
-        ung_shader_destroy(mat->frag);
-    }
-    */
+    if (mat_res->params.dynamic_data_size) {
+        mat->dynamic_data = allocate<uint8_t>(mat_res->params.dynamic_data_size);
+        mat->dynamic_data_size = mat_res->params.dynamic_data_size;
 
-    state->materials.remove(material.id);
+        mat->dynamic_buf = mugfx_buffer_create({
+            .target = MUGFX_BUFFER_TARGET_UNIFORM,
+            .usage = MUGFX_BUFFER_USAGE_HINT_DYNAMIC,
+            .data = { nullptr, mat_res->params.dynamic_data_size },
+            .debug_label = "mat.dynamic",
+        });
+
+        mat->bindings.append() = {
+            .type = MUGFX_BINDING_TYPE_BUFFER,
+            .buffer = { .binding = 9, .id = mat->dynamic_buf },
+        };
+    }
+
+    mat->resource = res;
+
+    return { id };
+}
+
+EXPORT ung_material_id ung_material_create(ung_material_create_params params)
+{
+    auto mat_res = allocate<MaterialResource>();
+    mat_res->params = params;
+    return load_material(mat_res);
+}
+
+EXPORT ung_material_id ung_material_load(
+    const char* vert_path, const char* frag_path, ung_material_create_params params)
+{
+    assert(params.vert.id == 0);
+    assert(params.frag.id == 0);
+
+    auto mat_res = allocate<MaterialResource>();
+    mat_res->params = params;
+    mat_res->vert_path = allocate_string(vert_path);
+    mat_res->frag_path = allocate_string(frag_path);
+    return load_material(mat_res);
+}
+
+EXPORT void ung_material_destroy(ung_material_id material)
+{
+    auto mat = get_material(material.id);
+    ung_resource_destroy_new(mat->resource);
 }
 
 EXPORT void ung_material_set_binding(ung_material_id material, mugfx_draw_binding binding)
 {
-    auto mat = get_material(material.id);
-    for (auto& b : mat->bindings) {
-        if (is_same_binding(b, binding)) {
-            b = binding;
-            return;
-        }
-    }
-    mat->bindings.append() = binding;
+    set_binding(*get_material(material.id), binding);
 }
 
 EXPORT void ung_material_set_buffer(ung_material_id material, u32 binding, mugfx_buffer_id buffer)
@@ -356,34 +239,17 @@ EXPORT void ung_material_set_buffer(ung_material_id material, u32 binding, mugfx
         });
 }
 
-static void store_texture(
-    Material* mat, MaterialReloadCtx* ctx, u32 binding, ung_texture_id texture)
-{
-    for (size_t i = 0; i < mat->bindings.size(); ++i) {
-        if (mat->bindings[i].type == MUGFX_BINDING_TYPE_TEXTURE
-            && mat->bindings[i].texture.binding == binding) {
-            ctx->textures[i] = texture;
-        }
-    }
-}
-
 EXPORT void ung_material_set_texture(ung_material_id material, u32 binding, ung_texture_id texture)
 {
-    const auto tex = get(state->textures, texture.id);
+    assert(texture.id);
 
-    ung_material_set_binding(material,
+    auto mat = get_material(material.id);
+    const auto idx = get_binding(*mat,
         {
             .type = MUGFX_BINDING_TYPE_TEXTURE,
-            .texture = { .binding = binding, .id = tex->texture },
+            .texture = { .binding = binding },
         });
-
-    if (state->auto_reload) {
-        auto mat = get_material(material.id);
-        if (mat->reload_ctx) {
-            store_texture(mat, mat->reload_ctx, binding, texture);
-            update_deps(mat);
-        }
-    }
+    mat->textures[idx] = texture;
 }
 
 EXPORT void* ung_material_get_dynamic_data(ung_material_id material)
@@ -391,6 +257,11 @@ EXPORT void* ung_material_get_dynamic_data(ung_material_id material)
     auto mat = get_material(material.id);
     mat->dynamic_data_dirty = true;
     return mat->dynamic_data;
+}
+
+EXPORT ung_resource_id ung_material_resource(ung_material_id id)
+{
+    return get(state->materials, id.id)->resource;
 }
 
 }

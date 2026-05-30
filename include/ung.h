@@ -293,13 +293,13 @@ void ung_gamepad_axis_deadzone(
  * Graphics
  */
 ung_shader_id ung_shader_create(mugfx_shader_create_params params);
-void ung_shader_recreate(ung_shader_id shader, mugfx_shader_create_params params);
 
 // This will load the source from the given path and try to determine the bindings from either
 // a .meta file (same as path + ".meta") (TODO) or from parsing the GLSL source. If the bindings are
 // already in params, no attempt to determine the bindings in another way is made.
 ung_shader_id ung_shader_load(mugfx_shader_stage stage, const char* path);
-bool ung_shader_reload(ung_shader_id shader, const char* path);
+void ung_shader_destroy(ung_shader_id shader);
+ung_resource_id ung_shader_resource(ung_shader_id shader);
 
 typedef struct {
     uint32_t width, height;
@@ -379,12 +379,9 @@ typedef struct {
 } ung_material_create_params;
 
 ung_material_id ung_material_create(ung_material_create_params params);
-bool ung_material_recreate(ung_material_id material, ung_material_create_params params);
 // This will use ung_shader_load for both shaders (see notes below)
 ung_material_id ung_material_load(
     const char* vert_path, const char* frag_path, ung_material_create_params params);
-bool ung_material_reload(ung_material_id material, const char* vert_path, const char* frag_path,
-    ung_material_create_params params);
 void ung_material_destroy(ung_material_id material);
 void ung_material_set_binding(ung_material_id material, mugfx_draw_binding binding);
 void ung_material_set_buffer(
@@ -393,6 +390,7 @@ void ung_material_set_texture(ung_material_id material, uint32_t binding, ung_te
 // Getting this data pointer marks the associated uniform buffer dirty, because it is assumed
 // you modified it
 void* ung_material_get_dynamic_data(ung_material_id material);
+ung_resource_id ung_material_resource(ung_material_id material);
 
 /*
  * Files
@@ -448,8 +446,6 @@ uint32_t ung_resource_get_version(ung_resource_id resource);
 
 void ung_resource_destroy(ung_resource_id resource);
 
-ung_resource_id ung_shader_get_resource(ung_shader_id shader);
-ung_resource_id ung_material_get_resource(ung_material_id material);
 ung_resource_id ung_geometry_get_resource(ung_geometry_id geometry);
 ung_resource_id ung_sound_get_resource(ung_sound_id sound);
 

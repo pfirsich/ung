@@ -257,6 +257,8 @@ EXPORT void ung_draw(ung_material_id material, ung_geometry_id geometry, const f
         }
     }
 
+    ung_resource_wait_ready(mat->resource);
+
     mugfx_draw_instanced(mat->material, geom->geometry, draw_bindings.data(), draw_bindings.size(),
         params.instance_count);
 }

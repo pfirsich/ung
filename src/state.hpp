@@ -35,16 +35,10 @@ struct Texture {
     ung_resource_id resource;
 };
 
-struct ShaderReloadCtx {
-    ung_shader_id shader;
-    Array<char> path;
-};
-
 struct Shader {
     mugfx_shader_stage stage;
     mugfx_shader_id shader;
     ung_resource_id resource;
-    ShaderReloadCtx* reload_ctx;
 };
 
 struct GeometryReloadCtx {
@@ -58,30 +52,9 @@ struct Geometry {
     GeometryReloadCtx* reload_ctx;
 };
 
-struct MaterialReloadCtx {
-    ung_material_id material;
-    Array<char> vert_path;
-    Array<char> frag_path;
-    mugfx_material_create_params params;
-    size_t constant_data_size;
-    size_t dynamic_data_size;
-
-    // We have to remember vert and frag, even if the shaders are not owned, so they are duplicated
-    // here. These are always set.
-    ung_shader_id vert;
-    uint32_t vert_version;
-    ung_shader_id frag;
-    uint32_t frag_version;
-    // Auxiliary data to Material::bindings
-    std::array<ung_texture_id, 16> textures;
-};
-
 struct Material {
     mugfx_material_id material;
-    // ung_material_load creates shaders so the material may own shaders. These are set iff material
-    // owns them.
-    ung_shader_id vert;
-    ung_shader_id frag;
+    ung_resource_id resource;
     mugfx_buffer_id constant_buf;
     mugfx_buffer_id dynamic_buf;
     uint8_t* dynamic_data;
@@ -89,8 +62,7 @@ struct Material {
     bool dynamic_data_dirty;
     u64 last_update_frame;
     StaticVector<mugfx_draw_binding, 16> bindings;
-    ung_resource_id resource;
-    MaterialReloadCtx* reload_ctx;
+    std::array<ung_texture_id, 16> textures;
 };
 
 struct Camera {
