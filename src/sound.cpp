@@ -14,7 +14,7 @@
  * One principle of my engine is to not require allocations in the game's main loop.
  * Unfortunately it is not possible to do this with an interface like ung has it (sources + sounds).
  * See here: https://github.com/mackron/miniaudio/discussions/1025
- * So intead of avoiding allocations altogether I try to reduce them.
+ * So instead of avoiding allocations altogether I try to reduce them.
  * I keep a list per-source of idle sounds and a global last recently used list of sounds.
  * and whenever I want to play a sound, I take sounds from those.
  * Loaded sounds are reused as much as possible and at some point it should converge so that
@@ -24,22 +24,61 @@
 namespace ung::sound {
 struct Sound;
 
+struct SoundSourcePending {
+    const char* error;
+    void* pcm;
+    ma_uint64 frame_count;
+    ma_format format;
+    ma_uint32 channels;
+    ma_uint32 sample_rate;
+
+    void free()
+    {
+        if (pcm) {
+            ma_free(pcm, nullptr);
+        }
+    }
+};
+
+struct SoundSourceResource {
+    ung_sound_source_id source;
+    // We duplicate some fields here with SoundSource, so we don't have to touch SoundSource in a
+    // decode thread.
+    Array<char> path;
+    u32 flags;
+    u32 num_prewarm_sounds;
+    SoundSourcePending* pending;
+};
+
 // We don't have a separate reload context, because the source saves the path already.
 struct SoundSource {
-    ma_sound sound;
     Array<char> path;
+
+    void* pcm;
+    ma_uint64 frame_count;
+    ma_format format;
+    ma_uint32 channels;
+    ma_uint32 sample_rate;
+
+    u32 flags;
+    u8 group;
+
     // This represents a list of idle sounds for this source.
     // A sound in this list, should be in sounds_idle_lru as well (and vice-versa)!
     Sound* source_idle_head;
+
     ung_resource_id resource;
-    u32 flags;
-    u8 group;
     ung_sound_spatial_params spatial_params;
     bool use_spatial_params;
 };
 
 struct Sound {
     ma_sound sound;
+    ma_audio_buffer buffer;
+
+    bool sound_loaded = false;
+    bool buffer_loaded = false;
+
     SoundSource* source;
     Sound* source_idle_next;
 
@@ -55,6 +94,7 @@ struct Sound {
     // (source and lru).
     uint32_t generation;
     bool in_use; // !idle
+    bool paused;
 };
 
 struct State {
@@ -218,7 +258,7 @@ void begin_frame()
 {
     for (u32 i = 0; i < state->sounds.size; ++i) {
         auto sound = &state->sounds[i];
-        if (sound->in_use && !ma_sound_is_playing(&sound->sound)) {
+        if (sound->in_use && !sound->paused && !ma_sound_is_playing(&sound->sound)) {
             sound_set_idle(sound);
         }
     }
@@ -270,47 +310,60 @@ static Sound* get_idle_sound()
     return sounds_idle_lru_pop_back(); // may be nullptr
 }
 
+static void unload_sound(Sound* sound)
+{
+    if (sound->sound_loaded) {
+        ma_sound_stop(&sound->sound);
+        ma_sound_uninit(&sound->sound);
+        sound->sound_loaded = false;
+    }
+
+    if (sound->buffer_loaded) {
+        ma_audio_buffer_uninit(&sound->buffer);
+        sound->buffer_loaded = false;
+    }
+}
+
 static void unset_source(Sound* sound)
 {
     assert(sound->source);
-    ma_sound_stop(&sound->sound);
-    ma_sound_uninit(&sound->sound);
+    unload_sound(sound);
     source_idle_remove(sound->source, sound);
     sound->source = nullptr;
-}
-
-static bool load_sound(const char* path, uint32_t flags, ma_sound_group* group, ma_sound* sound)
-{
-    const auto res
-        = ma_sound_init_from_file(&state->sound_engine, path, flags, group, nullptr, sound);
-    if (res != MA_SUCCESS) {
-        std::fprintf(stderr, "Could not load sound '%s': %s\n", path, ma_result_description(res));
-        return false;
-    }
-    return true;
-}
-
-static bool load_sound(SoundSource* source)
-{
-    return load_sound(source->path.data, source->flags, nullptr, &source->sound);
 }
 
 static bool load_sound(Sound* sound)
 {
     const auto source = sound->source;
+
     if (source->flags & MA_SOUND_FLAG_STREAM) {
-        return load_sound(
-            source->path.data, source->flags, &state->sound_groups[source->group], &sound->sound);
-    } else {
-        const auto res = ma_sound_init_copy(&state->sound_engine, &source->sound, source->flags,
-            &state->sound_groups[source->group], &sound->sound);
-        if (res != MA_SUCCESS) {
-            std::fprintf(stderr, "Could not copy sound '%s': %s\n", source->path.data,
-                ma_result_description(res));
-            return false;
-        }
-        return true;
+        const auto r = ma_sound_init_from_file(&state->sound_engine, source->path.data,
+            source->flags, &state->sound_groups[source->group], nullptr, &sound->sound);
+        sound->sound_loaded = r == MA_SUCCESS;
+        return r == MA_SUCCESS;
     }
+
+    auto cfg = ma_audio_buffer_config_init(
+        source->format, source->channels, source->frame_count, source->pcm, nullptr);
+    cfg.sampleRate = source->sample_rate;
+
+    auto r = ma_audio_buffer_init(&cfg, &sound->buffer);
+    if (r != MA_SUCCESS) {
+        return false;
+    }
+    sound->buffer_loaded = true;
+
+    r = ma_sound_init_from_data_source(&state->sound_engine, (ma_data_source*)&sound->buffer,
+        source->flags, &state->sound_groups[source->group], &sound->sound);
+
+    if (r != MA_SUCCESS) {
+        ma_audio_buffer_uninit(&sound->buffer);
+        sound->buffer_loaded = false;
+        return false;
+    }
+
+    sound->sound_loaded = true;
+    return true;
 }
 
 static void set_source(Sound* sound, SoundSource* source)
@@ -330,105 +383,52 @@ static void set_source(Sound* sound, SoundSource* source)
     }
 }
 
-static bool reload_source(SoundSource* source, const char* path)
+static bool res_source_decode(ung_resource_id self, void* instance)
 {
-    assign(source->path, path);
+    auto res = (SoundSourceResource*)instance;
 
-    // The miniaudio resource manager caches file data by path. We have to unload everything first
-    // to get rid of the cache entry and then load again.
+    ung_resource_depend_file(res->path.data);
 
-    // Unload
-    if ((source->flags & MA_SOUND_FLAG_STREAM) == 0) {
-        ma_sound_uninit(&source->sound);
+    res->pending = allocate<SoundSourcePending>();
+    auto pending = res->pending;
+
+    if (res->flags & MA_SOUND_FLAG_STREAM) {
+        // TODO: Maybe validate?
+        return true;
     }
 
-    auto cur = source->source_idle_head;
-    while (cur) {
-        ma_sound_uninit(&cur->sound);
-        cur = cur->source_idle_next;
+    auto config = ma_decoder_config_init(ma_format_f32, 0, 0);
+    const auto result
+        = ma_decode_file(res->path.data, &config, &pending->frame_count, &pending->pcm);
+    if (result != MA_SUCCESS) {
+        pending->error = ma_result_description(result);
+        return false;
     }
 
-    // Reload
-    if ((source->flags & MA_SOUND_FLAG_STREAM) == 0) {
-        if (!load_sound(source)) {
-            return false;
-        }
-    }
-
-    cur = source->source_idle_head;
-    while (cur) {
-        if (!load_sound(cur)) {
-            return false;
-        }
-        cur = cur->source_idle_next;
-    }
-
+    pending->format = config.format;
+    pending->channels = config.channels;
+    pending->sample_rate = config.sampleRate;
     return true;
 }
 
-static bool source_reload_cb(void* userdata)
+// Add back to free list (sounds without a source)
+static void set_free(Sound* sound)
 {
-    auto source = (SoundSource*)userdata;
-    std::fprintf(stderr, "Reloading sound source: %s\n", source->path.data);
-    return reload_source(source, source->path.data);
+    if (!sound->in_use) {
+        sounds_idle_lru_remove(sound);
+    } else {
+        sound->in_use = false;
+        sound->generation++; // invalidate active user handle
+    }
+
+    unset_source(sound);
+
+    sound->free_sounds_next = state->free_sounds_head;
+    state->free_sounds_head = sound;
 }
 
-EXPORT ung_sound_source_id ung_sound_source_load(
-    const char* path, ung_sound_source_load_params params)
+static void unset_all(SoundSource* source)
 {
-    LoadProfScope s(path);
-    const auto [id, source] = state->sound_sources.insert();
-
-    assign(source->path, path);
-    assert(source->path.size);
-    source->flags = MA_SOUND_FLAG_DECODE;
-    if (params.stream) {
-        source->flags |= MA_SOUND_FLAG_STREAM;
-    }
-    source->group = params.group;
-
-    if (!params.stream) {
-        if (!load_sound(source)) {
-            ung_panicf("Error loading sound '%s'", path);
-        }
-    }
-
-    // prewarm at least one, so we make sure the sound file exists and is
-    // decodeable
-    params.num_prewarm_sounds = params.num_prewarm_sounds ? params.num_prewarm_sounds : 1;
-    for (size_t i = 0; i < params.num_prewarm_sounds; ++i) {
-        auto sound = get_idle_sound();
-        if (!sound) {
-            ung_panicf("No idle sounds to prewarm '%s'", path);
-        }
-        set_source(sound, source);
-        source_idle_push(source, sound);
-        sounds_idle_lru_push_front(sound);
-    }
-
-    if (params.spatial_params) {
-        std::memcpy(
-            &source->spatial_params, params.spatial_params, sizeof(ung_sound_spatial_params));
-        source->use_spatial_params = true;
-    }
-
-    if (ung::state->auto_reload) {
-        source->resource = ung_resource_create(source_reload_cb, source);
-        ung_resource_set_deps(source->resource, &source->path.data, 1, nullptr, 0);
-    }
-
-    return { id };
-}
-
-EXPORT void ung_sound_source_destroy(ung_sound_source_id src_id)
-{
-    // This is super expensive
-    auto source = get(state->sound_sources, src_id.id);
-
-    if (source->resource.id) {
-        ung_resource_destroy(source->resource);
-    }
-
     // Playing sounds are annoying, because we don't have a direct way of getting at them.
     // We can't simply wait until they stop playing and clean them up properly in begin_frame/
     // sound_set_idle, because there might be a new SoundSource at the same address as this one
@@ -436,26 +436,152 @@ EXPORT void ung_sound_source_destroy(ung_sound_source_id src_id)
     for (u32 i = 0; i < state->sounds.size; ++i) {
         auto sound = &state->sounds[i];
         if (source == sound->source) {
-            // Add back to free list (sounds without a source)
-            unset_source(sound);
-            sound->free_sounds_next = state->free_sounds_head;
-            state->free_sounds_head = sound;
+            set_free(sound);
         }
     }
+}
 
-    // For all idle sounds for this source, we have to unset their source
-    auto cur = source->source_idle_head;
-    while (cur) {
-        auto next = cur->source_idle_next;
-        unset_source(cur); // this resets source_idle_next
-        cur = next;
+static void prewarm(SoundSource* source, u32 num_prewarm_sounds)
+{
+    for (size_t i = 0; i < num_prewarm_sounds; ++i) {
+        auto sound = get_idle_sound();
+        if (!sound) {
+            ung_panicf("No idle sounds to prewarm '%s'", source->path.data);
+        }
+        set_source(sound, source);
+        source_idle_push(source, sound);
+        sounds_idle_lru_push_front(sound);
+    }
+}
+
+static bool res_source_upload(ung_resource_id self, void* instance)
+{
+    auto res = (SoundSourceResource*)instance;
+    auto source = get(state->sound_sources, res->source.id);
+    auto pending = res->pending;
+
+    // Stop and unload all playing and idle sounds for this source
+    unset_all(source);
+
+    if (source->pcm) {
+        ma_free(source->pcm, nullptr);
     }
 
-    if ((source->flags & MA_SOUND_FLAG_STREAM) == 0) {
-        ma_sound_uninit(&source->sound);
+    source->pcm = pending->pcm;
+    source->frame_count = pending->frame_count;
+    source->format = pending->format;
+    source->channels = pending->channels;
+    source->sample_rate = pending->sample_rate;
+
+    pending->pcm = nullptr;
+
+    prewarm(source, res->num_prewarm_sounds);
+    return true;
+}
+
+const char* res_source_get_error(void* instance)
+{
+    auto res = (SoundSourceResource*)instance;
+    return res->pending ? res->pending->error : nullptr;
+}
+
+static void res_source_cleanup_load(ung_resource_id self, void* instance)
+{
+    auto res = (SoundSourceResource*)instance;
+    if (res->pending) {
+        res->pending->free();
+        deallocate(res->pending);
+        res->pending = nullptr;
     }
+}
+
+void res_source_destroy(ung_resource_id self, void* instance)
+{
+    auto res = (SoundSourceResource*)instance;
+    auto source = get(state->sound_sources, res->source.id);
+
+    unset_all(source);
+
+    if (source->pcm) {
+        ma_free(source->pcm, nullptr);
+    }
+
     source->path.free();
-    state->sound_sources.remove(src_id.id);
+    state->sound_sources.remove(res->source.id);
+
+    res->path.free();
+    deallocate(res);
+}
+
+static ung_resource_type_id source_resource()
+{
+    static ung_resource_type_id res_type = {};
+    if (!res_type.id) {
+        res_type = ung_resource_type_register({
+            .type_name = "sound_source",
+            .decode = res_source_decode,
+            .upload = res_source_upload,
+            .get_error = res_source_get_error,
+            .cleanup_load = res_source_cleanup_load,
+            .destroy = res_source_destroy,
+        });
+    }
+    return res_type;
+}
+
+EXPORT ung_sound_source_id ung_sound_source_load(
+    const char* path, ung_sound_source_load_params params)
+{
+    char key_buf[512];
+    Formatter fmt { key_buf };
+    fmt.append(path);
+    fmt.append("-");
+    // left out stream and num prewarm on purpose. those are just loading hints.
+    fmt.append_hex_obj(params.group);
+    if (params.spatial_params) {
+        fmt.append_hex_obj(*params.spatial_params);
+    }
+
+    auto source_res = allocate<SoundSourceResource>();
+    assign(source_res->path, path);
+    source_res->flags = MA_SOUND_FLAG_DECODE;
+    if (params.stream) {
+        source_res->flags |= MA_SOUND_FLAG_STREAM;
+    }
+    // prewarm at least one, so we make sure the sound file exists and is
+    // decodeable
+    source_res->num_prewarm_sounds = params.num_prewarm_sounds ? params.num_prewarm_sounds : 1;
+
+    const auto [id, source] = state->sound_sources.insert();
+    source_res->source = { id };
+    const auto [res, created] = ung_resource_load(source_resource(), fmt.data(), source_res);
+
+    if (!created) {
+        state->sound_sources.remove(id);
+        source_res->path.free();
+        deallocate(source_res);
+        return ((SoundSourceResource*)ung_resource_instance(res))->source;
+    }
+
+    assign(source->path, path);
+    source->flags = source_res->flags;
+    source->group = params.group;
+
+    if (params.spatial_params) {
+        std::memcpy(
+            &source->spatial_params, params.spatial_params, sizeof(ung_sound_spatial_params));
+        source->use_spatial_params = true;
+    }
+
+    source->resource = res;
+
+    return { id };
+}
+
+EXPORT void ung_sound_source_destroy(ung_sound_source_id src_id)
+{
+    auto source = get(state->sound_sources, src_id.id);
+    ung_resource_destroy_new(source->resource);
 }
 
 static ma_attenuation_model get_atten_model(ung_sound_attenuation_model model)
@@ -476,6 +602,7 @@ static ma_attenuation_model get_atten_model(ung_sound_attenuation_model model)
 EXPORT ung_sound_id ung_sound_play(ung_sound_source_id src_id, ung_sound_play_params params)
 {
     auto source = get(state->sound_sources, src_id.id);
+    ung_resource_wait_ready(source->resource);
 
     auto sound = source_idle_pop(source);
 
@@ -517,6 +644,7 @@ EXPORT ung_sound_id ung_sound_play(ung_sound_source_id src_id, ung_sound_play_pa
         ma_sound_set_doppler_factor(&sound->sound, spatial_params.doppler_factor);
     }
 
+    sound->paused = false;
     ma_sound_start(&sound->sound);
 
     sound->in_use = true;
@@ -562,6 +690,8 @@ EXPORT void ung_sound_set_paused(ung_sound_id snd_id, bool paused)
         return;
     }
 
+    sound->paused = paused;
+
     if (paused) {
         ma_sound_stop(&sound->sound);
     } else {
@@ -575,7 +705,10 @@ EXPORT void ung_sound_stop(ung_sound_id snd_id)
     if (!sound) {
         return;
     }
+
+    sound->paused = false;
     ma_sound_stop(&sound->sound);
+    ma_sound_seek_to_pcm_frame(&sound->sound, 0);
     sound_set_idle(sound);
 }
 
