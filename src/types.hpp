@@ -53,6 +53,12 @@ struct StaticVector {
         return data_[size_++];
     }
 
+    void pop()
+    {
+        assert(size_ > 0);
+        size_--;
+    }
+
     void clear() { size_ = 0; }
 
     T& operator[](usize idx)
@@ -70,6 +76,7 @@ struct StaticVector {
     auto data() { return data_.data(); }
     auto data() const { return data_.data(); }
     auto size() const { return size_; }
+    auto capacity() const { return Capacity; }
     auto begin() { return data(); }
     auto begin() const { return data(); }
     auto end() { return begin() + size_; }
@@ -117,6 +124,11 @@ struct Vector {
         size = 0;
     }
 
+    auto begin() const { return data; }
+    auto begin() { return data; }
+    auto end() const { return data + size; }
+    auto end() { return data + size; }
+
     T& first() { return data[0]; };
     const T& first() const { return data[0]; };
     T& last() { return data[size - 1]; };
@@ -125,6 +137,7 @@ struct Vector {
     void push(T v)
     {
         if (size == capacity) {
+            assert(capacity > 0);
             auto temp = allocate<T>(capacity * 2);
             std::memcpy(temp, data, size * sizeof(T));
             deallocate(data, capacity);
