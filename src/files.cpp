@@ -40,11 +40,11 @@ void init(ung_init_params params)
     std::memset(state, 0, sizeof(State));
 
     state->watches.init(params.max_num_file_watches ? params.max_num_file_watches : 128);
+    if (!params.max_num_resources) {
+        params.max_num_resources = params.max_num_textures + params.max_num_shaders
+            + params.max_num_geometries + params.max_num_materials + params.max_num_sound_sources;
+    }
     if (ung::state->auto_reload) {
-        if (!params.max_num_resources) {
-            params.max_num_resources = params.max_num_textures + params.max_num_shaders
-                + params.max_num_geometries + params.max_num_materials;
-        }
         state->resources.init(params.max_num_resources);
     }
 }
