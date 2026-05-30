@@ -228,7 +228,14 @@ struct Pool {
             return { 0, nullptr };
         }
         T* obj = &data[idx];
-        std::memset(obj, 0, sizeof(T));
+        if constexpr (std::is_trivially_copyable_v<T>
+            && std::is_trivially_default_constructible_v<T>) {
+            std::memset(obj, 0, sizeof(T));
+        } else {
+            // T{} has been called by Array init already.
+            obj->~T();
+            new (obj) T {};
+        }
         return { id, obj };
     }
 
