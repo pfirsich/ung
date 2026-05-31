@@ -584,6 +584,11 @@ EXPORT void ung_sound_source_destroy(ung_sound_source_id src_id)
     ung_resource_destroy_new(source->resource);
 }
 
+EXPORT ung_resource_id ung_sound_source_resource(ung_sound_source_id src_id)
+{
+    return get(state->sound_sources, src_id.id)->resource;
+}
+
 static ma_attenuation_model get_atten_model(ung_sound_attenuation_model model)
 {
     switch (model) {

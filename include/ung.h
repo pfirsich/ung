@@ -946,6 +946,7 @@ typedef struct {
 
 ung_sound_source_id ung_sound_source_load(const char* path, ung_sound_source_load_params params);
 void ung_sound_source_destroy(ung_sound_source_id src);
+ung_resource_id ung_sound_source_resource(ung_sound_source_id sound);
 
 typedef struct {
     float volume;
