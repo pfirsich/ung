@@ -135,6 +135,7 @@ EXPORT ung_geometry_id ung_geometry_box(float w, float h, float d)
         },
         .index_buffer = index_buffer,
         .index_type = MUGFX_INDEX_TYPE_U8,
+        .index_count = indices.size(),
         .debug_label = "box.geom",
     });
 
@@ -341,6 +342,8 @@ static mugfx_geometry_id create_geometry(Vertex* vertices, usize num_vertices, u
                 },
             },
         },
+        .vertex_count = (u32)num_vertices,
+        .index_count = (u32)num_indices,
         .debug_label = debug_label,
     };
     if (index_buffer.id) {

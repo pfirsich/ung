@@ -84,6 +84,7 @@ void init(ung_init_params params)
         },
         .index_buffer = state->index_buffer,
         .index_type = MUGFX_INDEX_TYPE_U16,
+        .index_count = (u32)state->num_indices,
     });
 
     state->default_frag = ung_shader_create({

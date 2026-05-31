@@ -326,9 +326,9 @@ ung_geometry_id create_particle_geometry(mugfx_buffer_id instance_buffer)
                 }
             },
         },
+        .vertex_count = 4,
         .index_buffer = ibuf,
         .index_type = MUGFX_INDEX_TYPE_U16,
-        .vertex_count = 4,
         .index_count = 6,
     });
 }
