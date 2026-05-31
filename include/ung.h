@@ -108,6 +108,7 @@ typedef struct {
     uint32_t max_num_file_watches; // default: 128
     uint32_t max_num_fonts; // default: 16
     uint32_t max_num_text_layouts; // default: 16
+    uint32_t max_num_resource_types; // default: 16
     uint32_t max_num_resources; // default: sum of textures, shaders, materials, sounds, ...
     mugfx_init_params mugfx;
     bool debug; // do error checking and panic if something is wrong

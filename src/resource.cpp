@@ -408,8 +408,11 @@ void init(ung_init_params params)
     assert(!state);
     state = allocate<State>();
 
-    state->resource_types.init(64);
-    state->resources.init(1024);
+    params.max_num_resource_types
+        = params.max_num_resource_types ? params.max_num_resource_types : 16;
+
+    state->resource_types.init(params.max_num_resource_types);
+    state->resources.init(params.max_num_resources);
 
     state->decode_pool.start();
 }
