@@ -163,7 +163,6 @@ void parse_kv(Fade& fade, const ung_kv_pair& kv);
 
 struct Effect {
     const char* path = nullptr;
-    ung_resource_id res = { 0 };
 
     Buffer buffer;
     DrawData draw_data;

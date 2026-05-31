@@ -428,28 +428,7 @@ ung_file_watch_id ung_file_watch_create(
 
 void ung_file_watch_destroy(ung_file_watch_id watch);
 
-// Resources
-// This is just so you can add auto-reloading for custom resource files (e.g. glTF).
-// If auto_reload is false, all these will no-op as much as possible.
-
-// If false is returned, the reload is considered failed and dependents are not reloaded.
-typedef bool (*ung_resource_reload_cb)(void* ctx);
-
-// The reload callback will be called only after all dependencies were reloaded.
-ung_resource_id ung_resource_create(ung_resource_reload_cb cb, void* ctx);
-
-// This function may be called inside the reload callback (e.g. if dependencies change).
-void ung_resource_set_deps(ung_resource_id resource, const char* const* files_deps,
-    uint32_t num_files_deps, const ung_resource_id* res_deps, size_t num_res_deps);
-
-// Whenever the resource is reloaded, this version incremented.
-uint32_t ung_resource_get_version(ung_resource_id resource);
-
-void ung_resource_destroy(ung_resource_id resource);
-
-ung_resource_id ung_geometry_get_resource(ung_geometry_id geometry);
-ung_resource_id ung_sound_get_resource(ung_sound_id sound);
-
+// Resources (this API exists mostly to create your own resources)
 typedef struct {
     const char* type_name;
 
@@ -496,7 +475,7 @@ uint32_t ung_resource_decref(ung_resource_id res);
 // This asserts that the reference cound is 1. ung_{texture,shader,...}_destroy simply forward to
 // this function. This may only be called from the main thread.
 // This decrements the reference count of all dependencies.
-void ung_resource_destroy_new(ung_resource_id res);
+void ung_resource_destroy(ung_resource_id res);
 // This function will NOT swap two resources through their resource handles.
 // You can't just swap two textures via their resource handles here and their texture IDs will
 // magically swap. It will just mess everything up really bad. The only reason this function
@@ -542,13 +521,11 @@ ung_geometry_data ung_geometry_data_sphere(float radius);
 void ung_geometry_data_destroy(ung_geometry_data gdata);
 
 ung_geometry_id ung_geometry_create(mugfx_geometry_create_params params);
-void ung_geometry_recreate(ung_geometry_id geom, mugfx_geometry_create_params params);
 void ung_geometry_set_vertex_range(ung_geometry_id geom, uint32_t offset, uint32_t count);
 void ung_geometry_set_index_range(ung_geometry_id geom, uint32_t offset, uint32_t count);
 ung_geometry_id ung_geometry_create_from_data(ung_geometry_data gdata);
 // creates geometry data, creates draw geometry, destroys geometry data
 ung_geometry_id ung_geometry_load(const char* path);
-bool ung_geometry_reload(ung_geometry_id geom, const char* path);
 ung_geometry_id ung_geometry_box(float w, float h, float d);
 ung_geometry_id ung_geometry_sphere(float radius);
 

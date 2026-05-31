@@ -15,20 +15,9 @@ struct Watch {
     void* ctx;
 };
 
-struct Resource {
-    ung_resource_reload_cb cb;
-    void* ctx;
-    Array<char*> files_deps;
-    ung_file_watch_id file_watch;
-    Vector<ung_resource_id> res_deps;
-    Vector<ung_resource_id> dependent_resources;
-    uint32_t version;
-};
-
 struct State {
     Pool<Watch> watches;
     float next_file_watch_check;
-    Pool<Resource> resources;
 };
 
 State* state;
@@ -40,13 +29,6 @@ void init(ung_init_params params)
     std::memset(state, 0, sizeof(State));
 
     state->watches.init(params.max_num_file_watches ? params.max_num_file_watches : 128);
-    if (!params.max_num_resources) {
-        params.max_num_resources = params.max_num_textures + params.max_num_shaders
-            + params.max_num_geometries + params.max_num_materials + params.max_num_sound_sources;
-    }
-    if (ung::state->auto_reload) {
-        state->resources.init(params.max_num_resources);
-    }
 }
 
 void shutdown()
@@ -231,155 +213,6 @@ EXPORT void ung_file_watch_destroy(ung_file_watch_id watch_id)
     }
     watch->paths.free();
     watch->last_mtime.free();
-}
-
-EXPORT ung_resource_id ung_resource_create(ung_resource_reload_cb cb, void* ctx)
-{
-    if (!ung::state->auto_reload) {
-        return { 0 };
-    }
-
-    const auto [id, res] = state->resources.insert();
-    res->cb = cb;
-    res->ctx = ctx;
-    return { id };
-}
-
-static void free_files_deps(Resource* res)
-{
-    if (res->files_deps.size) {
-        for (u32 f = 0; f < res->files_deps.size; ++f) {
-            deallocate_string(res->files_deps[f]);
-        }
-        res->files_deps.free();
-        ung_file_watch_destroy(res->file_watch);
-    }
-}
-
-static void reload(Resource* res)
-{
-    if (!res->cb(res->ctx)) {
-        return;
-    }
-    res->version++;
-    for (u32 r = 0; r < res->dependent_resources.size; ++r) {
-        auto dep = get(state->resources, res->dependent_resources[r].id);
-        reload(dep);
-    }
-}
-
-static void resource_file_watch_cb(void* ctx, const char* changed_path)
-{
-    std::fprintf(stderr, "File changed: %s\n", changed_path);
-    reload((Resource*)ctx);
-}
-
-static void undepend(ung_resource_id id, Resource* res)
-{
-    // First remove ourselves from dependent resources
-    for (u32 r = 0; r < res->res_deps.size; ++r) {
-        auto dep = get(state->resources, res->res_deps[r].id);
-        remove_v(dep->dependent_resources, id);
-    }
-    res->res_deps.clear();
-
-    // Remove us from dependents
-    for (u32 r = 0; r < res->dependent_resources.size; ++r) {
-        const auto dep = get(state->resources, res->dependent_resources[r].id);
-        remove_v(dep->res_deps, id);
-    }
-    res->dependent_resources.clear();
-}
-
-static void depend(ung_resource_id dependent_id, Resource* dependent, ung_resource_id dependency_id)
-{
-    dependent->res_deps.push(dependency_id);
-    auto dependency = get(state->resources, dependency_id.id);
-    if (!dependency->dependent_resources.capacity) {
-        dependency->dependent_resources.init(1);
-    }
-    dependency->dependent_resources.push(dependent_id);
-}
-
-EXPORT void ung_resource_set_deps(ung_resource_id resource_id, const char* const* files_deps,
-    uint32_t num_files_deps, const ung_resource_id* res_deps, usize num_res_deps)
-{
-    if (!ung::state->auto_reload) {
-        return;
-    }
-
-    auto res = get(state->resources, resource_id.id);
-
-    free_files_deps(res);
-
-    if (num_files_deps) {
-        res->files_deps.init((u32)num_files_deps);
-        for (u32 f = 0; f < res->files_deps.size; ++f) {
-            res->files_deps[f] = allocate_string(files_deps[f]);
-        }
-        res->file_watch = ung_file_watch_create(
-            res->files_deps.data, res->files_deps.size, resource_file_watch_cb, res);
-    }
-
-    undepend(resource_id, res);
-
-    if (num_res_deps) {
-        if (!res->res_deps.capacity) {
-            res->res_deps.init((u32)num_res_deps);
-        }
-        for (u32 r = 0; r < num_res_deps; ++r) {
-            depend(resource_id, res, res_deps[r]);
-        }
-    }
-}
-
-EXPORT uint32_t ung_resource_get_version(ung_resource_id resource_id)
-{
-    if (!ung::state->auto_reload) {
-        return 0;
-    }
-    auto res = get(state->resources, resource_id.id);
-    return res->version;
-}
-
-EXPORT void ung_resource_destroy(ung_resource_id resource_id)
-{
-    if (!ung::state->auto_reload) {
-        return;
-    }
-
-    auto res = get(state->resources, resource_id.id);
-
-    undepend(resource_id, res);
-
-    free_files_deps(res);
-    res->files_deps.free();
-    res->res_deps.free();
-    res->dependent_resources.free();
-}
-
-EXPORT ung_resource_id ung_shader_get_resource(ung_shader_id shader_id)
-{
-    const auto sh = get(ung::state->shaders, shader_id.id);
-    return sh->resource;
-}
-
-EXPORT ung_resource_id ung_texture_get_resource(ung_texture_id texture_id)
-{
-    const auto t = get(ung::state->textures, texture_id.id);
-    return t->resource;
-}
-
-EXPORT ung_resource_id ung_geometry_get_resource(ung_geometry_id geometry_id)
-{
-    const auto g = get(ung::state->geometries, geometry_id.id);
-    return g->resource;
-}
-
-EXPORT ung_resource_id ung_material_get_resource(ung_material_id material_id)
-{
-    const auto m = get(ung::state->materials, material_id.id);
-    return m->resource;
 }
 
 }

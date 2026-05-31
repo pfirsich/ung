@@ -297,18 +297,6 @@ EXPORT ung_geometry_id ung_geometry_create(mugfx_geometry_create_params params)
     return { id };
 }
 
-EXPORT void ung_geometry_recreate(ung_geometry_id geometry_id, mugfx_geometry_create_params params)
-{
-    const auto geom = mugfx_geometry_create(params);
-    if (!geom.id) {
-        return;
-    }
-
-    auto geometry = get(state->geometries, geometry_id.id);
-    mugfx_geometry_destroy(geometry->geometry);
-    geometry->geometry = geom;
-}
-
 EXPORT void ung_geometry_set_vertex_range(
     ung_geometry_id geometry_id, uint32_t offset, uint32_t count)
 {
@@ -430,26 +418,6 @@ mugfx_geometry_id load_geometry(const char* path)
     return geom;
 }
 
-static bool reload_geometry(Geometry* geometry, const char* path)
-{
-    const auto geom = load_geometry(path);
-    if (!geom.id) {
-        return false;
-    }
-
-    mugfx_geometry_destroy(geometry->geometry);
-    geometry->geometry = geom;
-    return true;
-}
-
-static bool geometry_reload_cb(void* userdata)
-{
-    auto ctx = (GeometryReloadCtx*)userdata;
-    std::fprintf(stderr, "Reloading geometry: %s\n", ctx->path.data);
-    auto geometry = get(state->geometries, ctx->geometry.id);
-    return reload_geometry(geometry, ctx->path.data);
-}
-
 EXPORT ung_geometry_id ung_geometry_load(const char* path)
 {
     const auto geom = load_geometry(path);
@@ -460,28 +428,7 @@ EXPORT ung_geometry_id ung_geometry_load(const char* path)
     const auto [id, geometry] = state->geometries.insert();
     geometry->geometry = geom;
 
-    if (state->auto_reload) {
-        geometry->reload_ctx = allocate<GeometryReloadCtx>();
-        geometry->reload_ctx->geometry = { id };
-        assign(geometry->reload_ctx->path, path);
-        geometry->resource = ung_resource_create(geometry_reload_cb, geometry->reload_ctx);
-        ung_resource_set_deps(geometry->resource, &path, 1, nullptr, 0);
-    }
-
     return { id };
-}
-
-EXPORT bool ung_geometry_reload(ung_geometry_id geometry_id, const char* path)
-{
-    const auto geometry = get(state->geometries, geometry_id.id);
-
-    if (state->auto_reload) {
-        geometry->reload_ctx->path.free();
-        assign(geometry->reload_ctx->path, path);
-        ung_resource_set_deps(geometry->resource, &path, 1, nullptr, 0);
-    }
-
-    return reload_geometry(geometry, path);
 }
 
 }

@@ -426,7 +426,7 @@ EXPORT void ung_texture_destroy(ung_texture_id id)
 {
     auto texture = get(state->textures, id.id);
     if (texture->resource.id) {
-        ung_resource_destroy_new(texture->resource);
+        ung_resource_destroy(texture->resource);
     } else {
         mugfx_texture_destroy(texture->texture);
         state->textures.remove(id.id);

@@ -222,7 +222,7 @@ EXPORT ung_material_id ung_material_load(
 EXPORT void ung_material_destroy(ung_material_id material)
 {
     auto mat = get_material(material.id);
-    ung_resource_destroy_new(mat->resource);
+    ung_resource_destroy(mat->resource);
 }
 
 EXPORT void ung_material_set_binding(ung_material_id material, mugfx_draw_binding binding)

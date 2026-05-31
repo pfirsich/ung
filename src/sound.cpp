@@ -581,7 +581,7 @@ EXPORT ung_sound_source_id ung_sound_source_load(
 EXPORT void ung_sound_source_destroy(ung_sound_source_id src_id)
 {
     auto source = get(state->sound_sources, src_id.id);
-    ung_resource_destroy_new(source->resource);
+    ung_resource_destroy(source->resource);
 }
 
 EXPORT ung_resource_id ung_sound_source_resource(ung_sound_source_id src_id)

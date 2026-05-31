@@ -411,6 +411,11 @@ void init(ung_init_params params)
     params.max_num_resource_types
         = params.max_num_resource_types ? params.max_num_resource_types : 16;
 
+    if (!params.max_num_resources) {
+        params.max_num_resources = params.max_num_textures + params.max_num_shaders
+            + params.max_num_geometries + params.max_num_materials + params.max_num_sound_sources;
+    }
+
     state->resource_types.init(params.max_num_resource_types);
     state->resources.init(params.max_num_resources);
 
@@ -566,7 +571,7 @@ EXPORT uint32_t ung_resource_decref(ung_resource_id id)
     return decref(lock, id, get_res(id));
 }
 
-EXPORT void ung_resource_destroy_new(ung_resource_id id)
+EXPORT void ung_resource_destroy(ung_resource_id id)
 {
     ResourceLock lock;
     auto& res = get_res(id);

@@ -471,15 +471,7 @@ void Effect::load(const char* path_)
     spawn_params = {};
     behaviors = {};
 
-    // On first load
-    if (res.id == 0) {
-        res = ung_resource_create(reload_cb, this);
-    }
-
-    if (!path || std::string_view(path) != path_) {
-        path = path_;
-        ung_resource_set_deps(res, &path, 1, nullptr, 0);
-    }
+    path = path_;
 
     // Load file
     size_t size = 0;

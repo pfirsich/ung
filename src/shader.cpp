@@ -367,7 +367,7 @@ EXPORT void ung_shader_destroy(ung_shader_id shader)
     auto sh = get(state->shaders, shader.id);
 
     if (sh->resource.id) {
-        ung_resource_destroy_new(sh->resource);
+        ung_resource_destroy(sh->resource);
     } else {
         mugfx_shader_destroy(sh->shader);
         state->shaders.remove(shader.id);

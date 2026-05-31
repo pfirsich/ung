@@ -41,15 +41,9 @@ struct Shader {
     ung_resource_id resource;
 };
 
-struct GeometryReloadCtx {
-    ung_geometry_id geometry;
-    Array<char> path;
-};
-
 struct Geometry {
     mugfx_geometry_id geometry;
     ung_resource_id resource;
-    GeometryReloadCtx* reload_ctx;
 };
 
 struct Material {
