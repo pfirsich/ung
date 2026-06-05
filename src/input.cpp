@@ -157,37 +157,15 @@ void process_event(SDL_Event* event)
         auto controller = SDL_GameControllerOpen(device_index);
         assert(controller); // TODO: handle NULL return (SDL_GetError)
 
-        ung_gamepad_info info;
-        get_gamepad_info(&info, device_index, controller);
-
-        u64 id = 0;
-        Gamepad* gamepad = nullptr;
-        auto& gps = state->gamepads;
-        for (u32 i = 0; i < gps.capacity(); ++i) {
-            const auto key = gps.get_key(i);
-            if (!key) {
-                continue;
-            }
-            if (std::memcmp(&info, &gps.data[i].info, sizeof(ung_gamepad_info)) == 0) {
-                id = gps.keys[i];
-                gamepad = &gps.data[i];
-            }
-        }
-
-        if (gamepad) {
-            SDL_GameControllerClose(gamepad->controller);
-        } else {
-            std::tie(id, gamepad) = state->gamepads.insert();
-            gamepad->deadzone_inner = 0.1f;
-            gamepad->deadzone_outer = 0.9f;
-            std::memcpy(&gamepad->info, &info, sizeof(ung_gamepad_info));
-        }
-
+        const auto [id, gamepad] = state->gamepads.insert();
         gamepad->controller = controller;
         gamepad->device_index = device_index;
         gamepad->instance_id = SDL_JoystickGetDeviceInstanceID(device_index);
         gamepad->connected = true;
         gamepad->type = SDL_GameControllerGetType(gamepad->controller);
+        gamepad->deadzone_inner = 0.1f;
+        gamepad->deadzone_outer = 0.9f;
+        get_gamepad_info(&gamepad->info, device_index, controller);
 
         gamepad->last_active = ung_get_time();
         if (!state->last_active_gamepad) {
