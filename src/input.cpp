@@ -218,6 +218,16 @@ void process_event(SDL_Event* event)
 
         break;
     }
+    case SDL_CONTROLLERAXISMOTION: {
+        const auto key = ung_get_gamepad_from_event(SDL_CONTROLLERBUTTONUP, event->caxis.which);
+        assert(key.id);
+        auto gamepad = get_gamepad(key.id);
+        if (abs(event->caxis.value) > INT16_MAX / 2) {
+            state->last_active_gamepad = key.id;
+            gamepad->last_active = ung_get_time();
+        }
+        break;
+    }
     }
 }
 
