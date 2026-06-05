@@ -199,8 +199,7 @@ void process_event(SDL_Event* event)
         break;
     }
     case SDL_CONTROLLERBUTTONDOWN: {
-        const auto key
-            = ung_get_gamepad_from_event(SDL_CONTROLLERDEVICEREMOVED, event->cdevice.which);
+        const auto key = ung_get_gamepad_from_event(SDL_CONTROLLERBUTTONDOWN, event->cbutton.which);
         assert(key.id);
         auto gamepad = get_gamepad(key.id);
 
@@ -211,8 +210,7 @@ void process_event(SDL_Event* event)
         break;
     }
     case SDL_CONTROLLERBUTTONUP: {
-        const auto key
-            = ung_get_gamepad_from_event(SDL_CONTROLLERDEVICEREMOVED, event->cdevice.which);
+        const auto key = ung_get_gamepad_from_event(SDL_CONTROLLERBUTTONUP, event->cbutton.which);
         assert(key.id);
         auto gamepad = get_gamepad(key.id);
 
