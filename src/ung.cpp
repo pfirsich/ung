@@ -220,6 +220,9 @@ EXPORT void ung_init(ung_init_params params)
         ? params.mugfx.max_num_geometries
         : params.max_num_geometries;
 
+    params.max_num_instance_buffers
+        = params.max_num_instance_buffers ? params.max_num_instance_buffers : 64;
+
     // Materials have a constant and dynamic buffer (or only one of them or neither)
     // Geometries have vertex/index (or just vertex)
     // Add 8 for sprite rendering and default uniform blocks
@@ -231,6 +234,7 @@ EXPORT void ung_init(ung_init_params params)
     state->textures.init(params.max_num_textures);
     state->shaders.init(params.max_num_shaders);
     state->geometries.init(params.max_num_geometries);
+    state->instance_buffers.init(params.max_num_instance_buffers);
     state->materials.init(params.max_num_materials ? params.max_num_materials : 1024);
 
     state->auto_reload = params.auto_reload;

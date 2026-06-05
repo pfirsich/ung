@@ -41,8 +41,18 @@ struct Shader {
     ung_resource_id resource;
 };
 
+struct InstanceBuffer {
+    size_t stride;
+    uint32_t max_num_instances;
+    uint32_t num_instances;
+    mugfx_buffer_id buffer;
+    mugfx_vertex_attribute attributes[MUGFX_MAX_VERTEX_ATTRIBUTES];
+};
+
 struct Geometry {
     mugfx_geometry_id geometry;
+    mugfx_geometry_create_params mugfx_params;
+    ung_instance_buffer_id instance_buffer;
     ung_resource_id resource;
 };
 
@@ -104,6 +114,7 @@ struct State {
     Pool<Camera> cameras;
     Pool<Font> fonts;
     Pool<TextLayout> text_layouts;
+    Pool<InstanceBuffer> instance_buffers;
 
     // Uniform Buffers
     mugfx_buffer_id u_frame_buf;

@@ -31,6 +31,7 @@ typedef struct { uint64_t id; } ung_sound_id;
 typedef struct { uint64_t id; } ung_sound_source_id;
 typedef struct { uint64_t id; } ung_text_layout_id;
 typedef struct { uint64_t id; } ung_texture_id;
+typedef struct { uint64_t id; } ung_instance_buffer_id;
 // clang-format
 
 typedef struct {
@@ -110,6 +111,7 @@ typedef struct {
     uint32_t max_num_text_layouts; // default: 16
     uint32_t max_num_resource_types; // default: 16
     uint32_t max_num_resources; // default: sum of textures, shaders, materials, sounds, ...
+    uint32_t max_num_instance_buffers; // default: 64
     mugfx_init_params mugfx;
     bool debug; // do error checking and panic if something is wrong
     bool auto_reload;
@@ -528,6 +530,29 @@ ung_geometry_id ung_geometry_create_from_data(ung_geometry_data gdata);
 ung_geometry_id ung_geometry_load(const char* path);
 ung_geometry_id ung_geometry_box(float w, float h, float d);
 ung_geometry_id ung_geometry_sphere(float radius);
+
+// I consider this API a hack, but I don't know what a good version of this API could be.
+// The problem is that you need to create a new geometry, because instancing requires additional
+// vertex attributes and that ung_geometry owns the vertex buffers. So you would have to add parameters
+// for geometry creation that request an instance buffer and then expose that buffer for modification
+// externally. And you would have to pass that through loading functions (including glTF models!).
+// I think that is sort of disgusting. I think the clean way is a better split between geometry data
+// and geometry, but I think that is a huge refactor.
+// I need instancing though, so I added this as the smallest thing that can make it happen,
+// so I can remove it easily later.
+typedef struct {
+    size_t stride;
+    uint32_t max_num_instances;
+    mugfx_buffer_usage_hint usage; // default: STREAM
+    mugfx_vertex_attribute attributes[MUGFX_MAX_VERTEX_ATTRIBUTES];
+} ung_instance_buffer_create_params;
+
+ung_instance_buffer_id ung_instance_buffer_create(ung_instance_buffer_create_params params);
+void ung_instance_buffer_destroy(ung_instance_buffer_id buffer);
+void ung_instance_buffer_update(ung_instance_buffer_id buffer, const void* instance_data, uint32_t instance_count);
+
+ung_geometry_id ung_instanced_geometry_create(ung_geometry_id base_geometry,
+    ung_instance_buffer_id instance_buffer);
 
 /*
  * Sprites

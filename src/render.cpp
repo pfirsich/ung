@@ -259,6 +259,11 @@ EXPORT void ung_draw(ung_material_id material, ung_geometry_id geometry, const f
 
     ung_resource_wait_ready(mat->resource);
 
+    if (geom->instance_buffer.id) {
+        auto buf = get(state->instance_buffers, geom->instance_buffer.id);
+        params.instance_count = buf->num_instances;
+    }
+
     mugfx_draw_instanced(mat->material, geom->geometry, draw_bindings.data(), draw_bindings.size(),
         params.instance_count);
 }

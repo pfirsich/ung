@@ -295,6 +295,7 @@ EXPORT ung_geometry_id ung_geometry_create(mugfx_geometry_create_params params)
 
     const auto [id, geometry] = state->geometries.insert();
     geometry->geometry = geom;
+    geometry->mugfx_params = params;
     return { id };
 }
 
@@ -312,8 +313,8 @@ EXPORT void ung_geometry_set_index_range(
     mugfx_geometry_set_index_range(geometry->geometry, offset, count);
 }
 
-static mugfx_geometry_id create_geometry(Vertex* vertices, usize num_vertices, u32* indices,
-    usize num_indices, const char* debug_label = nullptr)
+static mugfx_geometry_create_params create_geometry_params(Vertex* vertices, usize num_vertices,
+    u32* indices, usize num_indices, const char* debug_label = nullptr)
 {
     mugfx_buffer_id vertex_buffer = mugfx_buffer_create({
         .target = MUGFX_BUFFER_TARGET_ARRAY,
@@ -351,7 +352,7 @@ static mugfx_geometry_id create_geometry(Vertex* vertices, usize num_vertices, u
         geometry_params.index_type = MUGFX_INDEX_TYPE_U32;
     }
 
-    return mugfx_geometry_create(geometry_params);
+    return geometry_params;
 }
 
 static Vertex* build_vertex_buffer_data(ung_geometry_data gdata)
@@ -379,7 +380,7 @@ static Vertex* build_vertex_buffer_data(ung_geometry_data gdata)
     return vertices;
 }
 
-static mugfx_geometry_id geometry_from_data(
+static mugfx_geometry_create_params create_params_from_data(
     ung_geometry_data gdata, const char* debug_label = nullptr)
 {
     // We cannot build a proper indexed mesh trivially, because a face will reference different
@@ -388,49 +389,126 @@ static mugfx_geometry_id geometry_from_data(
 
     auto vertices = build_vertex_buffer_data(gdata);
 
-    const auto geom = create_geometry(
+    const auto params = create_geometry_params(
         vertices, gdata.num_vertices, gdata.indices, gdata.num_indices, debug_label);
 
     deallocate(vertices, gdata.num_vertices);
 
-    return geom;
+    return params;
 }
 
 EXPORT ung_geometry_id ung_geometry_create_from_data(ung_geometry_data gdata)
 {
-    const auto geom = geometry_from_data(gdata);
+    const auto params = create_params_from_data(gdata);
+    const auto geom = mugfx_geometry_create(params);
     if (!geom.id) {
         ung_panicf("Error creating geometry");
     }
 
     const auto [id, geometry] = state->geometries.insert();
     geometry->geometry = geom;
+    geometry->mugfx_params = params;
     return { id };
 }
 
-mugfx_geometry_id load_geometry(const char* path)
+mugfx_geometry_create_params load_geometry(const char* path)
 {
     LoadProfScope s(path);
     ung_load_profiler_push("load");
     const auto gdata = ung_geometry_data_load(path);
     ung_load_profiler_pop("load");
     ung_load_profiler_push("upload");
-    const auto geom = geometry_from_data(gdata, path);
+    const auto params = create_params_from_data(gdata, path);
     ung_load_profiler_pop("upload");
     ung_geometry_data_destroy(gdata);
-    return geom;
+    return params;
 }
 
 EXPORT ung_geometry_id ung_geometry_load(const char* path)
 {
-    const auto geom = load_geometry(path);
+    const auto params = load_geometry(path);
+    const auto geom = mugfx_geometry_create(params);
     if (!geom.id) {
         ung_panicf("Error loading geometry '%s'", path);
     }
 
     const auto [id, geometry] = state->geometries.insert();
     geometry->geometry = geom;
+    geometry->mugfx_params = params;
+    return { id };
+}
 
+EXPORT ung_instance_buffer_id ung_instance_buffer_create(ung_instance_buffer_create_params params)
+{
+    params.usage = params.usage ? params.usage : MUGFX_BUFFER_USAGE_HINT_STREAM;
+    const auto size = params.stride * params.max_num_instances;
+    const auto [id, buf] = state->instance_buffers.insert();
+    buf->stride = params.stride;
+    buf->max_num_instances = params.max_num_instances;
+    buf->buffer = mugfx_buffer_create({
+        .target = MUGFX_BUFFER_TARGET_ARRAY,
+        .usage = params.usage,
+        .data = { nullptr, size },
+        .debug_label = "instance_buffer",
+    });
+    memcpy(&buf->attributes, &params.attributes, sizeof(params.attributes));
+    for (auto& attr : buf->attributes) {
+        if (attr.type) {
+            attr.rate = MUGFX_VERTEX_ATTRIBUTE_RATE_INSTANCE;
+        }
+    }
+    return { id };
+}
+
+EXPORT void ung_instance_buffer_destroy(ung_instance_buffer_id buffer)
+{
+    auto buf = get(state->instance_buffers, buffer.id);
+    mugfx_buffer_destroy(buf->buffer);
+    state->instance_buffers.remove(buffer.id);
+}
+
+EXPORT void ung_instance_buffer_update(
+    ung_instance_buffer_id buffer, const void* instance_data, uint32_t instance_count)
+{
+    auto buf = get(state->instance_buffers, buffer.id);
+    assert(instance_count <= buf->max_num_instances);
+    buf->num_instances = instance_count;
+    mugfx_buffer_update(buf->buffer, 0, {}); // orphan
+    mugfx_buffer_update(buf->buffer, 0, { instance_data, buf->stride * instance_count });
+}
+
+EXPORT ung_geometry_id ung_instanced_geometry_create(
+    ung_geometry_id base_geometry, ung_instance_buffer_id instance_buffer)
+{
+    auto base = get(state->geometries, base_geometry.id);
+    auto buf = get(state->instance_buffers, instance_buffer.id);
+    auto params = base->mugfx_params;
+
+    size_t vbuf = 0;
+    for (; vbuf < MUGFX_MAX_VERTEX_BUFFERS; ++vbuf) {
+        if (!params.vertex_buffers[vbuf].buffer.id) {
+            break;
+        }
+    }
+    if (vbuf >= MUGFX_MAX_VERTEX_BUFFERS) {
+        ung_panicf("No space for additional vertex buffer");
+    }
+
+    params.vertex_buffers[vbuf] = {
+        .buffer = buf->buffer,
+        .stride = buf->stride,
+    };
+    memcpy(&params.vertex_buffers[vbuf].attributes, &buf->attributes, sizeof(buf->attributes));
+
+    const auto geom = mugfx_geometry_create(params);
+    if (!geom.id) {
+        ung_panicf("Error creating geometry");
+    }
+
+    const auto [id, geometry] = state->geometries.insert();
+    geometry->geometry = geom;
+    geometry->mugfx_params = params;
+    geometry->instance_buffer = instance_buffer;
     return { id };
 }
 
