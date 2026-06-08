@@ -159,8 +159,7 @@ bool parse(ung_string str, T* ptr, usize num)
             return false;
         }
 
-        const auto [p, ec]
-            = std::from_chars(str.data + cursor, str.data + str.length - cursor, ptr[n]);
+        const auto [p, ec] = std::from_chars(str.data + cursor, str.data + str.length, ptr[n]);
         if (ec != std::errc()) {
             return false;
         }
