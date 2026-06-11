@@ -89,7 +89,7 @@ char* fmt_hex(char* buf, const void* data, usize size)
 
 bool Formatter::append(std::string_view str)
 {
-    if (offset + str.size() >= buf.size() - 1) {
+    if (offset + str.size() >= buf.size()) {
         offset = SIZE_MAX; // mark this full
         return false;
     }
@@ -101,7 +101,7 @@ bool Formatter::append(std::string_view str)
 
 bool Formatter::append_hex(const void* data, size_t size)
 {
-    if (offset + size * 2 >= buf.size() - 1) {
+    if (offset + size * 2 >= buf.size()) {
         offset = SIZE_MAX; // mark this full
         return false;
     }

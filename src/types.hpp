@@ -290,6 +290,12 @@ struct Formatter {
     const char* data() const { return buf.data(); }
     std::string_view sv() const { return { buf.data(), offset }; }
 
+    bool fits(usize num_chars) const
+    {
+        // leave 1 for null-terminator
+        return offset + num_chars < buf.size();
+    }
+
     bool full() const
     {
         // 1 for NULL-terminator

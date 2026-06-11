@@ -77,11 +77,23 @@ static constexpr std::string_view UngTransform
 };
 )";
 
-static bool append_line_directive(Formatter& fmt, u32 line_num)
+static void append(Formatter& fmt, std::string_view str)
+{
+    if (!fmt.fits(str.size())) {
+        auto new_size = std::max(fmt.buf.size() * 2, fmt.buf.size() + str.size() + 1);
+        auto new_data = allocate<char>(new_size);
+        memcpy(new_data, fmt.buf.data(), fmt.offset + 1);
+        deallocate(fmt.buf.data(), fmt.buf.size());
+        fmt.buf = { new_data, new_size };
+    }
+    fmt.append(str);
+}
+
+static void append_line_directive(Formatter& fmt, u32 line_num)
 {
     thread_local char buf[256];
     const auto n = snprintf(buf, sizeof(buf), "#line %u\n", line_num);
-    return fmt.append({ buf, (size_t)n });
+    append(fmt, { buf, (size_t)n });
 }
 
 static const char* nullterm(std::string_view str)
@@ -93,11 +105,11 @@ static const char* nullterm(std::string_view str)
     return buf;
 }
 
-static bool process_pragmas(Formatter& fmt, std::string_view src)
+// Returns an owning span
+static std::span<char> process_pragmas(std::string_view src)
 {
-    thread_local std::array<char, 8 * 1024> expanded;
-    expanded[0] = '\0'; // clear
-    size_t offset = 0;
+    const auto buf_size = src.size() + 1;
+    Formatter fmt { std::span { allocate<char>(buf_size), buf_size } };
     u32 line_num = 1;
     while (src.size()) {
         const auto nl = src.find('\n');
@@ -106,42 +118,40 @@ static bool process_pragmas(Formatter& fmt, std::string_view src)
             if (expect(line, "include ")) {
                 const auto name = trim(line);
                 if (name == "UngFrame") {
-                    fmt.append(UngFrame);
+                    append(fmt, UngFrame);
                     append_line_directive(fmt, line_num + 1);
                 } else if (name == "UngPass") {
-                    fmt.append(UngPass);
+                    append(fmt, UngPass);
                     append_line_directive(fmt, line_num + 1);
                 } else if (name == "UngTransform") {
-                    fmt.append(UngTransform);
+                    append(fmt, UngTransform);
                     append_line_directive(fmt, line_num + 1);
                 } else if (name.size() > 2 && name[0] == '"') {
                     const auto path = nullterm(name.substr(1, name.size() - 2));
+                    ung_resource_depend_file(path);
                     size_t file_size = 0;
                     const auto file_data = ung_read_whole_file(path, &file_size, true);
                     append_line_directive(fmt, 1);
-                    fmt.append(std::string_view(file_data, file_size));
-                    fmt.append("\n");
+                    append(fmt, std::string_view(file_data, file_size));
+                    ung_free_file_data(file_data, file_size);
+                    append(fmt, "\n");
                     append_line_directive(fmt, line_num + 1);
-                    // TODO: dep tracking!
                 } else {
                     std::printf("Unknown ung-include '%.*s'\n", (int)name.size(), name.data());
-                    return false;
+                    deallocate(fmt.buf.data(), fmt.buf.size());
+                    return {};
                 }
             } else {
                 std::printf("Unknown ung pragma '%.*s'\n", (int)line.size(), line.data());
-                return false;
+                deallocate(fmt.buf.data(), fmt.buf.size());
+                return {};
             }
         } else {
             if (nl == std::string_view::npos) {
-                fmt.append(src);
+                append(fmt, src);
             } else {
-                fmt.append(src.substr(0, nl + 1)); // include newline!
+                append(fmt, src.substr(0, nl + 1)); // include newline!
             }
-        }
-
-        if (offset == SIZE_MAX) {
-            std::printf("Shader source buffer of size %zu exhausted\n", expanded.size());
-            return false;
         }
 
         if (nl == std::string_view::npos) {
@@ -150,7 +160,7 @@ static bool process_pragmas(Formatter& fmt, std::string_view src)
         src = src.substr(nl + 1);
         line_num++;
     }
-    return true;
+    return fmt.buf;
 }
 
 static u32 parse_number(std::string_view str)
@@ -220,16 +230,20 @@ static bool res_shader_decode(ung_resource_id self, void* instance)
         return false;
     }
 
-    pending->source_size = strlen(file_data) + 1024;
-    pending->source_data = allocate<char>(pending->source_size);
-    Formatter fmt { std::span { pending->source_data, pending->source_size } };
-    const auto process_result = process_pragmas(fmt, std::string_view(file_data, file_size));
+    if (file_size == 0) {
+        pending->error = "Shader is empty";
+        return false;
+    }
+
+    const auto processed = process_pragmas(std::string_view(file_data, file_size));
     ung_free_file_data(file_data, file_size);
-    if (!process_result) {
+    if (processed.empty()) {
         pending->error = "Could not process pragmas";
         return false;
     }
 
+    pending->source_size = processed.size();
+    pending->source_data = processed.data();
     pending->params.stage = res->stage;
     pending->params.source = pending->source_data;
     pending->params.debug_label = res->path.data;
@@ -311,20 +325,18 @@ static ung_resource_type_id shader_resource()
 
 EXPORT ung_shader_id ung_shader_create(mugfx_shader_create_params params)
 {
-    const auto source_size = strlen(params.source) + 1024;
-    const auto source_data = allocate<char>(source_size);
-    Formatter fmt { std::span { source_data, source_size } };
-    if (!process_pragmas(fmt, params.source)) {
+    const auto processed = process_pragmas(params.source);
+    if (processed.empty()) {
         ung_panic("Failed to process pragmas");
     }
-    params.source = source_data;
+    params.source = processed.data();
 
     const auto sh = mugfx_shader_create(params);
     if (!sh.id) {
         ung_panic("Failed to create shader");
     }
 
-    deallocate(source_data, source_size);
+    deallocate(processed.data(), processed.size());
 
     const auto [id, shader] = state->shaders.insert();
     shader->shader = sh;
